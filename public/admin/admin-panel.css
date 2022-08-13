@@ -1,0 +1,271 @@
+.upload-image-section {
+    height: calc(100% - 53px);
+    margin: 0 0 15px;
+}
+.upload-image-section section{
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    color: #40444f;
+    border: 2px dashed #616778;
+    border-radius: 5px;
+    cursor: pointer;
+    -webkit-transition: color 0.2s ease-out, border-color 0.2s ease-out;
+    -moz-transition: color 0.2s ease-out, border-color 0.2s ease-out;
+    transition: color 0.2s ease-out, border-color 0.2s ease-out;
+    overflow: hidden;
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+.upload-image-section section:hover, .upload-image-section section.dd {
+    border-color: #4d90ff;
+    color: #4d90ff;
+    background-color: #f4f4f4;
+}
+
+/* после перетаскивания файлов */
+.upload-image-section section.active {
+    padding: 0 5px 15px 15px;
+    overflow: overlay;
+}
+.upload-image-section section.active .title{
+    display: none;
+}
+.upload-image-section section.active .images{
+    width: 100%;
+    padding: 15px 0 0 0;
+}
+
+.upload-image-section figure {
+    position: relative;
+    width: 100%;
+    height: auto;
+    left: 0;
+    display: block;
+    margin: 0;
+}
+
+.upload-image-section .title {
+    display: flex;
+    flex-flow: column;
+    height: 100%;
+    justify-content: center;
+}
+
+.upload-image-section figure:after {
+    position: relative;
+    display: block;
+    content: '';
+    height: 80px;
+    width: 80px;
+    top: 0;
+    left: 50%;
+    margin-left: -40px;
+    background-repeat: no-repeat;
+    background-size: 80px 80px;
+    background-image: url(http://sorting.local/images/upload_icon.png);
+    -webkit-transition: opacity 0.2s ease-out, border-color 0.2s ease-out;
+    -moz-transition: opacity 0.2s ease-out, border-color 0.2s ease-out;
+    transition: opacity 0.2s ease-out, border-color 0.2s ease-out;
+}
+
+.upload-image-section section:hover figure:after, .upload-image-section section.dd figure:after {
+    opacity: .65;
+}
+
+.upload-image-section p {
+    text-align: center;
+    font-weight: bold;
+    font-size: 16px;
+    line-height: 24px;
+    margin-bottom: 5px;
+}
+
+.upload-image-section p small {
+    font-weight: normal;
+    font-size: 12px;
+    opacity: .7;
+    margin: 15px 0 0;
+}
+
+.upload-image-section [type="file"] {
+    position: absolute;
+    top: -16rem;
+    opacity: 0;
+}
+
+.upload-image-section .error {
+    width: 380px;
+    margin: 0 auto 20px;
+    line-height: 20px;
+    font-size: 14px;
+    color: red;
+    font-style: italic;
+    display: none;
+    text-align: center;
+}
+
+/* Прогресс-бар */
+.upload-image-section .progress {
+    height: 20px;
+    width: 380px;
+    margin: 0 auto 20px;
+    overflow: hidden;
+    background-color: #999;
+    border-radius: 4px;
+    -webkit-box-shadow: inset 0 1px 2px rgba(0,0,0,.1);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.1);
+    position: relative;
+    display: none;
+}
+
+.upload-image-section .progress-bar {
+    height: 100%;
+    font-size: 12px;
+    float: left;
+    width: 0;
+    background-color: #428bca;
+    -webkit-box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+    -webkit-transition: width .6s ease;
+    transition: width .6s ease;
+}
+
+.upload-image-section .progress-value {
+    position: absolute;
+    left: 0;
+    top: 0;
+    line-height: 20px;
+    height: 100%;
+    width: 100%;
+    color: #fff;
+    text-align: center;
+}
+
+/* Контейнер с загруженными картинками */
+.upload-image-section .images {
+    width: 380px;
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+.upload-image-section .images .image {
+    width: 116px;
+    height: 116px;
+    margin: 0 10px 10px 0;
+    float: left;
+    display: block;
+    box-sizing: border-box;
+    padding: 4px;
+    border: 1px solid #d2d2d2;
+    position: relative;
+}
+
+.upload-image-section .images .image:hover {
+    border-color: #428bcb;
+}
+
+.upload-image-section .images span {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+}
+
+.upload-image-section .images i {
+    position: absolute;
+    top: -7px;
+    z-index: 99999999999;
+    right: -8px;
+    width: 15px;
+    height: 15px;
+    color: #a0a0a0;
+}
+.upload-image-section .images i:before {
+    background: white;
+}
+
+.b-popup-black {
+    display: none;
+}
+.b-popup-black:before {
+    content: '';
+    background: #000;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.5;
+    z-index: 9999;
+}
+.b-popup-1 {
+    position: fixed;
+    top: calc((100% - 500px) / 2);
+    left: 50%;
+    width: 687px;
+    height: 500px;
+    margin-left: -300px;
+    background: #fff;
+    border-radius: 4px;
+    z-index: 99999;
+    opacity: 1;
+}
+
+.b-popup-1.maximize-popup{
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    margin-left: 0;
+    z-index: 99999;
+}
+
+.b-popup-1.maximize-popup .card-body {
+    padding: 15px 30px 15px 15px;
+}
+
+.b-popup-1.collapse {
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin-left: 0;
+    height: 100%;
+}
+
+.b-popup-black.active {
+    display: block;
+}
+
+.b-popup-1 .card-body {
+    padding: 15px;
+}
+
+.b-popup-1 .card-body form{
+    height: 100%;
+    text-align: right;
+}
+
+.b-upload-images .images {
+    width: 100%;
+    height: 300px;
+    border: 1px solid #000000;
+    margin: 0 0 20px;
+    padding: 15px;
+}
+
+.b-upload-images .images .image{
+    height: 120px;
+    display: inline-block;
+    margin: 0 15px 15px;
+}
+.b-upload-images .images .image img{
+    width: 100%;
+}

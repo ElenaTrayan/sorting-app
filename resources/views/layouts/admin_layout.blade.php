@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Админ-панель - @yield('title')</title>
 
     <!-- Google Font: Source Sans Pro -->
@@ -25,6 +26,8 @@
     <link rel="stylesheet" href="/admin/plugins/daterangepicker/daterangepicker.css">
     <!-- summernote -->
     <link rel="stylesheet" href="/admin/plugins/summernote/summernote-bs4.min.css">
+
+    <link rel="stylesheet" href="/admin/admin-panel.css">
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
 <div class="wrapper">
@@ -226,13 +229,13 @@
                         </a>
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
-                                <a href="pages/layout/top-nav.html" class="nav-link">
+                                <a href="{{ route('posts.index') }}" class="nav-link">
                                     <i class="far fa-circle nav-icon"></i>
                                     <p>Все посты</p>
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a href="pages/layout/top-nav-sidebar.html" class="nav-link">
+                                <a href="{{ route('posts.create') }}" class="nav-link">
                                     <i class="far fa-circle nav-icon"></i>
                                     <p>Добавить пост</p>
                                 </a>
@@ -250,13 +253,13 @@
                         </a>
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
-                                <a href="{{ route('categories.index') }}" class="nav-link">
+                                <a href="{{ route('posts-categories.index') }}" class="nav-link">
                                     <i class="far fa-circle nav-icon"></i>
                                     <p>Все категории</p>
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a href="{{ route('categories.create') }}" class="nav-link">
+                                <a href="{{ route('posts-categories.create') }}" class="nav-link">
                                     <i class="far fa-circle nav-icon"></i>
                                     <p>Добавить категорию</p>
                                 </a>
@@ -988,6 +991,11 @@
 <script src="/admin/dist/js/demo.js"></script>
 <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
 <script src="/admin/dist/js/pages/dashboard.js"></script>
+
+<!-- TinyMCE -->
+<script src="https://cdn.tiny.cloud/1/9g67ywmzu7yvnd7xvormx1w3kztgki8hvrxv7egsusuqtzqt/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
+
 <script src="/admin/admin.js"></script>
+
 </body>
 </html>

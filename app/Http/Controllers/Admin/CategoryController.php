@@ -72,7 +72,9 @@ class CategoryController extends Controller
      */
     public function edit(PostsCategory $postsCategory)
     {
-        //
+        return view('admin.categories.edit', [
+            'category' => $postsCategory
+        ]);
     }
 
     /**
@@ -84,7 +86,13 @@ class CategoryController extends Controller
      */
     public function update(Request $request, PostsCategory $postsCategory)
     {
-        //
+        $postsCategory->title = $request->title;
+        $postsCategory->alias = $request->alias;
+        $postsCategory->parent_id = $request->parent_id == '-' ? 0 : $request->parent_id;
+        $postsCategory->short_description = $request->short_description;
+        $postsCategory->save();
+
+        return redirect()->back()->withSuccess('Категория была успешно обновлена');
     }
 
     /**
@@ -95,6 +103,8 @@ class CategoryController extends Controller
      */
     public function destroy(PostsCategory $postsCategory)
     {
-        //
+        $postsCategory->delete();
+
+        return redirect()->back()->withSuccess('Категория была успешно удалена');
     }
 }

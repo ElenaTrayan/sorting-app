@@ -68,4 +68,11 @@ class Post extends Model
         return $this->belongsToMany(Hashtag::class, 'hashtag_post', 'post_id', 'hashtag_id');
     }
 
+    public function uploadImage()
+    {
+        $path = $request->file('avatar')->storeAs(
+            'avatars', $request->user()->id
+        );
+    }
+
 }

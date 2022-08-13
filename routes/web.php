@@ -26,6 +26,9 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
         return view('test');
     });
     Route::get('/', [App\Http\Controllers\Admin\HomeController::class, 'index'])->name('homeAdmin');
-    Route::resource('categories', \App\Http\Controllers\Admin\CategoryController::class);
+    Route::resource('posts-categories', \App\Http\Controllers\Admin\CategoryController::class);
+    Route::resource('posts', \App\Http\Controllers\Admin\PostController::class);
+    Route::post('upload', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'upload'])->name('image.upload');
+    Route::post('delete_download_file', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'deleteDownloadFile']);
 });
 

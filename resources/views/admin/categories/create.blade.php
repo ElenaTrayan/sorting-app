@@ -34,7 +34,7 @@
     <div class="container-fluid">
         <div class="card card-primary">
             <!-- form start -->
-            <form action="{{ route('categories.store') }}" method="POST">
+            <form action="{{ route('posts-categories.store') }}" method="POST">
                 @csrf
                 <div class="card-body">
                     <div class="form-group">
@@ -43,7 +43,7 @@
                     </div>
                     <div class="form-group">
                         <label for="alias">Alias категории</label>
-                        <input type="text" class="form-control" name="alias" id="alias" placeholder="Enter ..." required>
+                        <input type="text" class="form-control" name="alias" id="alias" placeholder="Введите alias для категории ..." required>
                     </div>
                     <div class="form-group">
                         <label for="parent_id">Категория-родитель</label>
@@ -51,7 +51,7 @@
                     </div>
                     <div class="form-group">
                         <label for="short_description">Описание категории</label>
-                        <textarea class="form-control" rows="3" name="short_description" id="short_description" placeholder="Enter ..."></textarea>
+                        <textarea class="form-control" rows="3" name="short_description" id="short_description" placeholder="Введите описание для категории ..."></textarea>
                     </div>
                 </div>
                 <!-- /.card-body -->
