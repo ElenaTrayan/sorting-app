@@ -28,7 +28,10 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
     Route::get('/', [App\Http\Controllers\Admin\HomeController::class, 'index'])->name('homeAdmin');
     Route::resource('posts-categories', \App\Http\Controllers\Admin\CategoryController::class);
     Route::resource('posts', \App\Http\Controllers\Admin\PostController::class);
+    Route::resource('hashtags', \App\Http\Controllers\Admin\HashtagController::class);
     Route::post('upload', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'upload'])->name('image.upload');
     Route::post('delete_download_file', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'deleteDownloadFile']);
+    Route::post('upload-image-to-temp-directory', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'uploadImageToTempDirectory'])->name('image.upload-to-temp-directory');
+    Route::post('/search-hashtag',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchHashtag'])->name('search.hashtag');
 });
 

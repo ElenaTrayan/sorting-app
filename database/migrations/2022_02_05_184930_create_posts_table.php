@@ -15,16 +15,16 @@ class CreatePostsTable extends Migration
     {
         Schema::create('posts', function (Blueprint $table) {
             $table->id();
-            $table->string('title', 255);
+            $table->string('title', 255)->nullable(); //TODO - сделать title не обязательным
             $table->string('alias')->unique();
             $table->integer('user_id'); //id пользователя, создавшего пост
             $table->integer('category_id'); //страница-родитель (в какой категории находится)
             $table->enum('status', ['not_active', 'active', 'remote'])->default('active'); //активен, удален
             $table->boolean('is_used')->default(0); //использован ли материал
             $table->text('content')->nullable();
-            $table->string('small_image', 300)->nullable();
-            $table->string('medium_image', 300)->nullable();
-            $table->string('large_image', 300)->nullable();
+            $table->text('small_image')->nullable();
+            $table->text('medium_image')->nullable();
+            $table->text('original_image')->nullable();
             $table->string('image_alt', 100)->nullable();
             $table->timestamps();
         });

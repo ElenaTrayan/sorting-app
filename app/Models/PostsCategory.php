@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class PostsCategory
@@ -43,6 +44,17 @@ class PostsCategory extends Model
     public function posts()
     {
         return $this->hasMany(Post::class, 'id');
+    }
+
+    /**
+     * @param $categoryId
+     * @return bool|mixed
+     */
+    public function getCategoryParentId($categoryId)
+    {
+        $categoryParentId = DB::table('posts_categories')->where('id', $categoryId)->value('parent_id');
+
+        return $categoryParentId;
     }
 
 }

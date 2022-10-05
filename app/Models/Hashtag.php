@@ -14,6 +14,8 @@ class Hashtag extends Model
 {
     protected $table = 'hashtags';
 
+    public $timestamps = false;
+
     const MAX_LEVEL = 4; // 4 уровня
 
     /**
