@@ -245,6 +245,8 @@
                  }
              },
              error: function(response) {
+                 console.log(response);
+                 debugger;
              },
          });
      }
@@ -438,7 +440,7 @@
      $(document).on('input', '#search-input', function() {
          console.log('click');
 
-         let searchUrl = $('#js-b-search')[0].getAttribute('data-action');
+         let searchUrl = $('#js-b-search__field')[0].getAttribute('data-action');
          console.log(searchUrl);
 
          let searchValue =  $(this).val();
@@ -450,10 +452,15 @@
              }
          });
 
+         let hashtagsValue = '';
+         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
+             hashtagsValue = localStorage.getItem('hashtags');
+         }
+
          $.ajax({
              type: 'post',
              url: searchUrl,
-             data: {'search': searchValue},
+             data: {'search': searchValue, 'hashtags': hashtagsValue},
              success: function (response) {
                  console.log(response);
 
@@ -479,6 +486,10 @@
 
      });
 
+     function searchHashtags() {
+
+     }
+
      //добавить хештег в список выбранных хештегов, после клика на хештег из результатов поиска
      $(document).on('click touchstart', '#b-search__results li', function() {
          console.log('CLICK-CLICK');
@@ -489,8 +500,10 @@
          console.log('hashtagId = ' + hashtagId);
          console.log('hashtagTitle = ' + hashtagTitle);
 
-         let containerSelectedHashtags = $('#b-search__field__tags-container__tags');
-         console.log('containerSelectedHashtags' + containerSelectedHashtags);
+         let containerSelectedHashtags = $('#b-search__field__tags-container');
+
+         let containerSelectedHashtagsTags = $('#b-search__field__tags-container__tags');
+         console.log('containerSelectedHashtagsTags' + containerSelectedHashtagsTags);
 
          if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
              let savedHashtags = localStorage.getItem('hashtags');
@@ -503,28 +516,97 @@
              if(savedHashtags.includes(hashtagId) === false) {
 
                  let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></li>';
-                 containerSelectedHashtags.append(hashtagElement);
+                 // containerSelectedHashtags.append(hashtagElement);
+                 $(hashtagElement).insertBefore('#b-search__input');
 
-                 let containerSelectedHashtagsWidth = containerSelectedHashtags.width();
-                 console.log('b-search__field__tags-container__tags = ' + containerSelectedHashtagsWidth);
+                 let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
+                 let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
 
-                 let fieldTagsContainerWidth = $('#b-search__field__tags-container').width();
-                 console.log('#b-search__field__tags-container = ' + fieldTagsContainerWidth);
-                 let fieldTagsContainerHeight = $('#b-search__field__tags-container').height();
+                 let tagsWidth = 0;
+                 let allTagsWidth = 150;
+                 let inputWidth = 0;
+                 $('#b-search__field__tags-container__tags .tag').each(function(i,elem) {
+                     tagsWidth += $(elem).outerWidth() + 8;
+                     allTagsWidth += $(elem).outerWidth() + 8;
 
-                 let elementSearchInput = $('#b-search__input');
+                     console.log($(elem).data('name'));
 
-                 let left = containerSelectedHashtagsWidth + 10;
-                 console.log('left = ' + left);
-                 let width = fieldTagsContainerWidth - containerSelectedHashtagsWidth + 10;
-                 console.log('width = ' + width);
+                     if (tagsWidth > fieldTagsContainerWidth) {
+                         tagsWidth = $(elem).outerWidth() + 8;
+                     }
 
-                 if (width === 10) {
-                     $('#b-search__field__tags-container').css("height", fieldTagsContainerHeight + 44);
-                 } else {
-                     elementSearchInput.css("left", left);
-                     elementSearchInput.css("width", width);
-                 }
+                     let count = Math.floor(allTagsWidth / fieldTagsContainerWidth);
+
+                     let quotient = allTagsWidth / fieldTagsContainerWidth;
+                     console.log('quotient = ' + quotient);
+                     let numberAfterPoint = quotient.toFixed(2);
+                     console.log('numberAfterPoint = ' + numberAfterPoint);
+
+                     inputWidth = fieldTagsContainerWidth - tagsWidth - 24;
+                     if (inputWidth < 100) {
+                         inputWidth = 100;
+                         let quotient = (allTagsWidth + inputWidth) / fieldTagsContainerWidth;
+                         console.log('quotient = ' + quotient);
+                         let numberAfterPoint = quotient.toFixed(2);
+
+                         //count = Math.round((allTagsWidth + inputWidth) / fieldTagsContainerWidth);
+                         // console.log('allTagsWidth + inputWidth = ' + allTagsWidth + inputWidth);
+                         // console.log('(allTagsWidth + inputWidth) / fieldTagsContainerWidth = ' + ((allTagsWidth + inputWidth) / fieldTagsContainerWidth));
+                     }
+
+                     if ((numberAfterPoint+'').split(".")[1].substr(0,2) > 80 ) {
+                         count = count + 1;
+                     }
+
+                     console.log('count = ' + count);
+                     console.log('inputWidth = ' + inputWidth);
+
+
+                     console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
+                     console.log('allTagsWidth = ' + allTagsWidth);
+                     console.log('count = ' + count);
+                     console.log('fieldTagsContainerHeightDefault = ' + fieldTagsContainerHeightDefault);
+
+                     $('#b-search__input').width(inputWidth);
+
+                     fieldTagsContainerHeight = fieldTagsContainerHeightDefault + (36 * count);
+
+                     containerSelectedHashtagsTags.css("height", fieldTagsContainerHeight);
+                     containerSelectedHashtags.css("height", fieldTagsContainerHeight);
+
+                     console.log('fieldTagsContainerHeight = ' + fieldTagsContainerHeight);
+                     console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
+                     console.log('tagsWidth = ' + tagsWidth);
+
+
+                     // if ($(this).hasClass("stop")) {
+                     //     alert("Остановлено на " + i + "-м пункте списка.");
+                     //     return false;
+                     // } else {
+                     //     alert(i + ': ' + $(elem).text());
+                     // }
+                 });
+
+                 // let containerSelectedHashtagsWidth = containerSelectedHashtags.width();
+                 // console.log('b-search__field__tags-container__tags = ' + containerSelectedHashtagsWidth);
+                 //
+                 // let fieldTagsContainerWidth = $('#b-search__field__tags-container').width();
+                 // console.log('#b-search__field__tags-container = ' + fieldTagsContainerWidth);
+                 // let fieldTagsContainerHeight = $('#b-search__field__tags-container').height();
+                 //
+                 // let elementSearchInput = $('#b-search__input');
+                 //
+                 // let left = containerSelectedHashtagsWidth + 10;
+                 // console.log('left = ' + left);
+                 // let width = fieldTagsContainerWidth - containerSelectedHashtagsWidth + 10;
+                 // console.log('width = ' + width);
+                 //
+                 // if (width === 10) {
+                 //     $('#b-search__field__tags-container').css("height", fieldTagsContainerHeight + 44);
+                 // } else {
+                 //     elementSearchInput.css("left", left);
+                 //     elementSearchInput.css("width", width);
+                 // }
 
                  //добавляем id хештега в массив hashtags в localStorage
                  let hashtags = savedHashtags;
@@ -541,23 +623,92 @@
 
          } else {
              let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></li>';
-             containerSelectedHashtags.append(hashtagElement);
+             // containerSelectedHashtags.append(hashtagElement);
+             $(hashtagElement).insertBefore('#b-search__input');
 
-             let containerSelectedHashtagsWidth = containerSelectedHashtags.innerWidth();
-             console.log('b-search__field__tags-container__tags = ' + containerSelectedHashtagsWidth);
+             let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
+             let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
 
-             let fieldTagsContainerWidth = $('#b-search__field__tags-container').innerWidth();
-             console.log('#b-search__field__tags-container = ' + fieldTagsContainerWidth);
+             let tagsWidth = 0;
+             let allTagsWidth = 150;
+             let inputWidth = 0;
+             $('#b-search__field__tags-container__tags .tag').each(function(i,elem) {
+                 tagsWidth += $(elem).outerWidth() + 8;
+                 allTagsWidth += $(elem).outerWidth() + 8;
 
-             let elementSearchInput = $('#b-search__input');
+                 console.log($(elem).data('name'));
 
-             let left = containerSelectedHashtagsWidth + 10;
-             console.log('left = ' + left);
-             let width = fieldTagsContainerWidth - containerSelectedHashtagsWidth - 10;
-             console.log('width = ' + width);
+                 if (tagsWidth > fieldTagsContainerWidth) {
+                     tagsWidth = $(elem).outerWidth() + 8;
+                 }
 
-             elementSearchInput.css("left", left);
-             elementSearchInput.css("width", width);
+                 let count = Math.floor(allTagsWidth / fieldTagsContainerWidth);
+
+                 let quotient = allTagsWidth / fieldTagsContainerWidth;
+                 console.log('quotient = ' + quotient);
+                 let numberAfterPoint = quotient.toFixed(2);
+                 console.log('numberAfterPoint = ' + numberAfterPoint);
+
+                 inputWidth = fieldTagsContainerWidth - tagsWidth - 24;
+                 if (inputWidth < 100) {
+                     inputWidth = 100;
+                     let quotient = (allTagsWidth + inputWidth) / fieldTagsContainerWidth;
+                     console.log('quotient = ' + quotient);
+                     let numberAfterPoint = quotient.toFixed(2);
+
+                     //count = Math.round((allTagsWidth + inputWidth) / fieldTagsContainerWidth);
+                     // console.log('allTagsWidth + inputWidth = ' + allTagsWidth + inputWidth);
+                     // console.log('(allTagsWidth + inputWidth) / fieldTagsContainerWidth = ' + ((allTagsWidth + inputWidth) / fieldTagsContainerWidth));
+                 }
+
+                 if ((numberAfterPoint+'').split(".")[1].substr(0,2) > 80 ) {
+                     count = count + 1;
+                 }
+
+                 console.log('count = ' + count);
+                 console.log('inputWidth = ' + inputWidth);
+
+
+                 console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
+                 console.log('allTagsWidth = ' + allTagsWidth);
+                 console.log('count = ' + count);
+                 console.log('fieldTagsContainerHeightDefault = ' + fieldTagsContainerHeightDefault);
+
+                 $('#b-search__input').width(inputWidth);
+
+                 fieldTagsContainerHeight = fieldTagsContainerHeightDefault + (36 * count);
+
+                 containerSelectedHashtagsTags.css("height", fieldTagsContainerHeight);
+                 containerSelectedHashtags.css("height", fieldTagsContainerHeight);
+
+                 console.log('fieldTagsContainerHeight = ' + fieldTagsContainerHeight);
+                 console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
+                 console.log('tagsWidth = ' + tagsWidth);
+
+
+                 // if ($(this).hasClass("stop")) {
+                 //     alert("Остановлено на " + i + "-м пункте списка.");
+                 //     return false;
+                 // } else {
+                 //     alert(i + ': ' + $(elem).text());
+                 // }
+             });
+
+             // let containerSelectedHashtagsWidth = containerSelectedHashtags.innerWidth();
+             // console.log('b-search__field__tags-container__tags = ' + containerSelectedHashtagsWidth);
+             //
+             // let fieldTagsContainerWidth = $('#b-search__field__tags-container').innerWidth();
+             // console.log('#b-search__field__tags-container = ' + fieldTagsContainerWidth);
+             //
+             // let elementSearchInput = $('#b-search__input');
+             //
+             // let left = containerSelectedHashtagsWidth + 10;
+             // console.log('left = ' + left);
+             // let width = fieldTagsContainerWidth - containerSelectedHashtagsWidth - 10;
+             // console.log('width = ' + width);
+             //
+             // elementSearchInput.css("left", left);
+             // elementSearchInput.css("width", width);
 
              //добавляем id хештега в массив hashtags в localStorage
              let hashtags = [];
@@ -574,6 +725,72 @@
 
      });
 
+     $(document).on('click touchstart', '#b-search__field__tags-container__tags .tag .close', function() {
+         console.log("**************");
+         console.log($(this));
+         let tag = $(this).closest('.tag');
+         let tagId = tag.data('id');
+         console.log('tagId = ' + tagId);
+
+         let savedHashtags = localStorage.getItem('hashtags');
+         console.log('savedHashtags' + savedHashtags);
+         savedHashtags = JSON.parse(savedHashtags);
+         console.log('savedHashtags' + savedHashtags);
+
+         var position = savedHashtags.indexOf(tagId.toString());
+         console.log('position' + position);
+
+         savedHashtags.splice(position, 1);
+
+         let hashtags = savedHashtags;
+         console.log('hashtags' + hashtags);
+         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+
+         tag.remove();
+
+         $('#search-input').val('');
+         $('#search-input').focus();
+     });
+
+     $(document).on('click touchstart', '#btn-search', function() {
+         console.log("*****ПОИСК*****");
+
+         let savedHashtags = localStorage.getItem('hashtags');
+         console.log('savedHashtags' + savedHashtags);
+         savedHashtags = JSON.parse(savedHashtags);
+         console.log('savedHashtags' + savedHashtags);
+
+         let searchUrl = $('#js-b-search')[0].getAttribute('data-action');
+         console.log(searchUrl);
+
+         $.ajax({
+             type: 'post',
+             url: searchUrl,
+             data: {'hashtags': savedHashtags},
+             success: function (response) {
+                 console.log(response);
+
+                 // let hashtags = response.hashtags;
+                 //
+                 // let foundHashtagsContainer = $('#b-search__results');
+                 // foundHashtagsContainer.empty(); //удалить все предыдущие результаты
+                 //
+                 // if (hashtags) {
+                 //
+                 //     for (let key in hashtags) {
+                 //         let hashtagElement = '<li data-id="' + hashtags[key]['id'] + '" data-name="' + hashtags[key]['title'] + '">' + hashtags[key]['title'] + '</li>';
+                 //
+                 //         // Добавить в контейнер
+                 //         foundHashtagsContainer.append(hashtagElement);
+                 //     }
+                 //
+                 // }
+
+
+             }
+         });
+
+     });
 
      //ПОИСК - вывод связанных хештегов
 

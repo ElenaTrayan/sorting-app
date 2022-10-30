@@ -33,5 +33,6 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
     Route::post('delete_download_file', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'deleteDownloadFile']);
     Route::post('upload-image-to-temp-directory', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'uploadImageToTempDirectory'])->name('image.upload-to-temp-directory');
     Route::post('/search-hashtag',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchHashtag'])->name('search.hashtag');
+    Route::post('/search-posts-by-hashtags',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchPostsByHashtags'])->name('search.posts-by-hashtags');
 });
 

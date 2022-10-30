@@ -45,16 +45,17 @@
                 <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
             </li>
 
-            <div id="js-b-search" class="b-search" data-action="{{ route('search.hashtag') }}">
-                <div class="b-search__field">
+            <div id="js-b-search" class="b-search" data-action="{{ route('search.posts-by-hashtags') }}">
+                <div id="js-b-search__field" class="b-search__field" data-action="{{ route('search.hashtag') }}">
                     <div id="b-search__field__tags-container" class="b-search__field__tags-container html-input-field">
                         <div id="b-search__field__tags-container__tags" class="b-search__field__tags-container__tags">
 {{--                            <span class="tag" contenteditable="false">#test<span class="icon font-icon fas close"></span></span>--}}
 {{--                            <span class="tag" contenteditable="false">#лес<span class="icon font-icon fas close"></span></span>--}}
+                            <div id="b-search__input" class="b-search__input">
+                                <input type="text" id="search-input" class="form-control" name="KeywordForm[keyword]" aria-required="true" aria-invalid="false">
+                            </div>
                         </div>
-                    </div>
-                    <div id="b-search__input" class="b-search__input">
-                        <input type="text" id="search-input" class="form-control" name="KeywordForm[keyword]" aria-required="true" aria-invalid="false">
+
                     </div>
                     <ul id="b-search__results" class="b-search__results">
 {{--                        <li>test</li>--}}
@@ -62,7 +63,7 @@
 {{--                        <li>test3</li>--}}
                     </ul>
                 </div>
-                <button type="submit" class="btn btn-block btn-outline-info b-search__button">Поиск</button>
+                <button id="btn-search" type="submit" class="btn btn-block btn-outline-info b-search__button">Поиск</button>
 {{--                <div class="col-lg-2">--}}
 {{--                    <button type="submit" class="btn btn-block btn-info transition-3d-hover">Поиск</button>--}}
 {{--                </div>--}}
