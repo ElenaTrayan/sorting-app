@@ -140,7 +140,7 @@
     /*box-shadow: inset -2px 1px 3px rgb(0 0 0 / 8%);*/
 }
 
-.b-search__results {
+.b-search__results, .b-search__results-2 {
     position: absolute;
     z-index: 999;
     background: #f4f4f4;
@@ -148,7 +148,7 @@
     cursor: pointer;
     padding: 0;
 }
-.b-search__results li {
+.b-search__results li, .b-search__results-2 li {
     width: 100%;
     list-style-type: none;
     padding: 5px 15px 5px 15px;
@@ -156,6 +156,10 @@
 }
 .b-search__results li:hover {
     background: #ffffff;
+}
+
+.b-search__results-2 {
+    width: 300px;
 }
 
 .b-search__button {
@@ -572,8 +576,8 @@ text-align: center;
 
 }
 .b-add-tag .add-tag {
-    width: 250px;
-    margin: 0 0 15px;
+    width: 400px;
+    margin: 0;
 }
 
 .found-hashtags li {

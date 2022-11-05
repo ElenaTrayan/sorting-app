@@ -84,13 +84,15 @@
 
                     <div class="b-add-tag">
                         <div class="input-group input-group-sm add-tag">
-                            <input id="search-hashtag" type="text" class="form-control" data-action="{{ route('search.hashtag') }}">
+                            <input id="search-input-2" type="text" class="form-control" data-action="{{ route('search.hashtag') }}">
                             <span class="input-group-append">
                                 <button type="button" class="btn btn-info btn-flat" id="add-tag">Добавить тег</button>
                             </span>
                         </div>
-                        <div id="found-hashtags" class="found-hashtags"></div>
-                        <ul id="tags" class="tags"></ul>
+                        <ul id="b-search__results-2" class="b-search__results-2"></ul>
+{{--                        <div id="found-hashtags" class="found-hashtags"></div>--}}
+
+                        <ul id="b-selected-tags-2" class="b-selected-tags-2"></ul>
                     </div>
 
 

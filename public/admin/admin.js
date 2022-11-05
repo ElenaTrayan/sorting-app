@@ -348,52 +348,7 @@
          localStorage.setItem('hashtags', JSON.stringify());
      });
 
-     $('#search-hashtag').on('keyup', function () {
-         let searchUrl = $(this)[0].getAttribute('data-action');
 
-         let searchValue = $(this).val();
-         console.log(searchValue);
-
-         $.ajax({
-             type: 'get',
-             url: searchUrl,
-             data: {'search': searchValue},
-             success: function (response) {
-                 console.log(response);
-
-                 let hashtags = response.hashtags;
-
-                 let foundHashtagsContainer = $('#found-hashtags');
-
-                 var myNode = document.getElementById("found-hashtags");
-                 while (myNode.firstChild) {
-                     myNode.removeChild(myNode.firstChild);
-                 }
-
-
-                 // let foundHashtagsElements = foundHashtagsContainer.find('li');
-                 //
-                 // for ( let i = 0; i < foundHashtagsElements.length; ++i) {
-                 //     console.log('===' + foundHashtagsElements[i].getAttribute('data-id'));
-                 //     alreadyFoundHashtags.push(parseInt(foundHashtagsElements[i].getAttribute('data-id')));
-                 // }
-
-                 if (hashtags) {
-
-                     for (let key in hashtags) {
-                         let hashtagElement = '<li class="hashtag" data-id="' + hashtags[key]['id'] + '" data-name="' + hashtags[key]['title'] + '">' + hashtags[key]['title'] + '</li>';
-
-                         // Добавить в контейнер
-                         foundHashtagsContainer.append(hashtagElement);
-                     }
-
-                 }
-
-
-             }
-         });
-
-     });
 
      $.ajaxSetup({ headers: { 'csrftoken' : '{{ csrf_token() }}' } });
 
@@ -436,8 +391,11 @@
 
      });
 
+     let searchInput1 = '#search-input';
+     let searchInput2 = '#search-input-2';
+
      //ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
-     $(document).on('input', '#search-input', function() {
+     $(document).on('input', searchInput1, function() {
          console.log('click');
 
          let searchUrl = $('#js-b-search__field')[0].getAttribute('data-action');
@@ -446,6 +404,28 @@
          let searchValue =  $(this).val();
          console.log(searchValue);
 
+         let foundHashtagsContainer = $('#b-search__results');
+
+         searchHashtag(searchValue, searchUrl, foundHashtagsContainer);
+
+     });
+
+     //ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
+     $(document).on('input', searchInput2, function() {
+         let searchUrl = $(this)[0].getAttribute('data-action');
+
+         let searchValue = $(this).val();
+         console.log(searchValue);
+
+         console.log('click2');
+
+         let foundHashtagsContainer = $('#b-search__results-2');
+
+         searchHashtag(searchValue, searchUrl, foundHashtagsContainer);
+
+     });
+
+     function searchHashtag(searchValue, searchUrl, foundHashtagsContainer) {
          $.ajaxSetup({
              headers: {
                  'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -466,28 +446,19 @@
 
                  let hashtags = response.hashtags;
 
-                 let foundHashtagsContainer = $('#b-search__results');
                  foundHashtagsContainer.empty(); //удалить все предыдущие результаты
 
                  if (hashtags) {
-
                      for (let key in hashtags) {
                          let hashtagElement = '<li data-id="' + hashtags[key]['id'] + '" data-name="' + hashtags[key]['title'] + '">' + hashtags[key]['title'] + '</li>';
 
                          // Добавить в контейнер
                          foundHashtagsContainer.append(hashtagElement);
                      }
-
                  }
-
 
              }
          });
-
-     });
-
-     function searchHashtags() {
-
      }
 
      //добавить хештег в список выбранных хештегов, после клика на хештег из результатов поиска
@@ -504,6 +475,8 @@
 
          let containerSelectedHashtagsTags = $('#b-search__field__tags-container__tags');
          console.log('containerSelectedHashtagsTags' + containerSelectedHashtagsTags);
+
+         let foundHashtagsContainer = $('#b-search__results');
 
          if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
              let savedHashtags = localStorage.getItem('hashtags');
@@ -560,8 +533,6 @@
 
                      console.log('count = ' + count);
                      console.log('inputWidth = ' + inputWidth);
-
-
                      console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
                      console.log('allTagsWidth = ' + allTagsWidth);
                      console.log('count = ' + count);
@@ -578,35 +549,7 @@
                      console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
                      console.log('tagsWidth = ' + tagsWidth);
 
-
-                     // if ($(this).hasClass("stop")) {
-                     //     alert("Остановлено на " + i + "-м пункте списка.");
-                     //     return false;
-                     // } else {
-                     //     alert(i + ': ' + $(elem).text());
-                     // }
                  });
-
-                 // let containerSelectedHashtagsWidth = containerSelectedHashtags.width();
-                 // console.log('b-search__field__tags-container__tags = ' + containerSelectedHashtagsWidth);
-                 //
-                 // let fieldTagsContainerWidth = $('#b-search__field__tags-container').width();
-                 // console.log('#b-search__field__tags-container = ' + fieldTagsContainerWidth);
-                 // let fieldTagsContainerHeight = $('#b-search__field__tags-container').height();
-                 //
-                 // let elementSearchInput = $('#b-search__input');
-                 //
-                 // let left = containerSelectedHashtagsWidth + 10;
-                 // console.log('left = ' + left);
-                 // let width = fieldTagsContainerWidth - containerSelectedHashtagsWidth + 10;
-                 // console.log('width = ' + width);
-                 //
-                 // if (width === 10) {
-                 //     $('#b-search__field__tags-container').css("height", fieldTagsContainerHeight + 44);
-                 // } else {
-                 //     elementSearchInput.css("left", left);
-                 //     elementSearchInput.css("width", width);
-                 // }
 
                  //добавляем id хештега в массив hashtags в localStorage
                  let hashtags = savedHashtags;
@@ -622,9 +565,10 @@
              }
 
          } else {
-             let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></li>';
-             // containerSelectedHashtags.append(hashtagElement);
-             $(hashtagElement).insertBefore('#b-search__input');
+             // let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></li>';
+             // $(hashtagElement).insertBefore('#b-search__input');
+
+             addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput1, foundHashtagsContainer, null, '#b-search__input');
 
              let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
              let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
@@ -667,8 +611,6 @@
 
                  console.log('count = ' + count);
                  console.log('inputWidth = ' + inputWidth);
-
-
                  console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
                  console.log('allTagsWidth = ' + allTagsWidth);
                  console.log('count = ' + count);
@@ -685,45 +627,88 @@
                  console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
                  console.log('tagsWidth = ' + tagsWidth);
 
-
-                 // if ($(this).hasClass("stop")) {
-                 //     alert("Остановлено на " + i + "-м пункте списка.");
-                 //     return false;
-                 // } else {
-                 //     alert(i + ': ' + $(elem).text());
-                 // }
              });
 
-             // let containerSelectedHashtagsWidth = containerSelectedHashtags.innerWidth();
-             // console.log('b-search__field__tags-container__tags = ' + containerSelectedHashtagsWidth);
-             //
-             // let fieldTagsContainerWidth = $('#b-search__field__tags-container').innerWidth();
-             // console.log('#b-search__field__tags-container = ' + fieldTagsContainerWidth);
-             //
-             // let elementSearchInput = $('#b-search__input');
-             //
-             // let left = containerSelectedHashtagsWidth + 10;
-             // console.log('left = ' + left);
-             // let width = fieldTagsContainerWidth - containerSelectedHashtagsWidth - 10;
-             // console.log('width = ' + width);
-             //
-             // elementSearchInput.css("left", left);
-             // elementSearchInput.css("width", width);
-
              //добавляем id хештега в массив hashtags в localStorage
-             let hashtags = [];
-             hashtags.push(hashtagId);
-             console.log('hashtags' + hashtags);
-             localStorage.setItem('hashtags', JSON.stringify(hashtags));
-
-             let foundHashtagsContainer = $('#b-search__results');
-             foundHashtagsContainer.empty(); //удалить все предыдущие результаты
-
-             $('#search-input').val('');
-             $('#search-input').focus();
+             // let hashtags = [];
+             // hashtags.push(hashtagId);
+             // console.log('hashtags' + hashtags);
+             // localStorage.setItem('hashtags', JSON.stringify(hashtags));
+             //
+             // let foundHashtagsContainer = $('#b-search__results');
+             // foundHashtagsContainer.empty(); //удалить все предыдущие результаты
+             //
+             // $('#search-input').val('');
+             // $('#search-input').focus();
          }
 
      });
+
+     //добавить хештег в список выбранных хештегов, после клика на хештег из результатов поиска
+     $(document).on('click touchstart', '#b-search__results-2 li', function() {
+         console.log('CLICK-CLICK 2');
+
+         let hashtagId = $(this)[0].getAttribute('data-id');
+         let hashtagTitle = $(this)[0].getAttribute('data-name');
+
+         console.log('hashtagId = ' + hashtagId);
+         console.log('hashtagTitle = ' + hashtagTitle);
+
+         let containerSelectedHashtags = $('#b-search__field__tags-container');
+
+         let containerSelectedHashtagsTags = $('#b-search__field__tags-container__tags');
+         console.log('containerSelectedHashtagsTags' + containerSelectedHashtagsTags);
+
+         let foundHashtagsContainer = $('#b-search__results-2');
+         let selectedHashtagsContainer = '#b-selected-tags-2';
+
+         addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
+     });
+
+     //добавить хэштег к выбранным хэштегам
+     function addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput, foundHashtagsContainer, selectedHashtagsContainer = null, bSearchInput = null) {
+
+         let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></li>';
+
+         if (selectedHashtagsContainer !== null) {
+             $(selectedHashtagsContainer).append(hashtagElement);
+         } else {
+             $(hashtagElement).insertBefore(bSearchInput);
+         }
+
+         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
+             let savedHashtags = localStorage.getItem('hashtags');
+             console.log('savedHashtags' + savedHashtags);
+             savedHashtags = JSON.parse(savedHashtags);
+             console.log('savedHashtags' + savedHashtags);
+
+             //проверить есть ли ключ в массиве. если нет - добавить значение в массив
+             if(savedHashtags.includes(hashtagId) === false) {
+                 addHashtagToStorage(hashtagId, savedHashtags, foundHashtagsContainer);
+                 focusOnInput(searchInput);
+             }
+         } else {
+             addHashtagToStorage(hashtagId, [], foundHashtagsContainer);
+             focusOnInput(searchInput);
+         }
+     }
+
+     //добавляем id хештега в массив hashtags в localStorage
+     function addHashtagToStorage(hashtagId, hashtags, foundHashtagsContainer) {
+         hashtags.push(hashtagId);
+         console.log('hashtags' + hashtags);
+         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+
+         //удалить все предыдущие результаты
+         foundHashtagsContainer.empty();
+     }
+
+     function focusOnInput(searchInput) {
+         $(searchInput).val('');
+         $(searchInput).focus();
+     }
+
+
 
      $(document).on('click touchstart', '#b-search__field__tags-container__tags .tag .close', function() {
          console.log("**************");
