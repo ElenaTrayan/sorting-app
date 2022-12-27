@@ -31,32 +31,46 @@
 
 <!-- Main content -->
 <section class="content">
-    <div class="container-fluid">
-        <div class="card card-primary">
+    <div class="container-fluid posts-categories-create" id="posts-categories-create">
+        <div class="card card-primary card-create">
             <!-- form start -->
-            <form action="{{ route('posts-categories.store') }}" method="POST">
+            <form action="{{ route('posts-categories.store') }}" method="POST" id="creationform2">
                 @csrf
                 <div class="card-body">
-                    <div class="form-group">
-                        <label for="title">Название категории</label>
-                        <input type="text" class="form-control" name="title" id="title" placeholder="Введите название категории ..." required>
+                    <div class="card-body-block">
+                        <div class="form-group">
+                            <label for="title">Название категории</label>
+                            <input type="text" class="form-control" name="title" id="title" placeholder="Введите название категории" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="alias">Alias категории</label>
+                            <input type="text" class="form-control" name="alias" id="alias" placeholder="Введите alias для категории" required>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="alias">Alias категории</label>
-                        <input type="text" class="form-control" name="alias" id="alias" placeholder="Введите alias для категории ..." required>
-                    </div>
-                    <div class="form-group">
-                        <label for="parent_id">Категория-родитель</label>
-                        <input type="text" class="form-control" name="parent_id" id="parent_id" placeholder="Enter ...">
-                    </div>
-                    <div class="form-group">
-                        <label for="short_description">Описание категории</label>
-                        <textarea class="form-control" rows="3" name="short_description" id="short_description" placeholder="Введите описание для категории ..."></textarea>
+                    <div class="card-body-block">
+                        <div class="form-group">
+                            <label>Выберете категорию-родителя</label>
+                            <select class="form-control" name="parent_id" id="parent_id">
+                                <option value="0">-</option>
+                                @foreach($categories as $category)
+                                    <option style="font-weight: 600;" value="{{ $category->id }}">{{ $category->title }}</option>
+                                    @if (!empty($category->children))
+                                        @foreach($category->children as $childrenCategory)
+                                        <option value="{{ $childrenCategory->id }}"> - {{ $childrenCategory->title }}</option>
+                                        @endforeach
+                                    @endif
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="short_description">Описание категории</label>
+                            <textarea class="form-control" rows="3" name="short_description" id="short_description" placeholder="Введите описание для категории"></textarea>
+                        </div>
                     </div>
                 </div>
                 <!-- /.card-body -->
                 <div class="card-footer">
-                    <button type="submit" class="btn btn-primary">Добавить</button>
+                    <button id="submit-creation-form2" type="submit" class="btn btn-primary">Добавить</button>
                 </div>
             </form>
         </div>

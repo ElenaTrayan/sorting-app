@@ -7,11 +7,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
+use App\Models\PostsCategory;
 
 class UploadImageController extends Controller
 {
     const TEMP_IMAGE_PATH = 'app/public/temp_directory'; //temporary image path
     const IMAGE_PATH = 'images/';
+
+    private $errors = [];
 
     public function uploadImageToTempDirectory(Request $request)
     {
@@ -37,6 +40,7 @@ class UploadImageController extends Controller
 
                 //удаляем из названия изображения скобки и пробелы
                 $imageName = strtr($path_info['filename'], array('(' => '', ')' => '', ' ' => ''));
+                $imageName = str_slug($imageName);
 
                 $imageSmall = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), true,120, 120);
 
@@ -215,6 +219,105 @@ class UploadImageController extends Controller
         } catch (Throwable $e) {
             return response()->json(['status' => false, 'msg' => "Ошибка при удалении изображения"]);
         }
+    }
+
+    /**
+     * Переместить изображение из временной папки в нужную
+     *
+     * @param string $oldPath
+     * @param string $newPath
+     * @return bool|string
+     */
+    private function moveImage(string $oldPath, string $newPath)
+    {
+        if (Storage::disk('local')->exists($oldPath) !== true) {
+            return 'Ошибка при перемещении файла: файл ' . $oldPath . ' не существует';
+        }
+
+        if (Storage::move($oldPath, $newPath) === true) {
+            return true;
+        }
+
+        return 'Ошибка при перемещении файла: не удалось переместить файл' . $oldPath . ' в ' . $newPath;
+    }
+
+    /**
+     * Переместить изображение из временной папки в нужную
+     * и получить путь к перемещенному изображению, имя и тип
+     *
+     * ["extension"] => "jpg"
+     *
+     * @param string $imageName
+     * @param string $imageExtension
+     * @param string $oldPath
+     * @param string $newPath
+     * @return array
+     */
+    private function saveImage(string $imageName, string $imageExtension, string $oldPath, string $newPath)
+    {
+        $moveImage = $this->moveImage($oldPath, $newPath);
+
+        if ($moveImage) {
+            return [
+                'name' => $imageName,
+                'extension' => $imageExtension,
+                'path' => $newPath,
+            ];
+        }
+
+        return [
+            'error' => $moveImage
+        ];
+    }
+
+    /**
+     * @param $image
+     * @param $userId
+     * @param $categoryId
+     * @return array|bool
+     */
+    public function saveImageForPost($image, $userId, $categoryId)
+    {
+        $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId) ?: 0;
+
+        $errors = [];
+
+        //user_id / category parent_id / category parent_id - category_id - image_title - image_size - расширение файла
+        $originalNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['name'] . '.' . $image['extension'];
+        $originalOldPath = '/temp_directory/' . $image['name'] . '.' . $image['extension'];
+
+        $saveOriginalImage = $this->saveImage($image['name'], $image['extension'], $originalOldPath, $originalNewPath);
+        if (!empty($saveOriginalImage['error'])) {
+            $errors[] = $saveOriginalImage['error'];
+        }
+
+        $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['medium_name'];
+        $mediumOldPath = '/temp_directory/' . $image['medium_name'];
+
+        $saveMediumImage = $this->saveImage($image['medium_name'], $image['extension'], $mediumOldPath, $mediumNewPath);
+        if (!empty($saveMediumImage['error'])) {
+            $errors[] = $saveMediumImage['error'];
+        }
+
+        $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['small_name'];
+        $smallOldPath = '/temp_directory/' . $image['small_name'];
+
+        $saveSmallImage = $this->saveImage($image['small_name'], $image['extension'], $smallOldPath, $smallNewPath);
+        if (!empty($saveSmallImage['error'])) {
+            $errors[] = $saveSmallImage['error'];
+        }
+
+        if (!empty($errors)) {
+            return [
+                'errors' => $errors
+            ];
+        }
+
+        return [
+            'original_image' => $saveOriginalImage,
+            'medium_image' => $saveMediumImage,
+            'small_image' => $saveSmallImage,
+        ];
     }
 
 }

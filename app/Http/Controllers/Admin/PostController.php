@@ -38,16 +38,16 @@ class PostController extends Controller
                 },
             ])
             ->where('posts.user_id', 1)
-            ->limit(12)
+            ->latest()
+            ->limit(30)
             ->get();
+
+        //dd($posts);
 
         foreach ($posts as $post) {
             if (!empty($post->medium_image) && isJson($post->medium_image)) {
-                $mediumImages = json_decode($post->medium_image, true);
-                foreach ($mediumImages as $key => $mediumImage) {
-                    //dd($mediumImage);
-                    $post['cover_image'] = $mediumImage['path'];
-                }
+                $mediumImage = json_decode($post->medium_image, true);
+                $post['cover_image'] = $mediumImage['path'];
             }
         }
 
@@ -83,93 +83,64 @@ class PostController extends Controller
     {
         $user = auth()->user();
 
-        //return response()->json(['Request' => $request]);
-//        var_dump($request->title);
-//        var_dump($request->alias);
-//        var_dump($request->category_id);
-        //echo $request->images;
-//        var_dump($request->content);
+        if (!empty($request->images)) {
 
-        $categoryId = $request->category_id;
-        $categoryParentId = (new \App\Models\PostsCategory)->getCategoryParentId($categoryId);
+            $images = json_decode($request->images, true);
 
-//        var_dump('categoryParentId = ' . $categoryParentId);
+            //если картинок больше одной
+            if (count($images) > 1) {
+                $count = 0;
+                $errors = [];
+                foreach ($images as $key => $image) {
+                    $count++;
 
-        $large_image = [];
-        $small_image = [];
+                    $newPost = $this->createPost($request, $user->id, $image);
 
-        $images = json_decode($request->images, true);
-        foreach ($images as $key => $image) {
-//            var_dump('public_path = ' . public_path());
+                    if ($newPost !== true) {
+                        $errors[] = $newPost['errors'];
+                    }
+                }
 
-            //user_id / category parent_id - category_id - image_title - image_size - расширение файла
+                if (!empty($errors)) {
+                    return response()->json([
+                        'errors' => $errors,
+                    ]);
+                }
 
-            $newPath = '/' . UploadImageController::IMAGE_PATH . $user->id . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['name'] . '.' . $image['extension'];
-//            var_dump('newPath = ' . $newPath);
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Посты были успешно добавлены',
+                ]);
+            }
 
-            $oldPath = '/temp_directory/' . $image['name'] . '.' . $image['extension'];
-//            var_dump('oldPath = ' . $oldPath);
+            $image = array_shift($images);
 
-            $exists = Storage::disk('local')->exists($oldPath);
-//            var_dump('exists = ' . $exists); // exists = 1
+            $newPost = $this->createPost($request, $user->id, $image);
+            if ($newPost === true) {
+                //return back()->with('success','Item created successfully!');
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Пост был успешно добавлен',
+                    //'redirect' => route('posts.index'),
+                ]);
+            }
 
-            $moveImage = Storage::move($oldPath, $newPath);
-//            var_dump('moveImage = ' . $moveImage); // moveImage = 1
-
-            $large_image[$key]['name'] = $image['name'];
-            $large_image[$key]['extension'] = $image['extension'];
-            $large_image[$key]['path'] = $newPath;
-
-            $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $user->id . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['small_name'];
-//            var_dump('smallNewPath = ' . $smallNewPath);
-
-            $smallOldPath = '/temp_directory/' . $image['small_name'];
-//            var_dump('smallOldPath = ' . $smallOldPath);
-
-            $exists = Storage::disk('local')->exists($oldPath);
-//            var_dump('exists = ' . $exists); // exists = 1
-
-            $moveImage = Storage::move($smallOldPath, $smallNewPath);
-//            var_dump('moveImage = ' . $moveImage); // moveImage = 1
-
-//            $delete = Storage::delete($image['small']);
-//            var_dump($delete);
-
-            $small_image[$key]['name'] = $image['small_name'];
-            $small_image[$key]['extension'] = $image['extension'];
-            $small_image[$key]['path'] = $smallNewPath;
-
-            $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $user->id . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['medium_name'];
-//            var_dump('smallNewPath = ' . $smallNewPath);
-
-            $mediumOldPath = '/temp_directory/' . $image['medium_name'];
-//            var_dump('smallOldPath = ' . $smallOldPath);
-
-            $exists = Storage::disk('local')->exists($mediumOldPath);
-//            var_dump('exists = ' . $exists); // exists = 1
-
-            $moveImage = Storage::move($mediumOldPath, $mediumNewPath);
-//            var_dump('moveImage = ' . $moveImage); // moveImage = 1
-
-            $medium_image[$key]['name'] = $image['medium_name'];
-            $medium_image[$key]['extension'] = $image['extension'];
-            $medium_image[$key]['path'] = $mediumNewPath;
+            return response()->json([
+                'errors' => $newPost['errors'],
+            ]);
         }
 
-//        exit();
+        $newPost = $this->createPost($request, $user->id);
+        if ($newPost === true) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Пост был успешно добавлен',
+            ]);
+        }
 
-        $new_post = new Post();
-        $new_post->title = $request->title;
-        $new_post->alias = $request->alias;
-        $new_post->category_id = $request->category_id ?? 0;
-        $new_post->user_id = $user->id;
-        $new_post->content = $request->content;
-        $new_post->original_image = json_encode($large_image);
-        $new_post->medium_image = json_encode($medium_image);
-        $new_post->small_image = json_encode($small_image);
-        $new_post->save();
-
-        return redirect()->back()->withSuccess('Пост был успешно добавлен');
+        return response()->json([
+            'errors' => $newPost['errors'],
+        ]);
     }
 
     /**
@@ -178,9 +149,30 @@ class PostController extends Controller
      * @param  \App\Models\Post  $post
      * @return \Illuminate\Http\Response
      */
-    public function show(Post $post)
+    public function show($id)
     {
-        //
+        $post = Post::where('id', $id)->with([
+            'category' => function($q) {
+                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+            },
+            'category.parent' => function($q) {
+                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+            },
+            'category.parent.parent' => function($q) {
+                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+            },
+            'hashtags' => function($q) {
+                $q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
+            },
+        ])->firstOrFail();
+
+        $categories = PostsCategory::orderBy('title', 'DESC')->get();
+
+        $originalImage = json_decode($post->original_image, true);
+        $mediumImage = json_decode($post->medium_image, true);
+        //dd($postImage);
+
+        return view('admin.posts.show', ['categories' => $categories, 'post' => $post, 'originalImage' => $originalImage, 'mediumImage' => $mediumImage]);
     }
 
     /**
@@ -189,9 +181,12 @@ class PostController extends Controller
      * @param  \App\Models\Post  $post
      * @return \Illuminate\Http\Response
      */
-    public function edit(Post $post)
+    public function edit($id)
     {
-        //
+        $post = Post::where('id', $id)->first();
+        $categories = PostsCategory::orderBy('title', 'DESC')->get();
+
+        return view('admin.posts.edit', ['categories' => $categories, 'post' => $post]);
     }
 
     /**
@@ -212,8 +207,110 @@ class PostController extends Controller
      * @param  \App\Models\Post  $post
      * @return \Illuminate\Http\Response
      */
-    public function destroy(Post $post)
+    public function destroy($id)
     {
-        //
+        $post = Post::where('id', $id)->delete();
+        if ($post === 1) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Пост был успешно удалён',
+            ]);
+        }
+
+        return response()->json([
+            'status' => false,
+            'error' => 'Ошибка при удалении поста',
+        ]);
     }
+
+    /**
+     * @param Request $request
+     * @param string $userId
+     * @param array $image
+     * @param string $imageAlias
+     * @return bool
+     */
+    private function createPost(Request $request, string $userId, array $image = [], string $imageAlias = '')
+    {
+        //dd($request->hashtags);
+
+        $alias = '';
+        $title = '';
+
+        $categoryId = $request->category_id ?? 0;
+        $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId);
+
+        $new_post = new Post();
+        $new_post->user_id = $userId;
+        $new_post->category_id = $request->category_id ?: 0;
+
+        if (isset($request->text) && !empty(strip_tags($request->text))) {
+            $new_post->content = $request->text;
+        }
+
+        if (!empty($image)) {
+            $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $userId, $categoryId);
+            if (!empty($saveImageForPost['errors'])) {
+                return $saveImageForPost['errors'];
+            } else {
+                $alias = $userId . '_' . $categoryId . '_' . $image['name'];
+
+                $new_post->original_image = json_encode($saveImageForPost['original_image']);
+                $new_post->medium_image = json_encode($saveImageForPost['medium_image']);
+                $new_post->small_image = json_encode($saveImageForPost['small_image']);
+            }
+        }
+
+        if (!empty($request->title)) {
+            $title = $request->title;
+            $alias = str_slug($request->title);
+        }
+
+        $new_post->title = $title;
+
+        if ($this->aliasExist($alias, $userId) === null) {
+            $new_post->alias = $alias;
+        } else {
+            dd($this->aliasExist($alias, $userId));
+        }
+
+        $newPost = $new_post->save();
+
+        if ($newPost === true) {
+            if ($request->hashtags) {
+                $this->addHashtagsToPost($new_post->getAttribute('id'), json_decode($request->hashtags));
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param $postId
+     * @param array $hashtagsIds
+     */
+    private function addHashtagsToPost($postId, array $hashtagsIds)
+    {
+        $post = Post::where('id', $postId)->firstOrFail();
+        $hashtags = Hashtag::find($hashtagsIds);
+        $post->hashtags()->attach($hashtags);
+    }
+
+    /**
+     * @param $alias
+     * @param $userId
+     * @return mixed
+     */
+    private function aliasExist($alias, $userId)
+    {
+        $posts = Post::selectRaw('posts.id, posts.alias, posts.user_id')
+            ->where('posts.user_id', $userId)
+            ->where('posts.alias', $alias)
+            ->first();
+
+        return $posts;
+    }
+
 }

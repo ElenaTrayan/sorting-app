@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Packages\SearchController;
 use App\Http\Controllers\Controller;
 use App\Models\Hashtag;
 use Illuminate\Http\Request;
@@ -11,11 +12,13 @@ class HashtagController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function index()
     {
-        $hashtags = Hashtag::orderBy('title', 'DESC')->get();
+        $user = auth()->user();
+
+        $hashtags = Hashtag::where('user_id', $user->id)->orderBy('title', 'asc')->get();
 
         return view('admin.hashtags.index', ['hashtags' => $hashtags]);
     }
@@ -23,11 +26,13 @@ class HashtagController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function create()
     {
-        $hashtags = Hashtag::orderBy('title', 'DESC')->get();
+        $user = auth()->user();
+
+        $hashtags = Hashtag::where('user_id', $user->id)->orderBy('title', 'asc')->get();
 
         return view('admin.hashtags.create', ['hashtags' => $hashtags]);
     }
@@ -35,17 +40,47 @@ class HashtagController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
+        if (empty($request->title)) {
+            return redirect()->route('hashtags.index')->withErrors('Не удалось создать хештег: пустой обязательный параметр');
+            //return response()->json(['status' => false, 'error' => 'err']);
+        }
+
+        $parent_id = 0;
+        if (!empty($request->parent_id)) {
+            $parent_id = $request->parent_id;
+        }
+
+        $search = new SearchController();
+        $foundHashtags = $search->searchTagByTitle($request->title, $request->hashtags ?? '');
+
+        if (!$foundHashtags->isEmpty()) {
+            return redirect()->route('hashtags.index')->withErrors('Хештег уже сущетвует!');
+            //return response()->json(['status' => false, 'hashtags' => $foundHashtags]);
+        }
+
+        $user = auth()->user();
+
         $newHashtag = new Hashtag();
         $newHashtag->title = $request->title;
-        $newHashtag->parent_id = 0;
-        $newHashtag->save();
+        $newHashtag->parent_id = $parent_id;
+        $newHashtag->user_id = $user->id;
+        $newHashtagSave = $newHashtag->save();
 
-        return redirect()->back()->withSuccess('Хештег был успешно добавлен');
+        if ($newHashtagSave === true) {
+            return redirect()->route('hashtags.index')->withSuccess('Хештег был успешно создан');
+        }
+
+        return redirect()->route('hashtags.index')->withErrors('Не удалось создать хештег');
+
+//        return response()->json(['status' => true, 'message' => 'Хештег был успешно добавлен', 'info' => [
+//            'id' => $newHashtag->id,
+//            'title' => $newHashtag->title,
+//        ]]);
     }
 
     /**
@@ -85,11 +120,22 @@ class HashtagController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param  \App\Models\Hashtag  $hashtag
-     * @return \Illuminate\Http\Response
+     * @param $id
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy(Hashtag $hashtag)
+    public function destroy($id)
     {
-        //
+        $post = Hashtag::where('id', $id)->delete();
+        if ($post === 1) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Хештег был успешно удалён',
+            ]);
+        }
+
+        return response()->json([
+            'status' => false,
+            'error' => 'Ошибка при удалении хештега',
+        ]);
     }
 }

@@ -27,6 +27,13 @@
     <!-- summernote -->
     <link rel="stylesheet" href="/admin/plugins/summernote/summernote-bs4.min.css">
 
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.css"
+    />
+
+    <link rel="stylesheet" href="/admin/plugins/toastr/toastr.css">
+
     <link rel="stylesheet" href="/admin/admin-panel.css">
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
@@ -404,7 +411,12 @@
 <!-- TinyMCE -->
 <script src="https://cdn.tiny.cloud/1/9g67ywmzu7yvnd7xvormx1w3kztgki8hvrxv7egsusuqtzqt/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
 
+<script src="/admin/plugins/toastr/toastr.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
 <script src="/admin/admin.js"></script>
+@stack('footer-scripts')
 
 </body>
 </html>

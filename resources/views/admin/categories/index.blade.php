@@ -24,7 +24,32 @@
     <!-- Main content -->
     <section class="content">
         <div class="container-fluid">
-            <div class="card">
+            <div class="card posts-categories-index" id="posts-categories-index">
+
+                @if (session('success'))
+                    @push('footer-scripts')
+                        <script>
+                            toastr.success('{{ session('success') }}');
+                        </script>
+                    @endpush
+                @endif
+
+                <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="exampleModalLabel"></h5>
+                            </div>
+                            <div class="modal-body"></div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-primary" data-action="delete-request">Удалить
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card-header">
                     <div class="card-tools">
                         <button type="button" class="btn btn-tool" data-card-widget="collapse" title="Collapse">
@@ -36,7 +61,7 @@
                     </div>
                 </div>
                 <div class="card-body p-0">
-                    <table class="table table-striped projects">
+                    <table class="table table-striped projects" data-url="" data-id="">
                         <thead>
                         <tr>
                             <th style="width: 1%">
@@ -45,50 +70,195 @@
                             <th style="width: 20%">
                                 Название категории
                             </th>
+                            <th style="width: 20%">
+                                Alias
+                            </th>
+                            <th style="width: 20%">
+                                Категория-родитель
+                            </th>
+                            <th style="width: 5%" class="text-center">
+                                Сортировка
+                            </th>
                             <th style="width: 8%" class="text-center">
                                 Status
                             </th>
-                            <th style="width: 20%">
+                            <th style="width: 15%">
                             </th>
                         </tr>
                         </thead>
                         <tbody>
                         @foreach($categories as $category)
-                        <tr>
-                            <td>
-                                {{ $category->id }}
-                            </td>
-                            <td>
-                                {{ $category->title }}
-                            </td>
-                            <td class="project-state">
-                                <span class="badge badge-success">Success</span>
-                            </td>
-                            <td class="project-actions text-right">
-                                <a class="btn btn-primary btn-sm" href="#">
-                                    <i class="fas fa-eye">
-                                    </i>
-                                </a>
-                                <a class="btn btn-info btn-sm" href="{{ route('posts-categories.edit', $category->id) }}">
-                                    <i class="fas fa-pencil-alt">
-                                    </i>
-                                </a>
-                                <form action="{{ route('posts-categories.destroy', $category->id) }}" method="POST">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-danger btn-sm">
+                            <tr data-id="{{ $category->id }}" data-url="{{ route('posts-categories.destroy', $category->id) }}">
+                                <td>
+                                    {{ $category->id }}
+                                </td>
+                                <td>
+                                    {{ $category->title }}
+                                </td>
+                                <td>
+                                    {{ $category->alias }}
+                                </td>
+                                <td>
+                                    @if (!empty($category->parent))
+                                        {{ $category->parent->title }}
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td>
+                                    {{ $category->sort }}
+                                </td>
+                                <td class="project-state">
+                                    <span class="badge badge-success">{{ $category->status }}</span>
+                                </td>
+                                <td class="project-actions text-right">
+                                    <a class="btn btn-primary btn-sm"
+                                       href="{{ route('posts-categories.show', $category->id) }}">
+                                        <i class="fas fa-eye">
+                                        </i>
+                                    </a>
+                                    <a class="btn btn-info btn-sm"
+                                       href="{{ route('posts-categories.edit', $category->id) }}">
+                                        <i class="fas fa-pencil-alt">
+                                        </i>
+                                    </a>
+                                    <button class="btn btn-danger btn-sm"
+                                          data-action="delete"
+                                          data-url="{{ route('posts-categories.destroy', $category->id) }}"
+                                          tabindex="0"
+                                    >
                                         <i class="fas fa-trash">
                                         </i>
                                     </button>
-                                </form>
-                            </td>
-                        </tr>
+                                    {{--                                <form action="{{ route('posts-categories.destroy', $category->id) }}" method="POST">--}}
+                                    {{--                                    @csrf--}}
+                                    {{--                                    @method('DELETE')--}}
+                                    {{--                                    <button type="submit" class="btn btn-danger btn-sm">--}}
+                                    {{--                                        <i class="fas fa-trash">--}}
+                                    {{--                                        </i>--}}
+                                    {{--                                    </button>--}}
+                                    {{--                                </form>--}}
+                                </td>
+                            </tr>
+
+                            @if (!empty($category->children))
+                                @foreach($category->children as $childrenCategory)
+                                    <tr data-id="{{ $childrenCategory->id }}" data-url="{{ route('posts-categories.destroy', $childrenCategory->id) }}">
+                                        <td>
+                                            {{ $childrenCategory->id }}
+                                        </td>
+                                        <td>
+                                            {{ $childrenCategory->title }}
+                                        </td>
+                                        <td>
+                                            {{ $childrenCategory->alias }}
+                                        </td>
+                                        <td>
+                                            {{ $category->title }}
+                                        </td>
+                                        <td>
+                                            {{ $childrenCategory->sort }}
+                                        </td>
+                                        <td class="project-state">
+                                            <span class="badge badge-success">{{ $childrenCategory->status }}</span>
+                                        </td>
+                                        <td class="project-actions text-right">
+                                            <a class="btn btn-primary btn-sm"
+                                               href="{{ route('posts-categories.show', $childrenCategory->id) }}">
+                                                <i class="fas fa-eye">
+                                                </i>
+                                            </a>
+                                            <a class="btn btn-info btn-sm"
+                                               href="{{ route('posts-categories.edit', $childrenCategory->id) }}">
+                                                <i class="fas fa-pencil-alt">
+                                                </i>
+                                            </a>
+                                            <button class="btn btn-danger btn-sm"
+                                                  data-action="delete"
+                                                  data-url="{{ route('posts-categories.destroy', $childrenCategory->id) }}"
+                                                    tabindex="0"
+                                               >
+                                                <i class="fas fa-trash">
+                                                </i>
+                                            </button>
+                                            {{--                                <form action="{{ route('posts-categories.destroy', $category->id) }}" method="POST">--}}
+                                            {{--                                    @csrf--}}
+                                            {{--                                    @method('DELETE')--}}
+                                            {{--                                    <button type="submit" class="btn btn-danger btn-sm">--}}
+                                            {{--                                        <i class="fas fa-trash">--}}
+                                            {{--                                        </i>--}}
+                                            {{--                                    </button>--}}
+                                            {{--                                </form>--}}
+                                        </td>
+                                    </tr>
+
+                                    @if (!empty($childrenCategory->children))
+                                        @foreach($childrenCategory->children as $childrenСhildrenCategory)
+                                            <tr data-id="{{ $childrenСhildrenCategory->id }}" data-url="{{ route('posts-categories.destroy', $childrenСhildrenCategory->id) }}">
+                                                <td>
+                                                    {{ $childrenСhildrenCategory->id }}
+                                                </td>
+                                                <td>
+                                                    {{ $childrenСhildrenCategory->title }}
+                                                </td>
+                                                <td>
+                                                    {{ $childrenСhildrenCategory->alias }}
+                                                </td>
+                                                <td>
+                                                    {{ $childrenCategory->title }}
+                                                </td>
+                                                <td>
+                                                    {{ $childrenСhildrenCategory->sort }}
+                                                </td>
+                                                <td class="project-state">
+                                                    <span class="badge badge-success">{{ $childrenСhildrenCategory->status }}</span>
+                                                </td>
+                                                <td class="project-actions text-right">
+                                                    <a class="btn btn-primary btn-sm"
+                                                       href="{{ route('posts-categories.show', $childrenСhildrenCategory->id) }}">
+                                                        <i class="fas fa-eye">
+                                                        </i>
+                                                    </a>
+                                                    <a class="btn btn-info btn-sm"
+                                                       href="{{ route('posts-categories.edit', $childrenСhildrenCategory->id) }}">
+                                                        <i class="fas fa-pencil-alt">
+                                                        </i>
+                                                    </a>
+                                                    <button class="btn btn-danger btn-sm"
+                                                            data-action="delete"
+                                                            data-url="{{ route('posts-categories.destroy', $childrenСhildrenCategory->id) }}"
+                                                            tabindex="0"
+                                                    >
+                                                        <i class="fas fa-trash">
+                                                        </i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @endif
+
+                                @endforeach
+                            @endif
+
                         @endforeach
                         </tbody>
                     </table>
-                </div>
-                <!-- /.card-body -->
-            </div>
+                </div><!-- /.card-body -->
+                <div class="card-footer">
+                    <nav aria-label="Contacts Page Navigation">
+                        <ul class="pagination justify-content-center m-0">
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link" href="#">3</a></li>
+                            <li class="page-item"><a class="page-link" href="#">4</a></li>
+                            <li class="page-item"><a class="page-link" href="#">5</a></li>
+                            <li class="page-item"><a class="page-link" href="#">6</a></li>
+                            <li class="page-item"><a class="page-link" href="#">7</a></li>
+                            <li class="page-item"><a class="page-link" href="#">8</a></li>
+                        </ul>
+                    </nav>
+                </div><!-- /.card-footer -->
+            </div><!-- /.card posts-categories-index -->
         </div><!-- /.container-fluid -->
     </section>
     <!-- /.content -->
