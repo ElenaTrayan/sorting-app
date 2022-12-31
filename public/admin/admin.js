@@ -549,6 +549,77 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      });
 
+
+     $('#hashtags-create #btn-submit-form').on('click', function(e) {
+         e.preventDefault();
+
+         console.log('CLICK 3');
+
+         let form = $(this).closest('form');
+
+         let fieldTitle = $('#title');
+         let fieldTitleValue = fieldTitle.val();
+         let errorMessageElement = fieldTitle.next('.error');
+         console.log(fieldTitleValue.length);
+
+         let errors = 0;
+         if (fieldTitleValue.length === 0) {
+             errors = 1;
+             fieldTitle.addClass('is-invalid');
+
+             console.log(errorMessageElement);
+             errorMessageElement.addClass('active');
+             errorMessageElement.text('Пожалуйста введите название хештега');
+
+             // let span = '<span id="exampleInputEmail1-error" class="error invalid-feedback">' + 'Пожалуйста введите название хештега' + '</span>';
+             // fieldTitle.after(span);
+         } else {
+             fieldTitle.removeClass('is-invalid');
+             errorMessageElement.removeClass('active');
+         }
+
+         console.log('fieldTitleValue' + fieldTitleValue);
+         let url = fieldTitle.data('action');
+         console.log('url' + url);
+
+         $.ajaxSetup({
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+             }
+         });
+
+         $.ajax({
+             type: 'post',
+             url: url,
+             data: {'title': fieldTitleValue},
+             success: function (response) {
+                 //console.log(response);
+
+                 if (response.hasOwnProperty('hashtags') && response.hashtags.length !== 0) {
+                     console.log('THIS - ' + fieldTitle);
+                     fieldTitle.addClass('is-invalid');
+                     errorMessageElement.addClass('active');
+                     errorMessageElement.text('Такой хештег уже сущетвует!');
+                     console.log(response.hashtags.length);
+                 } else {
+                     console.log('YESSSSSS');
+                     if (errors === 0) {
+                         console.log('YES2');
+                         form.submit();
+                     }
+                 }
+             }
+         });
+
+         console.log('errors' + errors);
+     });
+
+     $(document).on('input', '#hashtags-create #title', function() {
+         console.log('TITLE');
+         $(this).removeClass('is-invalid');
+         $(this).next('.error').removeClass('active');
+     });
+
      //ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
      $(document).on('input', searchInput1, function() {
          console.log('click');

@@ -24,7 +24,7 @@
 <!-- Main content -->
 <section class="content">
     <div class="container-fluid">
-        <div class="card card-primary">
+        <div class="card card-primary hashtags-create" id="hashtags-create">
             <!-- form start -->
             <form action="{{ route('hashtags.store') }}" method="POST">
                 @csrf
@@ -32,7 +32,8 @@
                     <div class="card-body-block">
                         <div class="form-group">
                             <label for="title">Хештег</label>
-                            <input type="text" class="form-control" name="title" id="title" placeholder="Введите название хештега ..." required>
+                            <input type="text" class="form-control" name="title" id="title" placeholder="Введите название хештега" data-action="{{ route('search.hashtag-by-title') }}" required>
+                            <span class="error invalid-feedback"></span>
                         </div>
 
                         <div class="form-group">
@@ -51,7 +52,7 @@
                 </div>
                 <!-- /.card-body -->
                 <div class="card-footer">
-                    <button type="submit" class="btn btn-primary">Добавить</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-form">Добавить</button>
                 </div>
             </form>
         </div>

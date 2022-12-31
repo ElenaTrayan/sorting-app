@@ -53,6 +53,17 @@ class SearchController extends Controller
         return response()->json(['status' => false]);
     }
 
+    public function searchSameHashtag(Request $request)
+    {
+        if ($request->ajax() && !empty($request->title)) {
+            $foundHashtags = $this->searchTagByTitle($request->title);
+
+            return response()->json(['status' => true, 'hashtags' => $foundHashtags]);
+        }
+
+        return response()->json(['status' => false]);
+    }
+
     /**
      * @param string $title
      * @param string $hashtags

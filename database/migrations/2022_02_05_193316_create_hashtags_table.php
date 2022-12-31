@@ -15,7 +15,7 @@ class CreateHashtagsTable extends Migration
     {
         Schema::create('hashtags', function (Blueprint $table) {
             $table->id();
-            $table->string('title', 150);
+            $table->string('title', 150)->unique();
             $table->integer('parent_id')->default(0); // id хэштега-родителя
             $table->integer('user_id'); // id пользователя, создавшего пост
             $table->string('associated_hashtags')->nullable(); // связанные хештеги

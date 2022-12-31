@@ -97,24 +97,68 @@ class HashtagController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @param  \App\Models\Hashtag  $hashtag
-     * @return \Illuminate\Http\Response
+     * @param Hashtag $hashtag
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function edit(Hashtag $hashtag)
     {
-        //
+        $user = auth()->user();
+
+        $hashtag = Hashtag::where('user_id', $user->id)
+            ->where('id', $hashtag->id)
+            ->orderBy('title', 'asc')->first();
+
+        $hashtags = Hashtag::where('parent_id', 0)
+            ->where('user_id', $user->id)
+            ->orderBy('title', 'asc')
+            ->with([
+                'children' => function ($q) {
+                    $q->select(['id', 'title', 'parent_id', 'user_id']);
+                },
+                'children.children' => function ($q) {
+                    $q->select(['id', 'title', 'parent_id', 'user_id']);
+                },
+                'children.children.children' => function ($q) {
+                    $q->select(['id', 'title', 'parent_id', 'user_id']);
+                },
+            ])
+            ->get();
+
+        if (!empty($hashtag->associated_hashtags)) {
+            $associatedHashtags = explode(',', $hashtag->associated_hashtags);
+
+            $associated_hashtags = Hashtag::where('user_id', $user->id)
+                ->whereIn('id', $associatedHashtags)
+                ->orderBy('title', 'asc')
+                ->get();
+        }
+
+        return view('admin.hashtags.edit', [
+            'hashtag' => $hashtag,
+            'hashtags' => $hashtags,
+            'associated_hashtags' => $associated_hashtags ?? [],
+        ]);
     }
 
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Hashtag  $hashtag
-     * @return \Illuminate\Http\Response
+     * @param Request $request
+     * @param Hashtag $hashtag
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, Hashtag $hashtag)
     {
-        //
+        $hashtag->title = $request->title;
+        $hashtag->parent_id = $request->parent_id == '-' ? 0 : $request->parent_id;
+        //$hashtag->associated_hashtags = $request->associated_hashtags;
+        $hashtagSave = $hashtag->save();
+
+        if ($hashtagSave === true) {
+            return redirect()->route('hashtags.index')->withSuccess('Хештег был успешно обновлен');
+        }
+
+        return redirect()->route('hashtags.index')->withErrors('Не удалось обновить хештег');
     }
 
     /**

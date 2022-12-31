@@ -93,7 +93,18 @@
 }
 
 
-.b-add-tag{
+.invalid-feedback {
+    display: none;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 80%;
+    color: #dc3545;
+}
+.invalid-feedback.active {
+    display: block;
+}
+
+.b-add-tag {
     position: relative;
     margin: 25px 0 0;
 }
@@ -792,3 +803,5 @@ display: inline-block; /* Строчно-блочный элемент */
 /*    max-width: 400px;*/
 /*    margin: 0 auto;*/
 /*}*/
+
+
