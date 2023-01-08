@@ -348,6 +348,12 @@
                             <p>Идеи Книга</p>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="pages/widgets.html" class="nav-link">
+                            <i class="nav-icon fas fa-gift"></i>
+                            <p>My Gift List</p>
+                        </a>
+                    </li>
 
                 </ul>
             </nav>
@@ -385,6 +391,8 @@
 <script src="/admin/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 <!-- ChartJS -->
 <script src="/admin/plugins/chart.js/Chart.min.js"></script>
+<!-- bs-custom-file-input -->
+<script src="/admin/plugins/bs-custom-file-input/bs-custom-file-input.min.js"></script>
 <!-- Sparkline -->
 <script src="/admin/plugins/sparklines/sparkline.js"></script>
 <!-- JQVMap -->
@@ -414,6 +422,11 @@
 <script src="/admin/plugins/toastr/toastr.min.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+<!-- Masonry  Cascading grid layout library -->
+{{--<script src="../node_modules/masonry-layout/dist/masonry.pkgd.min.js"></script>--}}
+<script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
+<script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
 
 <script src="/admin/admin.js"></script>
 @stack('footer-scripts')

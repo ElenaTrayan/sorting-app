@@ -16,6 +16,7 @@ class CreateHashtagPostTable extends Migration
         Schema::create('hashtag_post', function (Blueprint $table) {
             $table->integer('post_id');
             $table->integer('hashtag_id');
+            $table->primary(['post_id', 'hashtag_id']);
         });
     }
 

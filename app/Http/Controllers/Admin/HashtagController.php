@@ -72,15 +72,17 @@ class HashtagController extends Controller
         $newHashtagSave = $newHashtag->save();
 
         if ($newHashtagSave === true) {
-            return redirect()->route('hashtags.index')->withSuccess('Хештег был успешно создан');
+            //return redirect()->route('hashtags.index')->withSuccess('Хештег был успешно создан');
+            return response()->json(['status' => true, 'message' => 'Хештег был успешно добавлен',
+                'info' => [
+                'id' => $newHashtag->id,
+                'title' => $newHashtag->title,
+                ]
+            ]);
         }
 
-        return redirect()->route('hashtags.index')->withErrors('Не удалось создать хештег');
-
-//        return response()->json(['status' => true, 'message' => 'Хештег был успешно добавлен', 'info' => [
-//            'id' => $newHashtag->id,
-//            'title' => $newHashtag->title,
-//        ]]);
+        //return redirect()->route('hashtags.index')->withErrors('Не удалось создать хештег');
+        return response()->json(['status' => false, 'message' => 'Хештег не был добавлен']);
     }
 
     /**

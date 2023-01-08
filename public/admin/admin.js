@@ -4,8 +4,8 @@ let tinymceTextarea = $('textarea#editor');
 if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
     tinymce.init({
         selector: 'textarea#editor',
-        plugins: 'image codesample code',
-        toolbar: 'undo redo | link image | code',
+        plugins: 'advlist autolink image codesample code charmap lists link preview wordcount',
+        toolbar: 'undo redo | link image | code | bullist numlist outdent indent',
         codesample_languages: [
             {text: 'PHP', value: 'php'},
             {text: 'JavaScript', value: 'javascript'},
@@ -93,6 +93,20 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
  //     //document.creationform.submit();
  // }
 
+ var $grid = $('.grid').masonry({
+     // options
+     itemSelector: '.grid-item',
+     //columnWidth: 290,
+     gutter: 20,
+     //horizontalOrder: true,
+     percentPosition: true,
+ });
+
+ // layout Masonry after each image loads
+ $grid.imagesLoaded().progress( function() {
+     $grid.masonry('layout');
+ });
+
  $(document).ready(function() {
 
      let searchInput1 = '#search-input';
@@ -157,10 +171,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      });
 
      //Загрузка файлов классическим образом - через модальное окно
-     $(':file').on('change', function () {
-         //$('#add-project-form').trigger('click');
-         //upload($(this).prop('files'));
-     });
+     // $(':file').on('change', function () {
+     //     //$('#add-project-form').trigger('click');
+     //     //upload($(this).prop('files'));
+     // });
 
      // Функция загрузки файлов
      function upload(files, url = '') {
@@ -203,8 +217,6 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          for (let token of inputToken) {
              tokenValue = token.value;
          }
-
-         console.log('========= YES ---------');
 
          $.ajax({
              url: url,
@@ -265,10 +277,17 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                  console.log(uploadedImages[key]);
                                  console.log(uploadedImages[key]['name']);
 
-                                 let img = '<div class="image" data-name="' + uploadedImages[key]['name'] + '">' +
-                                     '<span style="background-image: url(/storage/' + uploadedImages[key]['small'] + ')"></span>' +
-                                     '<i class="js-delete-image fas fa-times-circle"></i>' +
-                                     '</div>';
+                                 let img = '<div class="image" data-name="' + uploadedImages[key]['name'] + '">';
+
+                                 if (uploadedImages[key]['small'] !== undefined) {
+                                     img += '<span style="background-image: url(/storage/' + uploadedImages[key]['small'] + ')"></span>' +
+                                         '<i class="js-delete-image fas fa-times-circle"></i>' +
+                                         '</div>';
+                                 } else {
+                                     img += '<span style="background-image: url(/storage/' + uploadedImages[key]['original'] + ')"></span>' +
+                                         '<i class="js-delete-image fas fa-times-circle"></i>' +
+                                         '</div>';
+                                 }
 
                                  // Добавить в контейнер
                                  $('.js-upload-image-section .images').append(img);
@@ -425,6 +444,148 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          //creationForm.submit();
 
          //return true;
+     });
+
+     let editForm = $("#editform");
+     if (editForm !== undefined && editForm !== null) {
+         let hashtags = [];
+
+         $(containerSelectedHashtagsTags2 + ' span.tag').each(function(i,elem) {
+             hashtags.push(elem.getAttribute('data-id'));
+         });
+
+         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+     }
+
+     $('#editform input[type="file"]').on('change', function (event) {
+         console.log(this.files[0]);
+
+         let formData = new FormData();
+         formData.append('files[]', this.files[0]);
+         formData.append('username', 'Chris');
+         console.log(formData);
+
+         for (let value of formData.values()) {
+             console.log('=========' + value);
+         }
+
+         let tokenValue = '';
+         let inputToken = $("[name='_token']");
+         for (let token of inputToken) {
+             tokenValue = token.value;
+         }
+
+         let url = this.getAttribute('data-action');
+
+         $.ajax({
+             url: url,
+             headers: {
+                 'X-CSRF-TOKEN': tokenValue,
+             },
+             type: 'POST',
+             data: formData,
+             cache       : false,
+             dataType    : 'json',
+             // отключаем обработку передаваемых данных, пусть передаются как есть
+             processData : false,
+             // отключаем установку заголовка типа запроса. Так jQuery скажет серверу что это строковой запрос
+             contentType : false,
+             beforeSend: function () {
+
+             },
+             success:function(response)
+             {
+                 console.log(response);
+
+                 if (response.status === false) {
+                     $('.js-error-block').addClass('active');
+                     $('.js-error-block p').text(response.error).show();
+                     $('.progress').hide();
+                 } else {
+                     $('.progress-bar').css('width', '100%');
+                     $('.progress-value').text('100 %');
+
+                     let uploadedImage = response.images;
+                     console.log(uploadedImage);
+
+                     localStorage.setItem('images', JSON.stringify(uploadedImage));
+                     console.log(localStorage.getItem('images'));
+
+                     // Отобразить загруженные картинки
+                     if (uploadedImage) {
+
+                         let imageSrc = '';
+                         let imageOriginalSrc = '';
+
+                         for (let key in uploadedImage) {
+                             if (uploadedImage.hasOwnProperty(key)) {
+                                 console.log(uploadedImage[key]);
+                                 console.log(uploadedImage[key]['name']);
+
+                                 if (uploadedImage[key]['original'] !== undefined) {
+                                     imageOriginalSrc = uploadedImage[key]['original'];
+                                 }
+                                 if (uploadedImage[key]['medium'] !== undefined) {
+                                     imageSrc = uploadedImage[key]['medium'];
+                                 } else if (uploadedImage[key]['original'] !== undefined) {
+                                     imageSrc = uploadedImage[key]['original'];
+                                 }
+                             }
+                         }
+
+                         console.log(imageSrc);
+
+                         $('#js-post-image img').attr('src', '/storage/' + imageSrc);
+                         $('#js-post-image').attr('data-src', '/storage/' + imageOriginalSrc);
+
+                     }
+                 }
+             },
+             error: function(response) {
+                 console.log(response);
+                 debugger;
+             },
+         });
+
+     });
+
+     $('#submit-edit-form').on('click', function(e) {
+         e.preventDefault();
+
+         let hashtags = localStorage.getItem('hashtags');
+
+         let images = localStorage.getItem('images');
+         console.log('PARSE' + JSON.parse(images));
+
+         let data = editForm.serializeArray();
+         data.push({name: 'hashtags', value: hashtags});
+         data.push({name: 'images', value: images});
+         console.log(data);
+
+         $.ajaxSetup({
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name = "csrf-token"]').attr('content')
+             }
+         });
+
+         let actionurl = editForm.attr('action');
+
+         $.ajax({
+             url: actionurl,
+             type: 'PUT',
+             data: data,
+             dataType: 'application/json',
+             complete: function(response) {
+                 let result = JSON.parse(response.responseText);
+
+                 //выводим исчезающее сообщение об успехе
+                 if (result.status === true) {
+                     toastr.success(result.message);
+                 } else {
+                     toastr.error(result.message);
+                 }
+             },
+         });
      });
 
      //страница создания поста - добавить хештег
@@ -876,7 +1037,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //добавить хэштег к выбранным хэштегам
      function addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput, foundHashtagsContainer, selectedHashtagsContainer = null, bSearchInput = null) {
 
-         let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></li>';
+         let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
 
          if (selectedHashtagsContainer !== null) {
              $(selectedHashtagsContainer).append(hashtagElement);
@@ -960,6 +1121,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      $(document).on('click touchstart', '#add-tag', function() {
 
          let savedHashtags = localStorage.getItem('hashtags');
+         if (savedHashtags === undefined || savedHashtags === null) {
+             savedHashtags = [];
+         }
          console.log('savedHashtags' + savedHashtags);
          //savedHashtags = JSON.parse(savedHashtags);
          //console.log('savedHashtags' + savedHashtags);
@@ -967,8 +1131,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let title = $(searchInput2)[0].value;
 
          let url = $('#add-tag')[0].getAttribute('data-action');
-         console.log(url);
-         console.log(title);
+         console.log('url = ' + url);
+         console.log('title = ' + title);
 
          if (title !== '') {
              $.ajax({
@@ -981,10 +1145,22 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      if (response.hasOwnProperty('info')) {
                          console.log(response.info);
 
+                         if (response.message !== null && response.message !== undefined) {
+                             toastr.success(response.message);
+                         } else {
+                             toastr.success('Хештег был добавлен');
+                         }
+
                          let foundHashtagsContainer = $('#b-search__results-2');
                          let selectedHashtagsContainer = '#b-selected-tags-2';
 
                          addHashtagToSelectedHashtags(response.info.id, response.info.title, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
+                     } else {
+                         if (response.message !== null && response.message !== undefined) {
+                             toastr.error(response.message);
+                         } else {
+                             toastr.error('Хештег не был добавлен');
+                         }
                      }
 
                  }

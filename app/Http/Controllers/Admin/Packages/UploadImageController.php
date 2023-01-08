@@ -19,7 +19,7 @@ class UploadImageController extends Controller
     public function uploadImageToTempDirectory(Request $request)
     {
         request()->validate([
-            'files.*' => 'mimes:jpeg,png,jpg,gif,svg',
+            'files.*' => 'mimes:jpeg,png,jpg,gif,svg,webp',
         ]);
 
         $images = [];
@@ -42,9 +42,21 @@ class UploadImageController extends Controller
                 $imageName = strtr($path_info['filename'], array('(' => '', ')' => '', ' ' => ''));
                 $imageName = str_slug($imageName);
 
-                $imageSmall = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), true,120, 120);
+                $imageSize = getimagesize($file);
 
-                $imageMedium = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), true,320, 320);
+                if ($imageSize[0] >= 320 && $imageSize[1] >= 320) {
+                    $imageSmall = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), true,320, 320);
+                    $small_name = $imageSmall->basename;
+                } else {
+
+                }
+
+//                return response()->json(['status' => true, 'image' => 'test']);
+
+                if ($imageSize[0] >= 700 || $imageSize[1] >= 700) {
+                    $imageMedium = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), false,700, 700);
+                    $medium_name = $imageMedium->basename;
+                }
 
                 $file = Storage::putFileAs(
                     'temp_directory',
@@ -54,13 +66,27 @@ class UploadImageController extends Controller
 
                 $images[$imageName] = [
                     'name' => $imageName,
-                    'small_name' => $imageSmall->basename,
-                    'medium_name' => $imageMedium->basename,
                     'extension' => $path_info['extension'],
                     'original' => $file, // '/storage/' . $file,
-                    'medium' => 'temp_directory' . '/' . $imageMedium->basename,
-                    'small' => 'temp_directory' . '/' . $imageSmall->basename, // '/storage/temp_directory' . '/' . $imageSmall->basename,
                 ];
+
+                if (!empty($small_name)) {
+                    $images[$imageName]['small_name'] = $small_name;
+                    $images[$imageName]['small'] = 'temp_directory' . '/' . $small_name; // '/storage/temp_directory' . '/' . $imageSmall->basename,
+                }
+
+                if (!empty($medium_name)) {
+                    $images[$imageName]['medium_name'] = $medium_name;
+                    $images[$imageName]['medium'] ='temp_directory' . '/' . $medium_name;
+                }
+
+//                extension:"png"
+//                medium:"temp_directory/logo_700_700.png"
+//                medium_name:"logo_700_700.png"
+//                name:"logo"
+//                original:"temp_directory/logo.png"
+//                small:"temp_directory/logo_320_320.png"
+//                small_name:"logo_320_320.png"
             }
         }
 
@@ -291,20 +317,24 @@ class UploadImageController extends Controller
             $errors[] = $saveOriginalImage['error'];
         }
 
-        $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['medium_name'];
-        $mediumOldPath = '/temp_directory/' . $image['medium_name'];
+        if (!empty($image['medium_name'])) {
+            $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['medium_name'];
+            $mediumOldPath = '/temp_directory/' . $image['medium_name'];
 
-        $saveMediumImage = $this->saveImage($image['medium_name'], $image['extension'], $mediumOldPath, $mediumNewPath);
-        if (!empty($saveMediumImage['error'])) {
-            $errors[] = $saveMediumImage['error'];
+            $saveMediumImage = $this->saveImage($image['medium_name'], $image['extension'], $mediumOldPath, $mediumNewPath);
+            if (!empty($saveMediumImage['error'])) {
+                $errors[] = $saveMediumImage['error'];
+            }
         }
 
-        $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['small_name'];
-        $smallOldPath = '/temp_directory/' . $image['small_name'];
+        if (!empty($image['small_name'])) {
+            $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['small_name'];
+            $smallOldPath = '/temp_directory/' . $image['small_name'];
 
-        $saveSmallImage = $this->saveImage($image['small_name'], $image['extension'], $smallOldPath, $smallNewPath);
-        if (!empty($saveSmallImage['error'])) {
-            $errors[] = $saveSmallImage['error'];
+            $saveSmallImage = $this->saveImage($image['small_name'], $image['extension'], $smallOldPath, $smallNewPath);
+            if (!empty($saveSmallImage['error'])) {
+                $errors[] = $saveSmallImage['error'];
+            }
         }
 
         if (!empty($errors)) {
@@ -313,11 +343,38 @@ class UploadImageController extends Controller
             ];
         }
 
-        return [
+        $imagesInfo = [
             'original_image' => $saveOriginalImage,
-            'medium_image' => $saveMediumImage,
-            'small_image' => $saveSmallImage,
         ];
+
+        if (!empty($saveMediumImage)) {
+            $imagesInfo['medium_image'] = $saveMediumImage;
+        }
+
+        if (!empty($saveSmallImage)) {
+            $imagesInfo['small_image'] = $saveSmallImage;
+        }
+
+        return $imagesInfo;
+    }
+
+    public function deleteImageFromPost($image, $userId, $categoryId)
+    {
+        $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId) ?: 0;
+
+        $image = json_decode($image, true);
+        $imagePath = $image['path'];
+
+        if (Storage::exists($imagePath)) {
+            //dd('TRUE');
+            return Storage::delete($imagePath);
+        }
+
+        //dd($imagePath);
+        //{"name":"w700-51209445","extension":"jpg","path":"\/images\/1\/0\/0_7_w700-51209445.jpg"}
+        $errors = [];
+
+        return false;
     }
 
 }

@@ -17,14 +17,6 @@
                 </ol>
             </div><!-- /.col -->
         </div><!-- /.row -->
-        @if (session('success'))
-            <div class="row mb-2">
-                <div class="alert alert-success col-md-12" role="alert">
-                    <button type="button" class="close" style="margin-bottom: 0;" data-dismiss="alert" area-hidden="true">x</button>
-                    <h4><i class="icon fa fa-check"></i>{{ session('success') }}</h4>
-                </div>
-            </div>
-        @endif
     </div><!-- /.container-fluid -->
 </div>
 <!-- /.content-header -->
@@ -35,76 +27,97 @@
         <div class="card card-primary">
 
             <!-- form start -->
-            <form action="{{ route('posts.update', [$post->id]) }}" method="POST" enctype="multipart/form-data" id="creationform" name="creationform">
+            <form action="{{ route('posts.update', [$post->id]) }}" method="POST" enctype="multipart/form-data" id="editform" name="editform">
                 @csrf
+                @method('PUT')
                 <div class="card-body">
-                    <div class="form-group">
-                        <label for="title">Название поста</label>
-                        <input type="text" class="form-control" name="title" id="title" value="{{ $post->title }}" placeholder="Введите название категории ..." required>
-                    </div>
-                    <div class="form-group">
-                        <label for="alias">Alias поста</label>
-                        <input type="text" class="form-control" name="alias" id="alias" value="{{ $post->alias }}" placeholder="Введите alias для категории ..." required>
-                    </div>
-                    <div class="form-group">
-                        <label>Выберете категорию</label>
-                        <select class="form-control" name="category_id" id="category_id">
-                            @foreach($categories as $category)
-                                <option value="{{ $category->id }}">{{ $category->title }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <div class="card-body-block">
+                        <div class="form-group">
+                            <label for="title">Название поста</label>
+                            <input type="text" class="form-control" name="title" id="title" value="{{ $post->title }}" placeholder="Введите название поста">
+                        </div>
+                        <div class="form-group">
+                            <label for="alias">Alias поста</label>
+                            <input type="text" class="form-control" name="alias" id="alias" value="{{ $post->alias }}" placeholder="Введите alias для поста" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="category_id">Выберете категорию</label>
+                            <select class="form-control" name="category_id" id="category_id">
+                                @foreach($categories as $category)
 
-{{--                    <div class="b-upload-images">--}}
-{{--                        <a class="js-b-popup-1-open b-popup-1-open" href="#">Загрузить фото или видео</a>--}}
-{{--                        <div class="js-images-block images">--}}
-{{--                        </div>--}}
-{{--                        <input type="file" name="images[]" multiple="multiple" accept="image/x-png,image/jpeg">--}}
-{{--                    </div>--}}
+                                    <option style="font-weight: 600;" value="{{ $category->id }}" {{ $post->category_id === $category->id ? 'selected' : '' }}>{{ $category->title }}</option>
+                                    @if (!empty($category->children))
+                                        @foreach($category->children as $childrenCategory)
+                                            <option value="{{ $childrenCategory->id }}" {{ $post->category_id === $childrenCategory->id ? 'selected' : '' }}> - {{ $childrenCategory->title }}</option>
+                                        @endforeach
+                                    @endif
 
-{{--                    <input type="file" name="images[]" multiple="multiple" accept="image/x-png,image/jpeg">--}}
+                                @endforeach
+                            </select>
+                        </div>
 
-                    <div class="upload-image-section">
-                        <section class="js-upload-image-section" data-action="{{ route('image.upload-to-temp-directory') }}">
-                            <div class="js-images images"></div>
-                            <div class="title">
-                                <figure></figure>
-                                <p>Перетащите сюда фото или видео</p>
+
+
+                        <div class="b-add-tag">
+                            <div class="input-group input-group-sm add-tag">
+                                <input id="search-input-2" type="text" class="form-control" data-action="{{ route('search.hashtag') }}">
+                                <span class="input-group-append">
+                                    <button type="button" class="btn btn-info btn-flat" id="add-tag" data-action="{{ route('hashtags.store') }}">Добавить тег</button>
+                                </span>
                             </div>
-                            <input type="file" name="files[]" multiple="multiple" accept="image/x-png,image/jpeg">
-                        </section>
-                        <div class="progress">
-                            <div class="progress-bar"></div>
-                            <div class="progress-value">0 %</div>
-                        </div>
-                        <div class="js-error-block error-block alert alert-warning alert-dismissible">
-                            <button type="button" class="js-close-error-block close">×</button>
-                            <i class="icon fas fa-exclamation-triangle"></i><p></p>
+                            <ul id="b-search__results-2" class="b-search__results-2"></ul>
+    {{--                        <div id="found-hashtags" class="found-hashtags"></div>--}}
+
+                            <ul id="b-selected-tags-2" class="b-selected-tags-2">
+    {{--                            <li>--}}
+                                @if (!empty($post->hashtags))
+                                    @foreach($post->hashtags as $hashtag)
+                                        <span class="tag" data-id="{{ $hashtag->id }}" data-name="{{ $hashtag->title }}">#{{ $hashtag->title }}<span class="icon font-icon fas close"></span></span>
+                                    @endforeach
+                                @endif
+    {{--                            </li>--}}
+                            </ul>
                         </div>
                     </div>
 
-                    <div class="b-add-tag">
-                        <div class="input-group input-group-sm add-tag">
-                            <input id="search-input-2" type="text" class="form-control" data-action="{{ route('search.hashtag') }}">
-                            <span class="input-group-append">
-                                <button type="button" class="btn btn-info btn-flat" id="add-tag" data-action="{{ route('hashtags.store') }}">Добавить тег</button>
-                            </span>
+                    <div class="card-body-block">
+                        <div class="post-update-image">
+{{--                            <div class="mb-3">--}}
+{{--                                <label for="imagefile">Default file input</label>--}}
+{{--                                <input type="file" id="imagefile" name="files[]" class="form-control" accept="image/png, image/jpeg">--}}
+{{--                            </div>--}}
+
+                            <div class="form-group">
+                                <label for="exampleInputFile">File input</label>
+                                <div class="input-group">
+                                    <div class="custom-file">
+                                        <input type="file" class="custom-file-input" id="exampleInputFile" data-action="{{ route('image.upload-to-temp-directory') }}" multiple="multiple">
+                                        <label class="custom-file-label" for="exampleInputFile"></label>
+                                    </div>
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-block btn-default" id="">Upload</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (!empty($originalImage['path']))
+                                <a class="post-image" id="js-post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] }}">
+                                    <img src="/storage{{ $mediumImage['path'] ?? $originalImage['path'] }}" />
+                                </a>
+                            @endif
                         </div>
-                        <ul id="b-search__results-2" class="b-search__results-2"></ul>
-{{--                        <div id="found-hashtags" class="found-hashtags"></div>--}}
-
-                        <ul id="b-selected-tags-2" class="b-selected-tags-2"></ul>
-                    </div>
-
-
-                    <div class="form-group">
-                        <textarea id="editor" name="content" placeholder="Введите текст поста ...">{{ $post->content }}</textarea>
                     </div>
 
                 </div>
                 <!-- /.card-body -->
                 <div class="card-footer">
-                    <button id="submit-creation-form" type="submit" class="btn btn-primary">Добавить</button>
+                    <div class="form-group">
+                        <label for="content">...</label>
+                        <textarea id="editor" name="content" placeholder="Введите текст поста ...">{{ $post->content }}</textarea>
+                    </div>
+
+                    <button id="submit-edit-form" type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    <a href="{{ route('posts.index') }}" class="btn btn-primary">Отменить</a>
                 </div>
             </form>
 

@@ -50,20 +50,26 @@
 
             <div class="card-body">
 
-                <div class="">
-                    <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] }}">
-                        <img src="/storage{{ $originalImage['path'] }}" />
-                    </a>
-                </div>
-
-                <div class="">
-                    <div class="title">
-                        <h3 class="my-3">{{ $post->title }}</h3>
-                        <span class="edit"><i class="nav-icon fas fa-edit"></i></span>
-                        <button type="button" aria-label="Copy code to clipboard" class="copyButton_wuS7 clean-btn">Copy</button>
+                @if(!empty($originalImage['path']))
+                    <div class="">
+                        <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] }}">
+                            <img src="/storage{{ $mediumImage['path'] ?? $originalImage['path'] }}" />
+                        </a>
                     </div>
+                @endif
 
-                    <p>{{ $post->content }}</p>
+                <div class="">
+                    @if (!empty($post->content))
+                        <div class="title">
+                            <h3 class="my-3">{{ $post->title }}</h3>
+                            <span class="edit"><i class="nav-icon fas fa-edit"></i></span>
+                            <button type="button" aria-label="Copy code to clipboard" class="copyButton_wuS7 clean-btn">Copy</button>
+                        </div>
+                    @endif
+
+                    @if (!empty($post->content))
+                        {!! $post->content !!}
+                    @endif
                 </div>
 
 

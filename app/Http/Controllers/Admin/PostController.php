@@ -16,13 +16,13 @@ class PostController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function index()
     {
         //$posts = Post::orderBy('title', 'asc')->get();
 
-        $posts = Post::selectRaw('posts.id, posts.title, posts.alias, posts.user_id, posts.category_id, posts.status, posts.is_used, posts.content, posts.medium_image, posts.original_image')
+        $posts = Post::selectRaw('posts.id, posts.title, posts.alias, posts.user_id, posts.category_id, posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image')
             ->with([
                 'category' => function($q) {
                     $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
@@ -39,15 +39,20 @@ class PostController extends Controller
             ])
             ->where('posts.user_id', 1)
             ->latest()
-            ->limit(30)
-            ->get();
+            ->paginate(15);
 
         //dd($posts);
 
         foreach ($posts as $post) {
-            if (!empty($post->medium_image) && isJson($post->medium_image)) {
+            if (!empty($post->small_image) && isJson($post->small_image)) {
+                $smallImage = json_decode($post->small_image, true);
+                $post['cover_image'] = $smallImage['path'];
+            } elseif (!empty($post->medium_image) && isJson($post->medium_image)) {
                 $mediumImage = json_decode($post->medium_image, true);
                 $post['cover_image'] = $mediumImage['path'];
+            } elseif (!empty($post->original_image) && isJson($post->original_image)) {
+                $originalImage = json_decode($post->original_image, true);
+                $post['cover_image'] = $originalImage['path'];
             }
         }
 
@@ -76,8 +81,8 @@ class PostController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
@@ -146,8 +151,8 @@ class PostController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \App\Models\Post  $post
-     * @return \Illuminate\Http\Response
+     * @param $id
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function show($id)
     {
@@ -178,34 +183,173 @@ class PostController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @param  \App\Models\Post  $post
-     * @return \Illuminate\Http\Response
+     * @param $id
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
     public function edit($id)
     {
-        $post = Post::where('id', $id)->first();
+        $post = Post::where('id', $id)
+            ->where('posts.user_id', 1)
+            ->with([
+                'hashtags' => function($q) {
+                    $q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
+                },
+            ])->first();
+
         $categories = PostsCategory::orderBy('title', 'DESC')->get();
 
-        return view('admin.posts.edit', ['categories' => $categories, 'post' => $post]);
+        $returnArray = [
+            'categories' => $categories,
+            'post' => $post,
+        ];
+
+        if (!empty($post->original_image)) {
+            $returnArray['originalImage'] = json_decode($post->original_image, true);
+        }
+
+        if (!empty($post->medium_image)) {
+            $returnArray['mediumImage'] = json_decode($post->medium_image, true);
+        }
+
+        return view('admin.posts.edit', $returnArray);
     }
 
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Post  $post
-     * @return \Illuminate\Http\Response
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
      */
     public function update(Request $request, Post $post)
     {
-        //
+        $addHashtags = [];
+        $deleteHashtags = [];
+
+        if (!empty($request->hashtags)) {
+            $requestHashtags = json_decode($request->hashtags);
+
+            if (is_array($requestHashtags)) {
+                $postHashtags = [];
+
+                if (!empty($post->hashtags)) {
+                    foreach ($post->hashtags as $hashtag) {
+                        $postHashtags[] = $hashtag->id;
+
+                        if (!in_array($hashtag->id, $requestHashtags)) {
+                            //удаляем хештег у поста
+                            $deleteHashtags[] = $hashtag->id;
+                        }
+                    }
+                }
+
+                foreach ($requestHashtags as $requestHashtag) {
+                    if (!in_array($requestHashtag, $postHashtags)) {
+                        //добавляем хештег к посту
+                        $addHashtags[] = (int)$requestHashtag;
+                    }
+                }
+            }
+        }
+
+        $categoryId = $post->category_id;
+        if (!empty($request->alias)) {
+            $post->category_id = $request->category_id;
+        }
+
+        if (!empty($request->title)) {
+            $post->title = $request->title;
+        }
+
+        if (!empty($request->alias)) {
+            $post->alias = $request->alias;
+        }
+
+        if (!empty($request->content)) {
+            $post->content = $request->content;
+        }
+
+        if (!empty($request->images)) {
+            $images = json_decode($request->images, true);
+            $image = array_shift($images);
+
+            $user = auth()->user();
+
+            $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $user->id, $post->category_id);
+            if (!empty($saveImageForPost['errors'])) {
+                //return $saveImageForPost['errors'];
+            } else {
+                if (!empty($post->original_image)) {
+                    $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->original_image, $user->id, $categoryId);
+                    if ($deleteImageFromPost !== true) {
+                        return response()->json([
+                            'status' => false,
+                            'message' => 'Ошибка при удалении original_image',
+                        ]);
+                    }
+                }
+                $post->original_image = json_encode($saveImageForPost['original_image']);
+
+                if (!empty($post->medium_image)) {
+                    $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->medium_image, $user->id, $categoryId);
+                    if ($deleteImageFromPost !== true) {
+                        return response()->json([
+                            'status' => false,
+                            'message' => 'Ошибка при удалении medium_image',
+                        ]);
+                    }
+                }
+
+                if (!empty($saveImageForPost['medium_image'])) {
+                    $post->medium_image = json_encode($saveImageForPost['medium_image']);
+                } else {
+                    $post->medium_image = '';
+                }
+
+                if (!empty($post->small_image)) {
+                    $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->small_image, $user->id, $categoryId);
+                    if ($deleteImageFromPost !== true) {
+                        return response()->json([
+                            'status' => false,
+                            'message' => 'Ошибка при удалении small_image',
+                        ]);
+                    }
+                }
+                if (!empty($saveImageForPost['small_image'])) {
+                    $post->small_image = json_encode($saveImageForPost['small_image']);
+                } else {
+                    $post->medium_image = '';
+                }
+
+            }
+        }
+
+        $postSave = $post->save();
+
+        if ($postSave === true) {
+            if (!empty($addHashtags)) {
+                $this->addHashtagsToPost($post->id, $addHashtags);
+            }
+            if (!empty($deleteHashtags)) {
+                $this->removeHashtagsFromPost($post->id, $deleteHashtags);
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Пост был успешно обновлен',
+            ]);
+        }
+
+        return response()->json([
+            'errors' => 'Не удалось обновить пост',
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
      *
-     * @param  \App\Models\Post  $post
-     * @return \Illuminate\Http\Response
+     * @param $id
+     * @return \Illuminate\Http\JsonResponse
      */
     public function destroy($id)
     {
@@ -253,17 +397,23 @@ class PostController extends Controller
             if (!empty($saveImageForPost['errors'])) {
                 return $saveImageForPost['errors'];
             } else {
-                $alias = $userId . '_' . $categoryId . '_' . $image['name'];
-
                 $new_post->original_image = json_encode($saveImageForPost['original_image']);
-                $new_post->medium_image = json_encode($saveImageForPost['medium_image']);
-                $new_post->small_image = json_encode($saveImageForPost['small_image']);
+                if (!empty($saveImageForPost['medium_image'])) {
+                    $new_post->medium_image = json_encode($saveImageForPost['medium_image']);
+                }
+                if (!empty($saveImageForPost['small_image'])) {
+                    $new_post->small_image = json_encode($saveImageForPost['small_image']);
+                }
             }
         }
 
         if (!empty($request->title)) {
             $title = $request->title;
             $alias = str_slug($request->title);
+        } elseif (!empty($image)) {
+            $alias = $userId . '_' . $categoryId . '_' . $image['name'];
+        } else {
+            $alias = $userId . '_' . $categoryId . '_' . time();
         }
 
         $new_post->title = $title;
@@ -296,6 +446,18 @@ class PostController extends Controller
         $post = Post::where('id', $postId)->firstOrFail();
         $hashtags = Hashtag::find($hashtagsIds);
         $post->hashtags()->attach($hashtags);
+    }
+
+    /**
+     * @param $postId
+     * @param array $hashtagsIds
+     * @return void
+     */
+    private function removeHashtagsFromPost($postId, array $hashtagsIds)
+    {
+        $post = Post::where('id', $postId)->firstOrFail();
+        $hashtags = Hashtag::find($hashtagsIds);
+        $post->hashtags()->detach($hashtags);
     }
 
     /**

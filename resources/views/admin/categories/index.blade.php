@@ -32,6 +32,12 @@
                             toastr.success('{{ session('success') }}');
                         </script>
                     @endpush
+                @elseif(session('errors'))
+                    @push('footer-scripts')
+                        <script>
+                            toastr.error('{{ session('errors') }}');
+                        </script>
+                    @endpush
                 @endif
 
                 <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
@@ -50,15 +56,8 @@
                     </div>
                 </div>
 
-                <div class="card-header">
-                    <div class="card-tools">
-                        <button type="button" class="btn btn-tool" data-card-widget="collapse" title="Collapse">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <button type="button" class="btn btn-tool" data-card-widget="remove" title="Remove">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
+                <div class="card-header" style="display: flex; justify-content: end;">
+                    <a href="{{ route('posts-categories.create') }}" class="btn btn-block btn-outline-info" style="width: 180px;">Добавить категорию</a>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-striped projects" data-url="" data-id="">

@@ -542,9 +542,9 @@ text-align: center;
 
 .b-cards {
 width: 100%;
-display: flex;
-flex-flow: row wrap;
-justify-content: flex-start;
+/*display: flex;*/
+/*flex-flow: row wrap;*/
+/*justify-content: flex-start;*/
 }
 .b-card {
 width: calc((100% - 60px) / 4);
@@ -790,6 +790,104 @@ display: inline-block; /* Строчно-блочный элемент */
         padding: 0;
     }
 }
+
+
+
+.grid-item {
+    /*width: calc((100% - 20px) / 4);*/
+    /*width: 290px;*/
+    width: calc((100% - 60px) / 4);
+    border-radius: 2px;
+    background: #ffffff;
+    box-shadow: 0px 2px 8px rgb(0 0 0 / 12%);
+    margin-bottom: 15px;
+}
+.grid-item--width2 { width: 400px; }
+
+
+.post-update-image {
+    width: 100%;
+    text-align: center;
+}
+
+.post-update-image img {
+    width: auto;
+    max-width: 100%;
+}
+
+/*.form-control[type=file]:not(:disabled):not([readonly]) {*/
+/*    cursor: pointer;*/
+/*}*/
+/*.form-control[type=file] {*/
+/*    overflow: hidden;*/
+/*    display: block;*/
+/*    width: 100%;*/
+/*    padding: 0.45rem 0.9rem;*/
+/*    font-size: .9rem;*/
+/*    font-weight: 400;*/
+/*    line-height: 1.5;*/
+/*    color: #6c757d;*/
+/*    background-color: #fff;*/
+/*    background-clip: padding-box;*/
+/*    border: 1px solid #dee2e6;*/
+/*    -webkit-appearance: none;*/
+/*    -moz-appearance: none;*/
+/*    appearance: none;*/
+/*    border-radius: 0.25rem;*/
+/*    -webkit-transition: border-color .15s ease-in-out,-webkit-box-shadow .15s ease-in-out;*/
+/*    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out,-webkit-box-shadow .15s ease-in-out;*/
+/*}*/
+
+
+
+.ribbon-box {
+    position: relative;
+}
+.ribbon-box .ribbon.float-end {
+    margin-right: -10px;
+    border-radius: 3px 0 0 3px;
+}
+.ribbon-box .ribbon.float-end:before {
+    right: 0;
+}
+.ribbon-box .ribbon-success {
+    background: #0acf97;
+}
+.ribbon-box .ribbon-success:before {
+    border-color: #09b785 transparent transparent;
+}
+.ribbon-box .ribbon {
+    position: relative;
+    clear: both;
+    padding: 5px 12px;
+    margin-bottom: 15px;
+    -webkit-box-shadow: 2px 5px 10px rgb(49 58 70 / 15%);
+    box-shadow: 2px 5px 10px rgb(49 58 70 / 15%);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+}
+.ribbon-box .ribbon:before {
+    content: " ";
+    border-style: solid;
+    border-width: 10px;
+    display: block;
+    position: absolute;
+    bottom: -10px;
+    left: 0;
+    margin-bottom: -10px;
+    z-index: -1;
+}
+.float-end {
+    float: right!important;
+}
+.me-1 {
+    margin-right: .375rem!important;
+}
+.mdi-access-point::before {
+    content: "\f0003";
+}
+
 
 /*.card-body {*/
 /*    display: flex;*/
