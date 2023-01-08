@@ -5,15 +5,20 @@ namespace App\Http\Controllers\Admin\Packages;
 use App\Http\Controllers\Admin\DevHelpersContoller;
 use App\Http\Controllers\Controller;
 use App\Models\Post;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use function PHPUnit\Framework\isJson;
 
 class SearchController extends Controller
 {
 
     /**
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function searchHashtag(Request $request)
     {
@@ -99,7 +104,7 @@ class SearchController extends Controller
 
     /**
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return Application|Factory|View|JsonResponse
      */
     public function searchPostsByHashtags(Request $request)
     {
@@ -115,16 +120,27 @@ class SearchController extends Controller
                 )->with([
                     'hashtags' => function($q) use ($hashtags) {
                         //$q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
-                        $q->whereIn('hashtags.id', $hashtags);
+                        //$q->whereIn('hashtags.id', $hashtags);
                     },
                 ])
-                //->where('user_id', $user->id)
-                //->limit(12)
-                ->get();
+                ->where('user_id', $user->id)
+                ->latest()
+                ->paginate(15);
 
-            if ($posts) {
-                return response()->json(['status' => true, 'posts' => $posts]);
+            foreach ($posts as $post) {
+                if (!empty($post->small_image) && isJson($post->small_image)) {
+                    $smallImage = json_decode($post->small_image, true);
+                    $post['cover_image'] = $smallImage['path'];
+                } elseif (!empty($post->medium_image) && isJson($post->medium_image)) {
+                    $mediumImage = json_decode($post->medium_image, true);
+                    $post['cover_image'] = $mediumImage['path'];
+                } elseif (!empty($post->original_image) && isJson($post->original_image)) {
+                    $originalImage = json_decode($post->original_image, true);
+                    $post['cover_image'] = $originalImage['path'];
+                }
             }
+
+            return view('admin.posts.parts.post_items', ['posts' => $posts]);
         }
 
         return response()->json(['status' => false]);

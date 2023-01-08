@@ -93,14 +93,16 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
  //     //document.creationform.submit();
  // }
 
- var $grid = $('.grid').masonry({
-     // options
+ var masonryOptions = {
      itemSelector: '.grid-item',
      //columnWidth: 290,
      gutter: 20,
      //horizontalOrder: true,
      percentPosition: true,
- });
+ };
+
+ // initialize Masonry
+ var $grid = $('.grid').masonry( masonryOptions );
 
  // layout Masonry after each image loads
  $grid.imagesLoaded().progress( function() {
@@ -549,7 +551,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      });
 
-     $('#submit-edit-form').on('click', function(e) {
+     $('#submit-edit-form').on('click', function (e) {
          e.preventDefault();
 
          let hashtags = localStorage.getItem('hashtags');
@@ -575,7 +577,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              type: 'PUT',
              data: data,
              dataType: 'application/json',
-             complete: function(response) {
+             complete: function (response) {
                  let result = JSON.parse(response.responseText);
 
                  //выводим исчезающее сообщение об успехе
@@ -1188,23 +1190,19 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              success: function (response) {
                  console.log(response);
 
-                 // let hashtags = response.hashtags;
-                 //
-                 // let foundHashtagsContainer = $('#b-search__results');
-                 // foundHashtagsContainer.empty(); //удалить все предыдущие результаты
-                 //
-                 // if (hashtags) {
-                 //
-                 //     for (let key in hashtags) {
-                 //         let hashtagElement = '<li data-id="' + hashtags[key]['id'] + '" data-name="' + hashtags[key]['title'] + '">' + hashtags[key]['title'] + '</li>';
-                 //
-                 //         // Добавить в контейнер
-                 //         foundHashtagsContainer.append(hashtagElement);
-                 //     }
-                 //
-                 // }
+                 let gridItems = $('#posts-index .b-cards .grid .grid-item');
+                 console.log(gridItems);
+                 //$grid.masonry('remove', gridItems);
+                 $grid.masonry('destroy'); // destroy
 
+                 let postsBlock = $('#posts-index .b-cards .grid');
+                 postsBlock.html("");
 
+                 postsBlock.append(response);
+                 $grid.masonry( masonryOptions );
+
+                 let gridItemsNew = $('#posts-index .b-cards .grid .grid-item');
+                 console.log(gridItemsNew);
              }
          });
 
@@ -1520,6 +1518,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          //     }, 4000);
          // });
      }
+
+     $('#submit-edit-form').on('click', function (e) {
+         e.preventDefault();
+
+         let hashtags = localStorage.getItem('hashtags');
+     });
+
 
      // метод для транслитерации символов
      function transliter(str) {
