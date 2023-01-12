@@ -252,17 +252,15 @@ class PostController extends Controller
             }
         }
 
-        $categoryId = $post->category_id;
-        if (!empty($request->alias)) {
-            $post->category_id = $request->category_id;
-        }
-
         if (!empty($request->title)) {
             $post->title = $request->title;
         }
 
+        $categoryId = $post->category_id;
+
         if (!empty($request->alias)) {
             $post->alias = $request->alias;
+            $post->category_id = $request->category_id;
         }
 
         if (!empty($request->content)) {
@@ -436,6 +434,52 @@ class PostController extends Controller
 
         return false;
     }
+
+//    public function updatePostsHashtags(Request $request)
+//    {
+//        if ($request->ajax() && !empty($request->hashtags)) {
+//            $requestHashtags = json_decode($request->hashtags);
+//
+//            if (is_array($requestHashtags)) {
+//                $postHashtags = [];
+//
+//                if (!empty($post->hashtags)) {
+//                    foreach ($post->hashtags as $hashtag) {
+//                        $postHashtags[] = $hashtag->id;
+//
+//                        if (!in_array($hashtag->id, $requestHashtags)) {
+//                            //удаляем хештег у поста
+//                            $deleteHashtags[] = $hashtag->id;
+//                        }
+//                    }
+//                }
+//
+//                foreach ($requestHashtags as $requestHashtag) {
+//                    if (!in_array($requestHashtag, $postHashtags)) {
+//                        //добавляем хештег к посту
+//                        $addHashtags[] = (int)$requestHashtag;
+//                    }
+//                }
+//            }
+//
+//            if (!empty($addHashtags)) {
+//                $this->addHashtagsToPost($post->id, $addHashtags);
+//            }
+//            if (!empty($deleteHashtags)) {
+//                $this->removeHashtagsFromPost($post->id, $deleteHashtags);
+//            }
+//
+//            return response()->json([
+//                'status' => true,
+//                'message' => 'Хештеги были успешно добавлены к посту',
+//            ]);
+//        }
+//
+//        return response()->json([
+//            'status' => false,
+//            'message' => 'Хештеги не были добавлены к посту',
+//        ]);
+//    }
 
     /**
      * @param $postId
