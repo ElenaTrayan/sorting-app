@@ -1208,17 +1208,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      });
 
+     //удаление категорий постов на странице /admin_panel/posts-categories -> вызов попап окна #modal-delete-item
+     $(document).on('click touchstart', '#posts-categories-index [data-action=delete]', function() {
+         $('#modal-delete-item').modal('show', $(this));
+     });
 
-
+     //удаление категорий постов на странице /admin_panel/posts-categories -
+     // при нажатии на кнопку Удалить в попап окне #modal-delete-item происходит ajax-запрос
      $(document).on('click touchstart', '#posts-categories-index [data-action=delete-request]', function() {
          console.log('delete-request');
-         console.log($(this));
-         console.log($(this).data('actionUrl'));
+
          let actionUrl = $(this).data('actionUrl');
          let categoryId = $(this).data('elementId');
-
-         console.log('categoryId ' + categoryId);
-         console.log('actionUrl ' + actionUrl);
 
          $.ajaxSetup({
              headers: {
@@ -1228,7 +1229,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let categoryElement = $('tr[data-id='+categoryId+']');
 
-         $('#exampleModal').modal('hide');
+         $('#modal-delete-item').modal('hide');
 
          $.ajax({
              type: 'delete',
@@ -1236,6 +1237,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              data: {'id': categoryId},
              success: function (response) {
                  console.log(response);
+
                  if (response.status === true) {
                      categoryElement.remove();
                      if (response.message !== null && response.message !== undefined) {
@@ -1243,33 +1245,31 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      } else {
                          toastr.success('Item has been removed');
                      }
-                     //showAlert(response.message, 'alert-info', 'fa-check');
+
                  } else {
                      if (response.message !== null && response.message !== undefined) {
                          toastr.error(response.message);
                      } else {
                          toastr.error('Some error has occurred');
                      }
-                     //showAlert(response.message, 'alert-danger', 'fa-ban');
                  }
+
              }
          });
 
      });
 
-     $(document).on('shown.bs.modal','#exampleModal', function (event) {
-         console.log('TESTTT');
+     //событие при открытии попап окна #modal-delete-item
+     $(document).on('shown.bs.modal','#modal-delete-item', function (event) {
          let button = $(event.relatedTarget); // Button that triggered the modal
-         console.log($(event.relatedTarget));
-         console.log($(this));
 
-         let path = window.location.pathname;
-         let id = path.replace('/admin_panel/', '');
-         console.log(id);
-
-         let messages = getMessage(id);
-         console.log(messages);
+         // let path = window.location.pathname;
+         // let id = path.replace('/admin_panel/', '');
+         let pageId = button.data('page-id')
+         console.log(pageId);
          let modal = $(this);
+
+         let messages = getMessage(pageId);
 
          if (messages.has('title')) {
              modal.find('.modal-title').text(messages.get('title'));
@@ -1279,39 +1279,19 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              modal.find('.modal-body').text(messages.get('sub-title'));
          }
 
-         // let dataAction = $(event.relatedTarget).data('action');
-         // console.log('DATA' + dataAction);
-         // let modalButtons = getModalButtons(dataAction);
-         // // let modalButtons = '<button type="button" class="btn btn-primary" data-action="delete-request">Удалить</button>\n' +
-         // //     '<button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>';
-         // //console.log('modal-footer' + modal.find('.modal-footer'));
-         // modal.find('.modal-footer').html(modalButtons);
-
-         let element = getElementInfo(id, button); //button.closest('tr');
-         // let categoryId = element.data('id');
-         // let actionUrl = element.data('url');
-
+         let element = getElementInfo(pageId, button);
          console.log(element);
 
          if (element.has('element-id')) {
-             console.log('---------- TEST ---------');
              $('[data-action=delete-request]').data('elementId', element.get('element-id'));
          }
 
          if (element.has('action-url')) {
              $('[data-action=delete-request]').data('actionUrl', element.get('action-url'));
          }
-
-         //var recipient = button.data('whatever'); // Extract info from data-* attributes
-
-         //modal.find('.modal-body input').val(recipient);
      });
 
-     $(document).on('click touchstart', '#posts-categories-index [data-action=delete]', function() {
-         console.log('delete');
-         $('#exampleModal').modal('show', $(this));
-     });
-
+     //получаем данные для попап окна #modal-delete-item
      function getElementInfo(id, button) {
          switch (id) {
              case "posts-categories":
@@ -1346,6 +1326,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
      }
 
+     //получаем данные для попап окна #modal-delete-item
      function getMessage(id) {
          switch (id) {
              case "posts-categories":
@@ -1371,6 +1352,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
      }
 
+     //пока не используется (возможно потом удалю)
      function getModalButtons(id) {
          let modalButtons = '<button type="button" class="btn btn-primary" data-action="delete-request">Удалить</button>\n';
          switch (id) {
@@ -1384,26 +1366,20 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          return modalButtons;
      }
 
-
-
-
-     //удаление постов
+     //удаление постов на странице /admin_panel/posts -> вызов попап окна #modal-delete-item
      $(document).on('click touchstart', '.b-list-of-posts [data-action=delete]', function() {
-         console.log('delete');
-         $('#exampleModal').modal('show', $(this));
+         $('#modal-delete-item').modal('show', $(this));
      });
 
+     //удаление постов на странице /admin_panel/posts -
+     // при нажатии на кнопку Удалить в попап окне #modal-delete-item происходит ajax-запрос
      $(document).on('click touchstart', '#posts-index [data-action=delete-request]', function() {
          console.log('delete-request');
-         console.log($(this));
-         console.log($(this).data('actionUrl'));
+
          let actionUrl = $(this).data('actionUrl');
          let postId = $(this).data('elementId');
 
-         console.log('postId ' + postId);
-         console.log('actionUrl ' + actionUrl);
-
-         let postElement = $('.grid-item[data-id='+postId+']'); //$(this).closest('.b-card');
+         let postElement = $('.grid-item[data-id='+postId+']');
 
          $.ajaxSetup({
              headers: {
@@ -1416,21 +1392,19 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              url: actionUrl,
              data: {'id': postId},
              success: function (response) {
-                 $('#exampleModal').modal('hide');
+                 $('#modal-delete-item').modal('hide');
 
                  console.log(response);
 
                  if (response.status === true) {
-                     $grid.masonry('destroy'); // destroy
-                     postElement.remove();
+                     $grid.masonry('destroy'); // destroy masonry
+                     postElement.remove(); // убираем удаленный пост со страницы
 
                      if (response.message !== null && response.message !== undefined) {
                          toastr.success(response.message);
                      } else {
                          toastr.success('Item has been removed');
                      }
-                     //TODO добавить удаление поста со списка постов, после удаления
-                     // (а то нужно перезагружать страницу, чтобы увидеть, что пост удален)
 
                      // initialize Masonry
                      $grid.masonry( masonryOptions );
@@ -1446,21 +1420,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      });
 
-     //удаление хештегов на странице http://sorting.local/admin_panel/hashtags
+     //удаление хештегов на странице /admin_panel/hashtags -> вызов попап окна #modal-delete-item
      $(document).on('click touchstart', '#hashtags-index [data-action=delete]', function() {
-         console.log('delete');
-         $('#exampleModal').modal('show', $(this));
+         $('#modal-delete-item').modal('show', $(this));
      });
 
+     //удаление хештегов на странице /admin_panel/hashtags -
+     // при нажатии на кнопку Удалить в попап окне #modal-delete-item происходит ajax-запрос
      $(document).on('click touchstart', '#hashtags-index [data-action=delete-request]', function() {
          console.log('delete-request');
-         console.log($(this));
-         console.log($(this).data('actionUrl'));
+
          let actionUrl = $(this).data('actionUrl');
          let postId = $(this).data('elementId');
-
-         console.log('postId ' + postId);
-         console.log('actionUrl ' + actionUrl);
 
          $.ajaxSetup({
              headers: {
@@ -1468,9 +1439,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              }
          });
 
-         let postElement = $('#hashtags-index tr[data-id='+postId+']'); //$(this).closest('.b-card');
+         let postElement = $('#hashtags-index tr[data-id='+postId+']');
 
-         $('#exampleModal').modal('hide');
+         $('#modal-delete-item').modal('hide');
 
          $.ajax({
              type: 'delete',
@@ -1478,6 +1449,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              data: {'id': postId},
              success: function (response) {
                  console.log(response);
+
                  if (response.status === true) {
                      postElement.remove();
                      if (response.message !== null && response.message !== undefined) {
@@ -1485,15 +1457,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      } else {
                          toastr.success('Item has been removed');
                      }
-                     //showAlert(response.message, 'alert-info', 'fa-check');
+
                  } else {
                      if (response.message !== null && response.message !== undefined) {
                          toastr.error(response.message);
                      } else {
                          toastr.error('Some error has occurred');
                      }
-                     //showAlert(response.message, 'alert-danger', 'fa-ban');
                  }
+
              }
          });
      });
@@ -1502,7 +1474,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let aliasInput = $('#posts-categories-edit #alias');
          //$(this).val()
          //let str = transliter($(this).val().slice(-1)); //transliter(event.target.value);
-         $('#exampleModal').modal('show', $(this));
+         $('#modal-delete-item').modal('show', $(this));
          let inputValue = event.target.value; //$(this).val();
          console.log(inputValue);
 
@@ -1812,7 +1784,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          // return n_str.join('');
      }
 
-     //функцию isEmpty(obj), которая возвращает true, если у объекта нет свойств, иначе false
+     //функция isEmpty(obj), которая возвращает true, если у объекта нет свойств, иначе false
      function isEmptyObject(obj) {
          for (let key in obj) {
              // если тело цикла начнет выполняться - значит в объекте есть свойства

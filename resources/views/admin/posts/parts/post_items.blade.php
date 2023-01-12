@@ -39,7 +39,7 @@
                 <span class="dropdown-item text-dark" data-action="copy-text"><i class="fas fa-copy mr-1"></i>Скопировать текст</span>
                 <span class="dropdown-item text-dark"><i class="fas fa-cloud-download-alt mr-1"></i>Скачать изображение</span>
                 <span class="dropdown-item text-dark"><i class="fas fa-share mr-1"></i>Поделиться</span>
-                <span class="dropdown-item text-danger" data-action="delete" data-url="{{ route('posts.destroy', [$post->id]) }}"><i class="fa fa-trash mr-1"></i>Удалить</span>
+                <span class="dropdown-item text-danger" data-action="delete" data-url="{{ route('posts.destroy', [$post->id]) }}" data-page-id="posts"><i class="fa fa-trash mr-1"></i>Удалить</span>
             </div>
         </div>
 
