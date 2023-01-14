@@ -349,6 +349,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $(containerSelectedHashtagsTags2).empty();
      }
 
+     //отправка формы создания поста (на странице /admin_panel/posts/create)
      $('#submit-creation-form').on('click', function(e) {
          e.preventDefault();
 
