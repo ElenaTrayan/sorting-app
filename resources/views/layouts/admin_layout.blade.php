@@ -423,6 +423,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
 
+{{--<script src="/clipboard.js/dist/clipboard.min.js"></script>--}}
+
 <!-- Masonry  Cascading grid layout library -->
 {{--<script src="../node_modules/masonry-layout/dist/masonry.pkgd.min.js"></script>--}}
 <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>

@@ -349,6 +349,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $(containerSelectedHashtagsTags2).empty();
      }
 
+     //отправка формы создания поста (на странице /admin_panel/posts/create)
      $('#submit-creation-form').on('click', function(e) {
          e.preventDefault();
 
@@ -1208,17 +1209,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      });
 
+     //удаление категорий постов на странице /admin_panel/posts-categories -> вызов попап окна #modal-delete-item
+     $(document).on('click touchstart', '#posts-categories-index [data-action=delete]', function() {
+         $('#modal-delete-item').modal('show', $(this));
+     });
 
-
+     //удаление категорий постов на странице /admin_panel/posts-categories -
+     // при нажатии на кнопку Удалить в попап окне #modal-delete-item происходит ajax-запрос
      $(document).on('click touchstart', '#posts-categories-index [data-action=delete-request]', function() {
          console.log('delete-request');
-         console.log($(this));
-         console.log($(this).data('actionUrl'));
+
          let actionUrl = $(this).data('actionUrl');
          let categoryId = $(this).data('elementId');
-
-         console.log('categoryId ' + categoryId);
-         console.log('actionUrl ' + actionUrl);
 
          $.ajaxSetup({
              headers: {
@@ -1228,7 +1230,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let categoryElement = $('tr[data-id='+categoryId+']');
 
-         $('#exampleModal').modal('hide');
+         $('#modal-delete-item').modal('hide');
 
          $.ajax({
              type: 'delete',
@@ -1236,6 +1238,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              data: {'id': categoryId},
              success: function (response) {
                  console.log(response);
+
                  if (response.status === true) {
                      categoryElement.remove();
                      if (response.message !== null && response.message !== undefined) {
@@ -1243,33 +1246,31 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      } else {
                          toastr.success('Item has been removed');
                      }
-                     //showAlert(response.message, 'alert-info', 'fa-check');
+
                  } else {
                      if (response.message !== null && response.message !== undefined) {
                          toastr.error(response.message);
                      } else {
                          toastr.error('Some error has occurred');
                      }
-                     //showAlert(response.message, 'alert-danger', 'fa-ban');
                  }
+
              }
          });
 
      });
 
-     $(document).on('shown.bs.modal','#exampleModal', function (event) {
-         console.log('TESTTT');
+     //событие при открытии попап окна #modal-delete-item
+     $(document).on('shown.bs.modal','#modal-delete-item', function (event) {
          let button = $(event.relatedTarget); // Button that triggered the modal
-         console.log($(event.relatedTarget));
-         console.log($(this));
 
-         let path = window.location.pathname;
-         let id = path.replace('/admin_panel/', '');
-         console.log(id);
-
-         let messages = getMessage(id);
-         console.log(messages);
+         // let path = window.location.pathname;
+         // let id = path.replace('/admin_panel/', '');
+         let pageId = button.data('page-id')
+         console.log(pageId);
          let modal = $(this);
+
+         let messages = getMessage(pageId);
 
          if (messages.has('title')) {
              modal.find('.modal-title').text(messages.get('title'));
@@ -1279,31 +1280,19 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              modal.find('.modal-body').text(messages.get('sub-title'));
          }
 
-         let element = getElementInfo(id, button); //button.closest('tr');
-         // let categoryId = element.data('id');
-         // let actionUrl = element.data('url');
-
+         let element = getElementInfo(pageId, button);
          console.log(element);
 
          if (element.has('element-id')) {
-             console.log('---------- TEST ---------');
              $('[data-action=delete-request]').data('elementId', element.get('element-id'));
          }
 
          if (element.has('action-url')) {
              $('[data-action=delete-request]').data('actionUrl', element.get('action-url'));
          }
-
-         //var recipient = button.data('whatever'); // Extract info from data-* attributes
-
-         //modal.find('.modal-body input').val(recipient);
      });
 
-     $(document).on('click touchstart', '#posts-categories-index [data-action=delete]', function() {
-         console.log('delete');
-         $('#exampleModal').modal('show', $(this));
-     });
-
+     //получаем данные для попап окна #modal-delete-item
      function getElementInfo(id, button) {
          switch (id) {
              case "posts-categories":
@@ -1316,7 +1305,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      ['action-url', actionUrl],
                  ]);
              case "posts":
-                 let element2 = button.closest('.b-card');
+                 let element2 = button.closest('.grid-item');
                  let elementId2 = element2.data('id');
                  let actionUrl2 = button.data('url');
 
@@ -1333,18 +1322,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      ['element-id', elementId3],
                      ['action-url', actionUrl3],
                  ]);
-             case "Cherries":
-                 console.log("Cherries are $3.00 a pound.");
-                 break;
-             case "Mangoes":
-             case "Papayas":
-                 console.log("Mangoes and papayas are $2.79 a pound.");
-                 break;
              default:
                  console.log("Sorry, we are out of  ");
          }
      }
 
+     //получаем данные для попап окна #modal-delete-item
      function getMessage(id) {
          switch (id) {
              case "posts-categories":
@@ -1362,36 +1345,42 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      ['title', 'Вы уверены, что хотите удалить хештег?'],
                      ['sub-title', 'Вы не сможете восстановить хештег после удаления!'],
                  ]);
-             case "Cherries":
-                 console.log("Cherries are $3.00 a pound.");
-                 break;
-             case "Mangoes":
-             case "Papayas":
-                 console.log("Mangoes and papayas are $2.79 a pound.");
+             default:
+                 return new Map([
+                     ['title', 'Вы уверены, что хотите это удалить?'],
+                     ['sub-title', 'Вы не сможете восстановить это после удаления!'],
+                 ]);
+         }
+     }
+
+     //пока не используется (возможно потом удалю)
+     function getModalButtons(id) {
+         let modalButtons = '<button type="button" class="btn btn-primary" data-action="delete-request">Удалить</button>\n';
+         switch (id) {
+             case "delete":
+                 modalButtons += '<button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>';
                  break;
              default:
                  console.log("Sorry, we are out of  ");
          }
+
+         return modalButtons;
      }
 
-
-
-
-     //удаление постов
+     //удаление постов на странице /admin_panel/posts -> вызов попап окна #modal-delete-item
      $(document).on('click touchstart', '.b-list-of-posts [data-action=delete]', function() {
-         console.log('delete');
-         $('#exampleModal').modal('show', $(this));
+         $('#modal-delete-item').modal('show', $(this));
      });
 
+     //удаление постов на странице /admin_panel/posts -
+     // при нажатии на кнопку Удалить в попап окне #modal-delete-item происходит ajax-запрос
      $(document).on('click touchstart', '#posts-index [data-action=delete-request]', function() {
          console.log('delete-request');
-         console.log($(this));
-         console.log($(this).data('actionUrl'));
+
          let actionUrl = $(this).data('actionUrl');
          let postId = $(this).data('elementId');
 
-         console.log('postId ' + postId);
-         console.log('actionUrl ' + actionUrl);
+         let postElement = $('.grid-item[data-id='+postId+']');
 
          $.ajaxSetup({
              headers: {
@@ -1399,24 +1388,28 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              }
          });
 
-         let postElement = $('.b-card[data-id='+postId+']'); //$(this).closest('.b-card');
-
-         $('#exampleModal').modal('hide');
-
          $.ajax({
              type: 'delete',
              url: actionUrl,
              data: {'id': postId},
              success: function (response) {
+                 $('#modal-delete-item').modal('hide');
+
                  console.log(response);
+
                  if (response.status === true) {
-                     postElement.remove();
+                     $grid.masonry('destroy'); // destroy masonry
+                     postElement.remove(); // убираем удаленный пост со страницы
+
                      if (response.message !== null && response.message !== undefined) {
                          toastr.success(response.message);
                      } else {
                          toastr.success('Item has been removed');
                      }
-                     //showAlert(response.message, 'alert-info', 'fa-check');
+
+                     // initialize Masonry
+                     $grid.masonry( masonryOptions );
+
                  } else {
                      if (response.message !== null && response.message !== undefined) {
                          toastr.error(response.message);
@@ -1428,21 +1421,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      });
 
-     //удаление хештегов на странице http://sorting.local/admin_panel/hashtags
+     //удаление хештегов на странице /admin_panel/hashtags -> вызов попап окна #modal-delete-item
      $(document).on('click touchstart', '#hashtags-index [data-action=delete]', function() {
-         console.log('delete');
-         $('#exampleModal').modal('show', $(this));
+         $('#modal-delete-item').modal('show', $(this));
      });
 
+     //удаление хештегов на странице /admin_panel/hashtags -
+     // при нажатии на кнопку Удалить в попап окне #modal-delete-item происходит ajax-запрос
      $(document).on('click touchstart', '#hashtags-index [data-action=delete-request]', function() {
          console.log('delete-request');
-         console.log($(this));
-         console.log($(this).data('actionUrl'));
+
          let actionUrl = $(this).data('actionUrl');
          let postId = $(this).data('elementId');
-
-         console.log('postId ' + postId);
-         console.log('actionUrl ' + actionUrl);
 
          $.ajaxSetup({
              headers: {
@@ -1450,9 +1440,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              }
          });
 
-         let postElement = $('#hashtags-index tr[data-id='+postId+']'); //$(this).closest('.b-card');
+         let postElement = $('#hashtags-index tr[data-id='+postId+']');
 
-         $('#exampleModal').modal('hide');
+         $('#modal-delete-item').modal('hide');
 
          $.ajax({
              type: 'delete',
@@ -1460,6 +1450,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              data: {'id': postId},
              success: function (response) {
                  console.log(response);
+
                  if (response.status === true) {
                      postElement.remove();
                      if (response.message !== null && response.message !== undefined) {
@@ -1467,15 +1458,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      } else {
                          toastr.success('Item has been removed');
                      }
-                     //showAlert(response.message, 'alert-info', 'fa-check');
+
                  } else {
                      if (response.message !== null && response.message !== undefined) {
                          toastr.error(response.message);
                      } else {
                          toastr.error('Some error has occurred');
                      }
-                     //showAlert(response.message, 'alert-danger', 'fa-ban');
                  }
+
              }
          });
      });
@@ -1484,7 +1475,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let aliasInput = $('#posts-categories-edit #alias');
          //$(this).val()
          //let str = transliter($(this).val().slice(-1)); //transliter(event.target.value);
-         $('#exampleModal').modal('show', $(this));
+         $('#modal-delete-item').modal('show', $(this));
          let inputValue = event.target.value; //$(this).val();
          console.log(inputValue);
 
@@ -1519,12 +1510,186 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          // });
      }
 
-     $('#submit-edit-form').on('click', function (e) {
-         e.preventDefault();
+     //страница - список постов: кнопка Добавить тег -> открывается поп-ап окно
+     $(document).on('click', '#posts-index [data-action=add-hashtag]', function(event) {
+         $('#modal-add-hashtag').modal('show', $(this));
+         let tagsBlockElement = $(this).closest('.grid-item').find('.tags li');
+         console.log(tagsBlockElement);
 
-         let hashtags = localStorage.getItem('hashtags');
+         let hashtags = [];
+         tagsBlockElement.each(function(i,elem) {
+             //TODO добавить к .tags li  data-id
+             console.log('data-id = ' + elem.getAttribute('data-id'));
+             let hashtagId = elem.getAttribute('data-id');
+             let hashtagTitle = elem.getAttribute('data-title');
+             hashtags.push(hashtagId);
+
+             let postHashtag = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
+             $(containerSelectedHashtagsTags2).append(postHashtag);
+         });
+
+         localStorage.setItem('hashtags', JSON.stringify(hashtags));
      });
 
+     $(document).on('shown.bs.modal','#modal-add-hashtag', function (event) {
+         console.log('modal-add-hashtag');
+         let button = $(event.relatedTarget); // Button that triggered the modal
+         console.log(button);
+         console.log($(this));
+
+         let actionUrl = button.data('url');
+         console.log(actionUrl);
+         let postId = button.data('post-id');
+         console.log(postId);
+
+         $('[data-action=save-request]').data('url', actionUrl);
+         $('[data-action=save-request]').data('post-id', postId);
+         //console.log($('[data-action=save-request]').data('url'));
+     });
+
+     //страница - список постов: добавить хештеги к посту из localStorage после нажатия на кнопку Сохранить в поп-ап окне
+     $(document).on('click', '#modal-add-hashtag [data-action=save-request]', function(event) {
+         //TODO
+         let hashtags = localStorage.getItem('hashtags');
+         console.log('hashtags' + hashtags);
+
+         let actionurl = $(this).data('url');
+         let postId = $(this).data('post-id');
+
+         $.ajaxSetup({
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name = "csrf-token"]').attr('content')
+             }
+         });
+
+         $.ajax({
+             url: actionurl,
+             type: 'PUT',
+             dataType: 'application/json',
+             data: {'hashtags': hashtags},
+             complete: function(response) {
+                 console.log("ответ");
+                 console.log(response.responseText);
+                 let result = JSON.parse(response.responseText);
+                 console.log('response' + result);
+                 console.log('message' + result.message);
+
+                 if (result.status === true) {
+                     toastr.success(result.message);
+                     //showAlert(result.message, 'alert-info', 'fa-check');
+                     let postElement = $('.grid-item[data-id='+postId+']');
+                     let tagsBlock = postElement.find('.tags');
+                     console.log(tagsBlock);
+
+                     //TODO - походу нужно в localStorage хранить не только id хештега, но и title
+
+                     // for ( let i = 0; i < hashtags.length; ++i ) {
+                     //     let postHashtag = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
+                     //     $(containerSelectedHashtagsTags2).append(postHashtag);
+                     // }
+
+                 } else {
+                     toastr.error(result.message);
+                     //showAlert(result.message, 'alert-danger', 'fa-ban');
+                 }
+
+                 $('#modal-add-hashtag').modal('hide');
+             },
+         });
+     });
+
+     //скопировать текст поста (страница - список постов)
+     $(document).on('click', '#posts-index [data-action=copy-text]', function(event) {
+         //let gridItem = $( event.target ).closest('.grid-item'); //
+         let gridItem = this.closest('.grid-item'); //
+         console.log(gridItem);
+         let textElement = gridItem.querySelector('.b-card__content .b-card__content__text');
+         //let textElement = gridItem.find('.b-card__content .b-card__content__text');
+         console.log(textElement);
+         let text = textElement.innerText;
+         console.log(text);
+
+         if (window.isSecureContext && navigator.clipboard) {
+             //This feature is available only in secure contexts (HTTPS), in some or all supporting browsers.
+             navigator.clipboard.writeText(text);
+         } else {
+             unsecuredCopyToClipboard(textElement, event);
+         }
+
+         // let gridItem = this.closest('.grid-item'); //
+         // console.log(gridItem);
+         // let textElement = gridItem.querySelector('.b-card__content .b-card__content__text');
+         // console.log(textElement);
+         // // let text = textElement.textContent;
+         // // console.log(text);
+         //
+         // selectText(textElement);
+         // document.execCommand("copy");
+         // document.body.removeChild(copyTextarea);
+
+     });
+
+     function unsecuredCopyToClipboard(textElement, event) {
+
+         console.log('unsecuredCopyToClipboard');
+
+         let cursorPosition = getPosition(event);
+         console.log(cursorPosition);
+
+         selectText(textElement);
+         document.execCommand("copy");
+
+         unselectText();
+     }
+
+     //выделить текст элемента
+     function selectText(textElement) {
+         var doc = document;
+         var element = textElement;
+         console.log(this, element);
+         if (doc.body.createTextRange) {
+             var range = document.body.createTextRange();
+             range.moveToElementText(element);
+             range.select();
+         } else if (window.getSelection) {
+             var selection = window.getSelection();
+             var range = document.createRange();
+             range.selectNodeContents(element);
+             selection.removeAllRanges();
+             selection.addRange(range);
+         }
+
+         // if (txt = window.getSelection) { // Не IE, используем метод getSelection
+         //     txt = window.getSelection().toString();
+         // } else { // IE, используем объект selection
+         //     txt = document.selection.createRange().text;
+         // }
+     }
+
+     //снять выделение с текста
+     function unselectText() {
+         let selection = window.getSelection();
+         selection.removeAllRanges();
+     }
+
+     //получить координаты курсора мыши
+     function getPosition(e){
+         var x = y = 0;
+
+         if (!e) {
+             var e = window.event;
+         }
+
+         if (e.pageX || e.pageY){
+             x = e.pageX;
+             y = e.pageY;
+         } else if (e.clientX || e.clientY){
+             x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+             y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+         }
+
+         return {x: x, y: y}
+     }
 
      // метод для транслитерации символов
      function transliter(str) {
@@ -1620,7 +1785,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          // return n_str.join('');
      }
 
-     //функцию isEmpty(obj), которая возвращает true, если у объекта нет свойств, иначе false
+     //функция isEmpty(obj), которая возвращает true, если у объекта нет свойств, иначе false
      function isEmptyObject(obj) {
          for (let key in obj) {
              // если тело цикла начнет выполняться - значит в объекте есть свойства

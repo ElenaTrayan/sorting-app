@@ -22,6 +22,7 @@
     },
     "dependencies": {
         "@fancyapps/ui": "^4.0.31",
+        "clipboard": "^2.0.11",
         "masonry-layout": "^4.2.2",
         "toastr": "^2.1.4"
     }

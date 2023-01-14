@@ -35,5 +35,39 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
     Route::post('/search-hashtag',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchHashtag'])->name('search.hashtag');
     Route::post('/search-hashtag-by-title',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchSameHashtag'])->name('search.hashtag-by-title');
     Route::post('/search-posts-by-hashtags',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchPostsByHashtags'])->name('search.posts-by-hashtags');
+//    Route::post('/posts-update-hashtags',[App\Http\Controllers\Admin\PostController::class, 'updatePostsHashtags'])->name('post-update-hashtags');
+
+    Route::get('/generate-docs', function(){
+
+        $headers = array(
+
+            "Content-type"=>"text/html",
+
+            "Content-Disposition"=>"attachment;Filename=myfile.doc"
+
+        );
+
+
+
+        $content = '<html>
+
+            <head><meta charset="utf-8"></head>
+
+            <body>
+                <h1>Title test</h1>
+
+                <p style="color: #ff0050">My Content</p>
+
+                <ul><li>Cat</li><li>Cat</li></ul>
+
+            </body>
+
+            </html>';
+
+
+
+        return \Response::make($content,200, $headers);
+
+    });
 });
 
