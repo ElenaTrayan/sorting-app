@@ -111,8 +111,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
  $(document).ready(function() {
 
-     let searchInput1 = '#search-input';
-     let searchInput2 = '#search-input-2';
+     let searchInput1 = '#search-input'; //поиск в шапке
+     let searchInput2 = '#search-input-2'; //поиск при добавлении хештега при создании поста
 
      let containerSelectedHashtagsTags1 = '#b-search__field__tags-container__tags';
      let containerSelectedHashtagsTags2 = '#b-selected-tags-2';
@@ -124,6 +124,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
          if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
              localStorage.removeItem('hashtags');
+         }
+         if (localStorage.getItem('hashtags2') !== undefined && localStorage.getItem('hashtags2') !== null) {
+             localStorage.removeItem('hashtags2');
          }
      }
 
@@ -341,9 +344,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $('.js-images').empty();
      }
 
-     function resetHashtagsFromForm() {
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
-             localStorage.removeItem('hashtags');
+     function resetHashtagsFromForm(storageKey) {
+         if (localStorage.getItem(storageKey) !== undefined && localStorage.getItem(storageKey) !== null) {
+             localStorage.removeItem(storageKey);
          }
 
          $(containerSelectedHashtagsTags2).empty();
@@ -367,7 +370,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          //creationForm.append('<input type="hidden" name="images" value="' + images + '" />');
          //console.log('creationForm' + creationForm);
 
-         let hashtags = localStorage.getItem('hashtags');
+         let storageKey = 'hashtags2';
+         let hashtags = localStorage.getItem(storageKey);
 
          // for ( let i = 0; i < hashtagsElements.length; ++i) {
          //     console.log(hashtagsElements[i].getAttribute('data-id'));
@@ -418,7 +422,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      resetImagesFromForm();
 
-                     resetHashtagsFromForm();
+                     resetHashtagsFromForm(storageKey);
 
 
                      toastr.success(result.message);
@@ -451,13 +455,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      let editForm = $("#editform");
      if (editForm !== undefined && editForm !== null) {
-         let hashtags = [];
+         let savedHashtags = {};
 
          $(containerSelectedHashtagsTags2 + ' span.tag').each(function(i,elem) {
-             hashtags.push(elem.getAttribute('data-id'));
+             savedHashtags[elem.getAttribute('data-id')] = elem.getAttribute('data-name');
+             //hashtags.push(elem.getAttribute('data-id'));
          });
 
-         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+         localStorage.setItem('hashtags2', JSON.stringify(savedHashtags));
      }
 
      $('#editform input[type="file"]').on('change', function (event) {
@@ -555,7 +560,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      $('#submit-edit-form').on('click', function (e) {
          e.preventDefault();
 
-         let hashtags = localStorage.getItem('hashtags');
+         let storageKey = 'hashtags2';
+         let hashtags = localStorage.getItem(storageKey);
 
          let images = localStorage.getItem('images');
          console.log('PARSE' + JSON.parse(images));
@@ -784,7 +790,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $(this).next('.error').removeClass('active');
      });
 
-     //ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
+     // searchInput1
+     // ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
      $(document).on('input', searchInput1, function() {
          console.log('click');
 
@@ -794,9 +801,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let searchValue =  $(this).val();
          console.log(searchValue);
 
+         let storageKey = 'hashtags'
          let foundHashtagsContainer = $('#b-search__results');
 
-         searchHashtag(searchValue, searchUrl, foundHashtagsContainer);
+         searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer);
 
      });
 
@@ -809,7 +817,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
      });
 
-     //ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
+     // searchInput2
+     // ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
      $(document).on('keyup', searchInput2, function(event) {
          let searchUrl = $(this)[0].getAttribute('data-action');
 
@@ -822,35 +831,44 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              console.log('ENTER');
              document.getElementById("add-tag").click();
 
+             //TODO
+
              return false;
          }
 
+         let storageKey = 'hashtags2'
          let foundHashtagsContainer = $('#b-search__results-2');
 
-         searchHashtag(searchValue, searchUrl, foundHashtagsContainer);
+         searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer);
 
      });
 
-     function searchHashtag(searchValue, searchUrl, foundHashtagsContainer) {
+     // Поиск хештегов
+     function searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer) {
+
          $.ajaxSetup({
              headers: {
                  'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
              }
          });
 
-         let hashtagsValue = '';
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
-             hashtagsValue = localStorage.getItem('hashtags');
+         let hashtagsValue = [];
+         let storageHashtags = localStorage.getItem(storageKey);
+         if (storageHashtags !== undefined && storageHashtags !== null && storageHashtags !== {}) {
+             hashtagsValue = JSON.parse(storageHashtags);
          }
+
+         console.log('hashtagsValue = ' + hashtagsValue);
 
          $.ajax({
              type: 'post',
              url: searchUrl,
              data: {'search': searchValue, 'hashtags': hashtagsValue},
              success: function (response) {
-                 console.log(response);
+                 console.log('response - ' + response);
 
                  let hashtags = response.hashtags;
+                 console.log('hashtags - ' + hashtags);
 
                  foundHashtagsContainer.empty(); //удалить все предыдущие результаты
 
@@ -1033,12 +1051,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let foundHashtagsContainer = $('#b-search__results-2');
          let selectedHashtagsContainer = '#b-selected-tags-2';
+         let storageKey = 'hashtags2';
 
-         addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
+         addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
      });
 
      //добавить хэштег к выбранным хэштегам
-     function addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput, foundHashtagsContainer, selectedHashtagsContainer = null, bSearchInput = null) {
+     function addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput, foundHashtagsContainer, selectedHashtagsContainer = null, bSearchInput = null) {
 
          let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
 
@@ -1048,39 +1067,59 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              $(hashtagElement).insertBefore(bSearchInput);
          }
 
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
-             let savedHashtags = localStorage.getItem('hashtags');
-             console.log('savedHashtags' + savedHashtags);
+         let savedHashtags = localStorage.getItem(storageKey);
+         console.log('savedHashtags' + savedHashtags);
+         console.log(storageKey);
+
+         if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
              savedHashtags = JSON.parse(savedHashtags);
              console.log('savedHashtags' + savedHashtags);
 
              //проверить есть ли ключ в массиве. если нет - добавить значение в массив
-             if(savedHashtags.includes(hashtagId) === false) {
-                 addHashtagToStorage(hashtagId, savedHashtags, foundHashtagsContainer);
+             if(savedHashtags.hasOwnProperty(hashtagId) === false) {
+                 addHashtagToStorage(hashtagId, hashtagTitle, savedHashtags, storageKey, foundHashtagsContainer);
                  focusOnInput(searchInput);
              }
          } else {
-             addHashtagToStorage(hashtagId, [], foundHashtagsContainer);
+             addHashtagToStorage(hashtagId, hashtagTitle, {}, storageKey, foundHashtagsContainer);
              focusOnInput(searchInput);
          }
      }
 
-     //добавляем id хештега в массив hashtags в localStorage
-     function addHashtagToStorage(hashtagId, hashtags, foundHashtagsContainer) {
-         hashtags.push(hashtagId);
-         console.log('hashtags' + hashtags);
-         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+     //добавляем id и title хештега в массив hashtags в localStorage
+     function addHashtagToStorage(hashtagId, hashtagTitle, savedHashtags, storageKey, foundHashtagsContainer) {
+         // hashtags.push(hashtagId);
+         // console.log('hashtags' + hashtags);
+         // localStorage.setItem('hashtags', JSON.stringify(hashtags));
+
+         // const arr = {
+         //     key1: 'value1',
+         // };
+
+         // arr в JSON
+         // let str = JSON.stringify(arr);
+         // console.log('str = ' + str);
+         // str в объект (ассоциативный массив)
+
+         console.log('hashtagId = ' + hashtagId);
+         console.log('hashtagTitle = ' + hashtagTitle);
+         console.log('savedHashtags = ' + savedHashtags);
+
+         savedHashtags[hashtagId] = hashtagTitle;
+         //hashtags[2] = 'bla';
+         console.log('savedHashtags = ' + JSON.stringify(savedHashtags));
+
+         localStorage.setItem(storageKey, JSON.stringify(savedHashtags));
 
          //удалить все предыдущие результаты
          foundHashtagsContainer.empty();
      }
 
+     //сделать активным и пустым input
      function focusOnInput(searchInput) {
          $(searchInput).val('');
          $(searchInput).focus();
      }
-
-
 
      $(document).on('click touchstart', containerSelectedHashtagsTags1 + ' .tag .close', function() {
          console.log("**************");
@@ -1090,52 +1129,69 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          focusOnInput(searchInput1);
      });
 
+     //удалить хештег из выбранных -> вызов метода removeHashtag
      $(document).on('click touchstart', containerSelectedHashtagsTags2 + ' .tag .close', function() {
          console.log("**************");
          console.log($(this));
 
-         removeHashtag($(this));
+         let storageKey = 'hashtags2';
+
+         removeHashtag($(this), storageKey);
          focusOnInput(searchInput2);
      });
 
-     function removeHashtag(closeBtn) {
+     //удалить хештег из выбранных
+     function removeHashtag(closeBtn, storageKey) {
          let tag = closeBtn.closest('.tag');
          let tagId = tag.data('id');
          console.log('tagId = ' + tagId);
 
-         let savedHashtags = localStorage.getItem('hashtags');
-         console.log('savedHashtags' + savedHashtags);
-         savedHashtags = JSON.parse(savedHashtags);
+         let savedHashtags = localStorage.getItem(storageKey);
          console.log('savedHashtags' + savedHashtags);
 
-         var position = savedHashtags.indexOf(tagId.toString());
-         console.log('position' + position);
+         if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
+             savedHashtags = JSON.parse(savedHashtags);
+             console.log('savedHashtags' + savedHashtags);
 
-         savedHashtags.splice(position, 1);
+             // var position = savedHashtags.indexOf(tagId.toString());
+             // console.log('position' + position);
+             // savedHashtags.splice(position, 1);
 
-         let hashtags = savedHashtags;
-         console.log('hashtags' + hashtags);
-         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+             delete savedHashtags[tagId];
 
-         tag.remove();
+             let hashtags = savedHashtags;
+             console.log('hashtags' + hashtags);
+             localStorage.setItem(storageKey, JSON.stringify(hashtags));
+
+             tag.remove();
+         } else {
+             //TODO
+         }
+
      }
 
      //добавить хештег, если его нет в найденных и выбранных - кнопка Добавить тег
      $(document).on('click touchstart', '#add-tag', function() {
 
-         let savedHashtags = localStorage.getItem('hashtags');
+         let storageKey = 'hashtags2';
+
+         let savedHashtags = localStorage.getItem(storageKey);
          if (savedHashtags === undefined || savedHashtags === null) {
-             savedHashtags = [];
+             savedHashtags = {};
+         } else {
+             savedHashtags = JSON.parse(savedHashtags);
          }
-         console.log('savedHashtags' + savedHashtags);
-         //savedHashtags = JSON.parse(savedHashtags);
-         //console.log('savedHashtags' + savedHashtags);
+
+         console.log('savedHashtags' + JSON.stringify(savedHashtags));
 
          let title = $(searchInput2)[0].value;
-
          let url = $('#add-tag')[0].getAttribute('data-action');
          console.log('url = ' + url);
          console.log('title = ' + title);
+
+         // let foundHashtagsContainer = $('#b-search__results-2');
+         // let selectedHashtagsContainer = '#b-selected-tags-2';
+         // addHashtagToSelectedHashtags('88', title, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
 
          if (title !== '') {
              $.ajax({
@@ -1157,7 +1213,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          let foundHashtagsContainer = $('#b-search__results-2');
                          let selectedHashtagsContainer = '#b-selected-tags-2';
 
-                         addHashtagToSelectedHashtags(response.info.id, response.info.title, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
+                         addHashtagToSelectedHashtags(response.info.id, response.info.title, storageKey, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
                      } else {
                          if (response.message !== null && response.message !== undefined) {
                              toastr.error(response.message);
@@ -1516,19 +1572,19 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let tagsBlockElement = $(this).closest('.grid-item').find('.tags li');
          console.log(tagsBlockElement);
 
-         let hashtags = [];
+         let hashtags = {};
          tagsBlockElement.each(function(i,elem) {
              //TODO добавить к .tags li  data-id
              console.log('data-id = ' + elem.getAttribute('data-id'));
              let hashtagId = elem.getAttribute('data-id');
              let hashtagTitle = elem.getAttribute('data-title');
-             hashtags.push(hashtagId);
+             hashtags[hashtagId] = hashtagTitle;
 
              let postHashtag = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
              $(containerSelectedHashtagsTags2).append(postHashtag);
          });
 
-         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+         localStorage.setItem('hashtags2', JSON.stringify(hashtags));
      });
 
      $(document).on('shown.bs.modal','#modal-add-hashtag', function (event) {
@@ -1544,13 +1600,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          $('[data-action=save-request]').data('url', actionUrl);
          $('[data-action=save-request]').data('post-id', postId);
-         //console.log($('[data-action=save-request]').data('url'));
+         console.log($('[data-action=save-request]').data('url'));
      });
 
      //страница - список постов: добавить хештеги к посту из localStorage после нажатия на кнопку Сохранить в поп-ап окне
      $(document).on('click', '#modal-add-hashtag [data-action=save-request]', function(event) {
          //TODO
-         let hashtags = localStorage.getItem('hashtags');
+         let hashtags = localStorage.getItem('hashtags2');
          console.log('hashtags' + hashtags);
 
          let actionurl = $(this).data('url');
@@ -1579,14 +1635,33 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      //showAlert(result.message, 'alert-info', 'fa-check');
                      let postElement = $('.grid-item[data-id='+postId+']');
                      let tagsBlock = postElement.find('.tags');
+                     let tagsBlockElements = tagsBlock.find('li');
+                     console.log(postElement);
                      console.log(tagsBlock);
+                     console.log(tagsBlockElements);
 
-                     //TODO - походу нужно в localStorage хранить не только id хештега, но и title
+                     // let selectedHashtagsElements = $('#modal-add-hashtag #b-selected-tags-2 .tag');
+                     // let selectedHashtags = [];
+                     // tagsBlockElements.each(function(i,elem) {
+                     //     console.log('data-id = ' + elem.getAttribute('data-id'));
+                     //     selectedHashtags.push(elem.getAttribute('data-id'));
+                     // });
 
-                     // for ( let i = 0; i < hashtags.length; ++i ) {
-                     //     let postHashtag = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
-                     //     $(containerSelectedHashtagsTags2).append(postHashtag);
-                     // }
+                     let postHashtagsElement = postElement.find('.tags');
+                     postHashtagsElement.empty();
+
+                     const savedHashtags = JSON.parse(hashtags);
+                     console.log('savedHashtags = ' + savedHashtags);
+
+                     $grid.masonry('destroy'); // destroy
+
+                     for (key in savedHashtags) {
+                         console.log(key);
+                         let postHashtag = '<li data-id="' + key + '" data-title="' + savedHashtags[key] + '"><a rel="tag" href="#">#' + savedHashtags[key] + '</a></li>';
+                         postHashtagsElement.append(postHashtag);
+                     }
+
+                     $grid.masonry( masonryOptions );
 
                  } else {
                      toastr.error(result.message);
@@ -1594,6 +1669,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  }
 
                  $('#modal-add-hashtag').modal('hide');
+                 if (localStorage.getItem('hashtags2') !== undefined && localStorage.getItem('hashtags2') !== null) {
+                     localStorage.removeItem('hashtags2');
+                 }
+                 $('#modal-add-hashtag #b-selected-tags-2').empty();
+
              },
          });
      });

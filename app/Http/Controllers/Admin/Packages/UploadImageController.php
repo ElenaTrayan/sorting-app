@@ -16,6 +16,10 @@ class UploadImageController extends Controller
 
     private $errors = [];
 
+    /**
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function uploadImageToTempDirectory(Request $request)
     {
         request()->validate([
@@ -44,17 +48,15 @@ class UploadImageController extends Controller
 
                 $imageSize = getimagesize($file);
 
-                if ($imageSize[0] >= 320 && $imageSize[1] >= 320) {
-                    $imageSmall = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), true,320, 320);
+                if ($imageSize[0] >= 350 && $imageSize[1] >= 350) {
+                    $imageSmall = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), false, 350, 350);
                     $small_name = $imageSmall->basename;
-                } else {
-
                 }
 
 //                return response()->json(['status' => true, 'image' => 'test']);
 
-                if ($imageSize[0] >= 700 || $imageSize[1] >= 700) {
-                    $imageMedium = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), false,700, 700);
+                if ($imageSize[0] >= 800 || $imageSize[1] >= 800) {
+                    $imageMedium = $this->resizeImage($file, $imageName, $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), false, 800, 800);
                     $medium_name = $imageMedium->basename;
                 }
 
@@ -77,7 +79,7 @@ class UploadImageController extends Controller
 
                 if (!empty($medium_name)) {
                     $images[$imageName]['medium_name'] = $medium_name;
-                    $images[$imageName]['medium'] ='temp_directory' . '/' . $medium_name;
+                    $images[$imageName]['medium'] = 'temp_directory' . '/' . $medium_name;
                 }
 
 //                extension:"png"
@@ -107,7 +109,7 @@ class UploadImageController extends Controller
 
             $images = [];
 
-            if(request()->has('files')) {
+            if (request()->has('files')) {
                 foreach (request()->file('files') as $file) {
                     //"originalName": "246021903_272829371422961_6110518103173326510_n.jpg"
                     //"mimeType":"image/jpeg"
@@ -194,14 +196,14 @@ class UploadImageController extends Controller
      * @param int $height
      * @return \Illuminate\Http\JsonResponse|\Intervention\Image\Image
      */
-    public function resizeImage($file, $filename, $extension, $imagePath, $isQuadratic = false, $width = 200, $height = 200)
+    public function resizeImage($file, $filename, $extension, $imagePath, bool $isQuadratic = false, int $width = 200, int $height = 200)
     {
         try {
             $imageName = $filename . '_' . $width . '_' . $height . '.' . $extension;
 
             $img = Image::make($file->path());
 
-            $originalWidth  = $img->width();
+            $originalWidth = $img->width();
             $originalHeight = $img->height();
 
             if ($isQuadratic === true) {
@@ -222,7 +224,16 @@ class UploadImageController extends Controller
 
                 $resizeImage = $img->save($imagePath . '/' . $imageName);
             } else {
-                $originalHeight > $originalWidth ? $width=null : $height=null;
+
+                if ($width < 451 || $height > 451) {
+                    if ($originalHeight > $originalWidth) {
+                        $height = null;
+                    } else {
+                        $width = null;
+                    }
+                } else {
+                    $originalHeight > $originalWidth ? $width = null : $height = null;
+                }
 
                 $img->resize($width, $height, function ($constraint) {
                     $constraint->aspectRatio();
@@ -372,9 +383,6 @@ class UploadImageController extends Controller
 
         //dd($imagePath);
         //{"name":"w700-51209445","extension":"jpg","path":"\/images\/1\/0\/0_7_w700-51209445.jpg"}
-        $errors = [];
-
-        return false;
     }
 
 }

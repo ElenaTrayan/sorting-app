@@ -50,14 +50,16 @@
                 </div>
             @endif
 
-            <div class="b-card__content__text">
-                @if (!empty($post->title))
-                    <a href="#" class="title">{{ $post->title }}</a>
-                @endif
-                @if (!empty($post->content))
-                    {!! substr($post->content, 0, 2000) !!}
-                @endif
-            </div>
+            @if (!empty($post->title) || !empty($post->content))
+                <div class="b-card__content__text">
+                    @if (!empty($post->title))
+                        <a href="#" class="title">{{ $post->title }}</a>
+                    @endif
+                    @if (!empty($post->content))
+                        {!! substr($post->content, 0, 2000) !!}
+                    @endif
+                </div>
+            @endif
         </div><!-- /.b-card__content -->
 
         <div class="b-card__footer">

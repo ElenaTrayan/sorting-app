@@ -7,6 +7,9 @@ use App\Http\Controllers\Admin\Packages\UploadImageController;
 use App\Models\Hashtag;
 use App\Models\Post;
 use App\Models\PostsCategory;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use function PHPUnit\Framework\isJson;
@@ -16,7 +19,7 @@ class PostController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     * @return Application|Factory|View
      */
     public function index()
     {
@@ -66,7 +69,7 @@ class PostController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return Application|Factory|View
      */
     public function create()
     {
@@ -152,7 +155,7 @@ class PostController extends Controller
      * Display the specified resource.
      *
      * @param $id
-     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     * @return Application|Factory|View
      */
     public function show($id)
     {
@@ -184,7 +187,7 @@ class PostController extends Controller
      * Show the form for editing the specified resource.
      *
      * @param $id
-     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     * @return Application|Factory|View
      */
     public function edit($id)
     {
@@ -227,7 +230,12 @@ class PostController extends Controller
         $deleteHashtags = [];
 
         if (!empty($request->hashtags)) {
-            $requestHashtags = json_decode($request->hashtags);
+
+            //dd($request->hashtags);
+
+            //$this->addHashtagsToPost($new_post->getAttribute('id'), array_keys($requestHashtags));
+
+            $requestHashtags = json_decode($request->hashtags, true);
 
             if (is_array($requestHashtags)) {
                 $postHashtags = [];
@@ -236,17 +244,17 @@ class PostController extends Controller
                     foreach ($post->hashtags as $hashtag) {
                         $postHashtags[] = $hashtag->id;
 
-                        if (!in_array($hashtag->id, $requestHashtags)) {
+                        if (!in_array($hashtag->id, array_keys($requestHashtags))) {
                             //удаляем хештег у поста
                             $deleteHashtags[] = $hashtag->id;
                         }
                     }
                 }
 
-                foreach ($requestHashtags as $requestHashtag) {
-                    if (!in_array($requestHashtag, $postHashtags)) {
+                foreach ($requestHashtags as $id => $requestHashtag) {
+                    if (!in_array($id, $postHashtags)) {
                         //добавляем хештег к посту
-                        $addHashtags[] = (int)$requestHashtag;
+                        $addHashtags[] = (int)$id;
                     }
                 }
             }
@@ -376,7 +384,6 @@ class PostController extends Controller
     {
         //dd($request->hashtags);
 
-        $alias = '';
         $title = '';
 
         $categoryId = $request->category_id ?? 0;
@@ -426,7 +433,8 @@ class PostController extends Controller
 
         if ($newPost === true) {
             if ($request->hashtags) {
-                $this->addHashtagsToPost($new_post->getAttribute('id'), json_decode($request->hashtags));
+                $requestHashtags = json_decode($request->hashtags, true);
+                $this->addHashtagsToPost($new_post->getAttribute('id'), array_keys($requestHashtags));
             }
 
             return true;

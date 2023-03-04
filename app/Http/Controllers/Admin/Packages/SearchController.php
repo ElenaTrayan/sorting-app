@@ -27,11 +27,17 @@ class SearchController extends Controller
 
             $user = auth()->user();
 
-            if (!empty($request->hashtags)) {
+            //var_dump($request->hashtags);
+
+            $requestHashtags = $request->hashtags;
+
+            //var_dump($requestHashtags);
+
+            if (!empty($requestHashtags)) {
                 $hashtags = DB::table('hashtags')
                     ->where('title', 'LIKE', '%' . $request->search . "%")
                     ->where('user_id', $user->id)
-                    ->whereNotIn('id', json_decode($request->hashtags))
+                    ->whereNotIn('id', array_keys($requestHashtags))
                     //->groupBy('parent_id')
                     ->get();
             } else {
@@ -70,11 +76,11 @@ class SearchController extends Controller
     }
 
     /**
-     * @param string $title
-     * @param string $hashtags
-     * @return \Illuminate\Support\Collection|string
+     * @param $title
+     * @param array $hashtags
+     * @return \Illuminate\Support\Collection
      */
-    public function searchTagByTitle(string $title, string $hashtags = '')
+    public function searchTagByTitle($title, $hashtags = [])
     {
         $user = auth()->user();
 
@@ -82,7 +88,7 @@ class SearchController extends Controller
             $foundHashtags = DB::table('hashtags')
                 ->where('title', $title)
                 ->where('user_id', $user->id)
-                //->whereNotIn('id', json_decode($hashtags))
+                //->whereNotIn('id', array_keys($hashtags))
                 //->groupBy('parent_id')
                 ->get();
         } else {
