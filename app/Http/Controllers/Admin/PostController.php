@@ -42,7 +42,7 @@ class PostController extends Controller
             ])
             ->where('posts.user_id', 1)
             ->latest()
-            ->paginate(15);
+            ->paginate(30);
 
         //dd($posts);
 
@@ -62,7 +62,7 @@ class PostController extends Controller
         //dd($posts);
 
         return view('admin.posts.index', [
-            'posts' => $posts
+            'posts' => $posts,
         ]);
     }
 
@@ -412,11 +412,13 @@ class PostController extends Controller
             }
         }
 
+        //dd($saveImageForPost);
+
         if (!empty($request->title)) {
             $title = $request->title;
             $alias = str_slug($request->title);
-        } elseif (!empty($image)) {
-            $alias = $userId . '_' . $categoryId . '_' . $image['name'];
+        } elseif (!empty($saveImageForPost['original_image']['name'])) {
+            $alias = $userId . '_' . $categoryId . '_' . $saveImageForPost['original_image']['name'];
         } else {
             $alias = $userId . '_' . $categoryId . '_' . time();
         }

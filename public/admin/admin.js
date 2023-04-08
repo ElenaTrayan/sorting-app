@@ -102,11 +102,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
  };
 
  // initialize Masonry
- var $grid = $('.grid').masonry( masonryOptions );
-
- // layout Masonry after each image loads
- $grid.imagesLoaded().progress( function() {
-     $grid.masonry('layout');
+ //var $grid = $('.grid').masonry( masonryOptions );
+ var $container = $('#content');
+ var $grid = $('.grid').imagesLoaded( function() {
+     // init Masonry after all images have loaded
+     $grid.masonry(masonryOptions);
  });
 
  $(document).ready(function() {
@@ -902,81 +902,89 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let foundHashtagsContainer = $('#b-search__results');
 
+         let storageKey = 'hashtags';
+
          if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
              let savedHashtags = localStorage.getItem('hashtags');
-             console.log('savedHashtags' + savedHashtags);
-             savedHashtags = JSON.parse(savedHashtags);
              console.log('savedHashtags' + savedHashtags);
 
              //проверить есть ли ключ в массиве
              //если нет - добавить значение в массив
-             if(savedHashtags.includes(hashtagId) === false) {
+             if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
+                 savedHashtags = JSON.parse(savedHashtags);
+                 console.log('savedHashtags' + savedHashtags);
 
-                 addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput1, foundHashtagsContainer, null, '#b-search__input');
+                 //проверить есть ли ключ в массиве. если нет - добавить значение в массив
+                 if(savedHashtags.hasOwnProperty(hashtagId) === false) {
+                     // addHashtagToStorage(hashtagId, hashtagTitle, savedHashtags, storageKey, foundHashtagsContainer);
+                     // focusOnInput(searchInput);
 
-                 let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
-                 let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
+                     addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput1, foundHashtagsContainer, null, '#b-search__input');
 
-                 let tagsWidth = 0;
-                 let allTagsWidth = 150;
-                 let inputWidth = 0;
-                 $('#b-search__field__tags-container__tags .tag').each(function(i,elem) {
-                     tagsWidth += $(elem).outerWidth() + 8;
-                     allTagsWidth += $(elem).outerWidth() + 8;
+                     let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
+                     let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
 
-                     console.log($(elem).data('name'));
+                     let tagsWidth = 0;
+                     let allTagsWidth = 150;
+                     let inputWidth = 0;
+                     $('#b-search__field__tags-container__tags .tag').each(function(i,elem) {
+                         tagsWidth += $(elem).outerWidth() + 8;
+                         allTagsWidth += $(elem).outerWidth() + 8;
 
-                     if (tagsWidth > fieldTagsContainerWidth) {
-                         tagsWidth = $(elem).outerWidth() + 8;
-                     }
+                         console.log($(elem).data('name'));
 
-                     let count = Math.floor(allTagsWidth / fieldTagsContainerWidth);
+                         if (tagsWidth > fieldTagsContainerWidth) {
+                             tagsWidth = $(elem).outerWidth() + 8;
+                         }
 
-                     let quotient = allTagsWidth / fieldTagsContainerWidth;
-                     console.log('quotient = ' + quotient);
-                     let numberAfterPoint = quotient.toFixed(2);
-                     console.log('numberAfterPoint = ' + numberAfterPoint);
+                         let count = Math.floor(allTagsWidth / fieldTagsContainerWidth);
 
-                     inputWidth = fieldTagsContainerWidth - tagsWidth - 24;
-                     if (inputWidth < 100) {
-                         inputWidth = 100;
-                         let quotient = (allTagsWidth + inputWidth) / fieldTagsContainerWidth;
+                         let quotient = allTagsWidth / fieldTagsContainerWidth;
                          console.log('quotient = ' + quotient);
                          let numberAfterPoint = quotient.toFixed(2);
+                         console.log('numberAfterPoint = ' + numberAfterPoint);
 
-                         //count = Math.round((allTagsWidth + inputWidth) / fieldTagsContainerWidth);
-                         // console.log('allTagsWidth + inputWidth = ' + allTagsWidth + inputWidth);
-                         // console.log('(allTagsWidth + inputWidth) / fieldTagsContainerWidth = ' + ((allTagsWidth + inputWidth) / fieldTagsContainerWidth));
-                     }
+                         inputWidth = fieldTagsContainerWidth - tagsWidth - 24;
+                         if (inputWidth < 100) {
+                             inputWidth = 100;
+                             let quotient = (allTagsWidth + inputWidth) / fieldTagsContainerWidth;
+                             console.log('quotient = ' + quotient);
+                             let numberAfterPoint = quotient.toFixed(2);
 
-                     if ((numberAfterPoint+'').split(".")[1].substr(0,2) > 80 ) {
-                         count = count + 1;
-                     }
+                             //count = Math.round((allTagsWidth + inputWidth) / fieldTagsContainerWidth);
+                             // console.log('allTagsWidth + inputWidth = ' + allTagsWidth + inputWidth);
+                             // console.log('(allTagsWidth + inputWidth) / fieldTagsContainerWidth = ' + ((allTagsWidth + inputWidth) / fieldTagsContainerWidth));
+                         }
 
-                     console.log('count = ' + count);
-                     console.log('inputWidth = ' + inputWidth);
-                     console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
-                     console.log('allTagsWidth = ' + allTagsWidth);
-                     console.log('count = ' + count);
-                     console.log('fieldTagsContainerHeightDefault = ' + fieldTagsContainerHeightDefault);
+                         if ((numberAfterPoint+'').split(".")[1].substr(0,2) > 80 ) {
+                             count = count + 1;
+                         }
 
-                     $('#b-search__input').width(inputWidth);
+                         console.log('count = ' + count);
+                         console.log('inputWidth = ' + inputWidth);
+                         console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
+                         console.log('allTagsWidth = ' + allTagsWidth);
+                         console.log('count = ' + count);
+                         console.log('fieldTagsContainerHeightDefault = ' + fieldTagsContainerHeightDefault);
 
-                     fieldTagsContainerHeight = fieldTagsContainerHeightDefault + (36 * count);
+                         $('#b-search__input').width(inputWidth);
 
-                     containerSelectedHashtagsTags.css("height", fieldTagsContainerHeight);
-                     containerSelectedHashtags.css("height", fieldTagsContainerHeight);
+                         fieldTagsContainerHeight = fieldTagsContainerHeightDefault + (36 * count);
 
-                     console.log('fieldTagsContainerHeight = ' + fieldTagsContainerHeight);
-                     console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
-                     console.log('tagsWidth = ' + tagsWidth);
+                         containerSelectedHashtagsTags.css("height", fieldTagsContainerHeight);
+                         containerSelectedHashtags.css("height", fieldTagsContainerHeight);
 
-                 });
+                         console.log('fieldTagsContainerHeight = ' + fieldTagsContainerHeight);
+                         console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
+                         console.log('tagsWidth = ' + tagsWidth);
+
+                     });
+                 }
              }
 
          } else {
 
-             addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput1, foundHashtagsContainer, null, '#b-search__input');
+             addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput1, foundHashtagsContainer, null, '#b-search__input');
 
              let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
              let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
@@ -1125,7 +1133,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          console.log("**************");
          console.log($(this));
 
-         removeHashtag($(this));
+         let storageKey = 'hashtags';
+         removeHashtag($(this), storageKey);
          focusOnInput(searchInput1);
      });
 
@@ -1245,21 +1254,23 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              url: searchUrl,
              data: {'hashtags': savedHashtags},
              success: function (response) {
-                 console.log(response);
-
-                 let gridItems = $('#posts-index .b-cards .grid .grid-item');
-                 console.log(gridItems);
+                 //console.log(response);
+                 // let gridItems = $('#posts-index .b-cards .grid .grid-item');
+                 // console.log(gridItems);
                  //$grid.masonry('remove', gridItems);
                  $grid.masonry('destroy'); // destroy
 
                  let postsBlock = $('#posts-index .b-cards .grid');
                  postsBlock.html("");
-
                  postsBlock.append(response);
+
+                 let postsPagination = $('#posts-index .posts-pagination');
+                 postsPagination.html("");
+
                  $grid.masonry( masonryOptions );
 
-                 let gridItemsNew = $('#posts-index .b-cards .grid .grid-item');
-                 console.log(gridItemsNew);
+                 // let gridItemsNew = $('#posts-index .b-cards .grid .grid-item');
+                 // console.log(gridItemsNew);
              }
          });
 
@@ -1569,6 +1580,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //страница - список постов: кнопка Добавить тег -> открывается поп-ап окно
      $(document).on('click', '#posts-index [data-action=add-hashtag]', function(event) {
          $('#modal-add-hashtag').modal('show', $(this));
+
+         let searchInput = $('#modal-add-hashtag #search-input-2')[0];
+         console.log(searchInput);
+         setTimeout(function() { searchInput.focus() }, 500);
+
          let tagsBlockElement = $(this).closest('.grid-item').find('.tags li');
          console.log(tagsBlockElement);
 
@@ -1585,6 +1601,21 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
 
          localStorage.setItem('hashtags2', JSON.stringify(hashtags));
+     });
+
+     // закрыть popup окно при клике вне его области
+     $(document).mouseup(function(e) {
+         var container = $('#modal-add-hashtag');
+         if (!container.is(e.target) && container.has(e.target).length === 0) {
+             container.hide();
+         }
+     });
+
+     //страница - список постов: кнопка Отмена -> закрывается поп-ап окно
+     $(document).on('click', '#posts-index [data-action=close-modal-add-hashtag]', function(event) {
+         $('#modal-add-hashtag').modal('hide');
+         //очистить блок свыбранными хештегами в поп-ап окне
+         $(containerSelectedHashtagsTags2).html('');
      });
 
      $(document).on('shown.bs.modal','#modal-add-hashtag', function (event) {
@@ -1885,6 +1916,5 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //         $(this).css("background-image", "");
      //     }
      // }, ".b-card__content__image");
-
 
  });

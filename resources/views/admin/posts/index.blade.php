@@ -43,6 +43,7 @@
                 @include('admin.includes.modal_delete_item')
 
                 <div class="card-header" style="display: flex; justify-content: end;">
+                    <a href="{{ route('media-parser') }}" class="btn btn-outline-info" style="width: 200px;">Импорт изображений</a>
                     <a href="{{ route('posts.create') }}" class="btn btn-block btn-outline-info" style="width: 160px;">Добавить пост</a>
                 </div>
 
@@ -76,22 +77,55 @@
 {{--                </div>--}}
 {{--            </form>--}}
 
-            <div class="b-list-of-posts">
-                <div class="b-search-and-hashtags"><!-- section with search and hashtags -->
+                <div class="b-list-of-posts">
 
-                </div><!-- /.b-search-and-hashtags -->
+                    <div class="b-search-and-hashtags"><!-- section with search and hashtags -->
 
-                <div class="b-cards">
-
-                    <div class="grid">
-                        @include('admin.posts.parts.post_items')
+                    </div><!-- /.b-search-and-hashtags -->
+                    <div class="modal fade" id="modal-add-hashtag" tabindex="-1" role="dialog" aria-labelledby="modalAddHashtagLabel"
+                         aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="modalAddHashtagLabel"></h5>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="b-add-tag">
+                                        <div class="input-group input-group-sm add-tag">
+                                            <input id="search-input-2" type="text" class="form-control"
+                                                   data-action="{{ route('search.hashtag') }}">
+                                            <span class="input-group-append">
+                            <button type="button" class="btn btn-info btn-flat" id="add-tag"
+                                    data-action="{{ route('hashtags.store') }}">Добавить тег</button>
+                        </span>
+                                        </div>
+                                        <ul id="b-search__results-2" class="b-search__results-2"></ul>
+                                        <ul id="b-selected-tags-2" class="b-selected-tags-2"></ul>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary" data-action="save-request">Сохранить</button>
+                                    <button type="button" class="btn btn-secondary" data-action="close-modal-add-hashtag">Отмена
+                                    </button>
+                                    {{--                data-dismiss="modal"--}}
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                </div><!-- /.b-cards -->
+                    <div class="b-search-and-hashtags"><!-- section with search and hashtags -->
 
-                {{ $posts->links('admin.includes.pagination') }}
+                    </div><!-- /.b-search-and-hashtags -->
 
-            </div><!-- /.b-list-of-posts -->
+                    <div class="b-cards">
+                    @include('admin.posts.parts.post_items')
+                    </div><!-- /.b-cards -->
+
+                    <div class="posts-pagination">
+                        <a href="">Показать ещё</a>
+                        {{ $posts->links('admin.includes.pagination') }}
+                    </div>
+                </div><!-- /.b-list-of-posts -->
 
             </div><!-- /.posts-index -->
 

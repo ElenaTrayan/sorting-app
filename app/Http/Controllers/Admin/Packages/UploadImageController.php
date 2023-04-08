@@ -60,6 +60,11 @@ class UploadImageController extends Controller
                     $medium_name = $imageMedium->basename;
                 }
 
+                //проверяем есть ли уже файл с таким именем в папке
+//                if (Storage::disk('local')->exists($imageName . '.' . $path_info['extension'])) {
+//                    dd('eeeee');
+//                }
+
                 $file = Storage::putFileAs(
                     'temp_directory',
                     $file,
@@ -308,10 +313,50 @@ class UploadImageController extends Controller
     }
 
     /**
+     * @param $imageName
+     * @param $imageExtension
+     * @param $originalOldPath
+     * @param $originalNewPath
+     * @return false|string[]
+     */
+    private function checkIfFileExists($imageName, $imageExtension, $originalOldPath, $originalNewPath)
+    {
+        if (Storage::disk('local')->exists($originalNewPath)) {
+            $existsFileSize = Storage::size($originalNewPath);
+            $fileSize = Storage::size($originalOldPath);
+
+            if ($existsFileSize === $fileSize) {
+                return [
+                    'error' => 'Файл уже существует!'
+                ];
+            } else {
+                //добавляем к имени файла время Unix
+                $imageName =  time() . '_'. $imageName;
+                $newImagePath = '/temp_directory/' . $imageName . '.' . $imageExtension;
+
+                $moveImage = $this->moveImage($originalOldPath, $newImagePath);
+
+                if ($moveImage) {
+                    return [
+                        'image_name' => $imageName,
+                        'new_image_path' => $newImagePath
+                    ];
+                } elseif (is_string($moveImage)) {
+                    return [
+                        'error' => $moveImage
+                    ];
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param $image
      * @param $userId
      * @param $categoryId
-     * @return array|bool
+     * @return array[]|\bool[][]|string[]|\string[][]
      */
     public function saveImageForPost($image, $userId, $categoryId)
     {
@@ -320,8 +365,27 @@ class UploadImageController extends Controller
         $errors = [];
 
         //user_id / category parent_id / category parent_id - category_id - image_title - image_size - расширение файла
-        $originalNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['name'] . '.' . $image['extension'];
+        $originalNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+            . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
+            . $image['name'] . '.' . $image['extension'];
         $originalOldPath = '/temp_directory/' . $image['name'] . '.' . $image['extension'];
+
+        //проверяем есть ли уже файл с таким именем в папке
+        $checkIfOriginalFileExists = $this->checkIfFileExists($image['name'], $image['extension'], $originalOldPath, $originalNewPath);
+        if (!empty($checkIfOriginalFileExists)) {
+            if (!empty($checkIfOriginalFileExists['new_image_path']) && !empty($checkIfOriginalFileExists['image_name'])) {
+                $originalNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+                    . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
+                    . $checkIfOriginalFileExists['image_name'] . '.' . $image['extension'];
+
+                $originalOldPath = $checkIfOriginalFileExists['new_image_path'];
+                $image['name'] = $checkIfOriginalFileExists['image_name'];
+            } elseif (!empty($checkIfOriginalFileExists['error'])) {
+                return [
+                    'errors' => $checkIfOriginalFileExists['error']
+                ];
+            }
+        }
 
         $saveOriginalImage = $this->saveImage($image['name'], $image['extension'], $originalOldPath, $originalNewPath);
         if (!empty($saveOriginalImage['error'])) {
@@ -329,8 +393,26 @@ class UploadImageController extends Controller
         }
 
         if (!empty($image['medium_name'])) {
-            $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['medium_name'];
+            $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+                . $categoryParentId . '/' . $categoryParentId . '_'
+                . $categoryId . '_' . $image['medium_name'];
             $mediumOldPath = '/temp_directory/' . $image['medium_name'];
+
+            $checkIfMediumFileExists = $this->checkIfFileExists($image['medium_name'], $image['extension'], $mediumOldPath, $mediumNewPath);
+            if (!empty($checkIfMediumFileExists)) {
+                if (!empty($checkIfMediumFileExists['new_image_path']) && !empty($checkIfMediumFileExists['image_name'])) {
+                    $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+                        . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
+                        . $checkIfMediumFileExists['image_name'];
+
+                    $mediumOldPath = $checkIfMediumFileExists['new_image_path'];
+                    $image['name'] = $checkIfMediumFileExists['image_name'];
+                } elseif (!empty($checkIfMediumFileExists['error'])) {
+                    return [
+                        'errors' => $checkIfMediumFileExists['error']
+                    ];
+                }
+            }
 
             $saveMediumImage = $this->saveImage($image['medium_name'], $image['extension'], $mediumOldPath, $mediumNewPath);
             if (!empty($saveMediumImage['error'])) {
@@ -339,8 +421,26 @@ class UploadImageController extends Controller
         }
 
         if (!empty($image['small_name'])) {
-            $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_' . $image['small_name'];
+            $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+                . $categoryParentId . '/' . $categoryParentId . '_'
+                . $categoryId . '_' . $image['small_name'];
             $smallOldPath = '/temp_directory/' . $image['small_name'];
+
+            $checkIfSmallFileExists = $this->checkIfFileExists($image['small_name'], $image['extension'], $smallOldPath, $smallNewPath);
+            if (!empty($checkIfSmallFileExists)) {
+                if (!empty($checkIfSmallFileExists['new_image_path']) && !empty($checkIfSmallFileExists['image_name'])) {
+                    $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+                        . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
+                        . $checkIfSmallFileExists['image_name'];
+
+                    $smallOldPath = $checkIfSmallFileExists['new_image_path'];
+                    $image['name'] = $checkIfSmallFileExists['image_name'];
+                } elseif (!empty($checkIfSmallFileExists['error'])) {
+                    return [
+                        'errors' => $checkIfSmallFileExists['error']
+                    ];
+                }
+            }
 
             $saveSmallImage = $this->saveImage($image['small_name'], $image['extension'], $smallOldPath, $smallNewPath);
             if (!empty($saveSmallImage['error'])) {

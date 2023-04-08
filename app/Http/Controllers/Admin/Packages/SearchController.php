@@ -31,8 +31,6 @@ class SearchController extends Controller
 
             $requestHashtags = $request->hashtags;
 
-            //var_dump($requestHashtags);
-
             if (!empty($requestHashtags)) {
                 $hashtags = DB::table('hashtags')
                     ->where('title', 'LIKE', '%' . $request->search . "%")
@@ -48,7 +46,7 @@ class SearchController extends Controller
                     ->get();
             }
 
-            if ($hashtags) {
+            if (count($hashtags)) {
 
                 foreach ($hashtags as $key => $hashtag) {
                     $output .= '' .
@@ -115,16 +113,24 @@ class SearchController extends Controller
     public function searchPostsByHashtags(Request $request)
     {
         if ($request->ajax() && !empty($request->hashtags)) {
+            $hashtags = $request->hashtags;
+            session(['hashtags' => $hashtags]);
+        } elseif ($request->session()->has('hashtags')) {
+            $hashtags = session('hashtags');
+        }
+
+        if (!empty($hashtags)) {
 
             $user = auth()->user();
-            $hashtags = $request->hashtags;
 
-            $posts = Post::whereHas('hashtags', function($q) use ($hashtags) {
+            $hashtagsIds = array_keys($hashtags);
+
+            $posts = Post::whereHas('hashtags', function($q) use ($hashtagsIds) {
                 //$q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
-                $q->whereIn('hashtags.id', $hashtags);
+                $q->whereIn('hashtags.id', $hashtagsIds);
             },
                 )->with([
-                    'hashtags' => function($q) use ($hashtags) {
+                    'hashtags' => function($q) use ($hashtagsIds) {
                         //$q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
                         //$q->whereIn('hashtags.id', $hashtags);
                     },
@@ -146,7 +152,9 @@ class SearchController extends Controller
                 }
             }
 
-            return view('admin.posts.parts.post_items', ['posts' => $posts]);
+            return view('admin.posts.parts.post_items', [
+                'posts' => $posts,
+            ]);
         }
 
         return response()->json(['status' => false]);
