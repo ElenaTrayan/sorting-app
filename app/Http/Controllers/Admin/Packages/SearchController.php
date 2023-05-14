@@ -112,6 +112,8 @@ class SearchController extends Controller
      */
     public function searchPostsByHashtags(Request $request)
     {
+        //$a = $b;
+
         if ($request->ajax() && !empty($request->hashtags)) {
             $hashtags = $request->hashtags;
             session(['hashtags' => $hashtags]);
@@ -125,19 +127,31 @@ class SearchController extends Controller
 
             $hashtagsIds = array_keys($hashtags);
 
-            $posts = Post::whereHas('hashtags', function($q) use ($hashtagsIds) {
-                //$q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
-                $q->whereIn('hashtags.id', $hashtagsIds);
-            },
-                )->with([
-                    'hashtags' => function($q) use ($hashtagsIds) {
-                        //$q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
-                        //$q->whereIn('hashtags.id', $hashtags);
-                    },
-                ])
+            $posts = Post::where(function($query) use ($hashtagsIds) {
+                foreach($hashtagsIds as $hashtagId) {
+                    $query->whereHas('hashtags', function($q) use ($hashtagId) {
+                        $q->where('hashtags.id', $hashtagId);
+                    });
+                }
+            })
                 ->where('user_id', $user->id)
+                ->with('hashtags')
                 ->latest()
-                ->paginate(15);
+                ->paginate(20);
+
+//            $posts = Post::whereHas('hashtags', function($q) use ($hashtagsIds) {
+//                //$q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
+//                $q->whereIn('hashtags.id', $hashtagsIds);
+//            },
+//            )->with([
+//                    'hashtags' => function($q) use ($hashtagsIds) {
+//                        //$q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
+//                        //$q->whereIn('hashtags.id', $hashtags);
+//                    },
+//                ])
+//                ->where('user_id', $user->id)
+//                ->latest()
+//                ->paginate(20);
 
             foreach ($posts as $post) {
                 if (!empty($post->small_image) && isJson($post->small_image)) {
@@ -150,6 +164,12 @@ class SearchController extends Controller
                     $originalImage = json_decode($post->original_image, true);
                     $post['cover_image'] = $originalImage['path'];
                 }
+            }
+
+            if ($request->ajax()) {
+                return view('admin.posts.parts.post_items', [
+                    'posts' => $posts,
+                ]);
             }
 
             return view('admin.posts.parts.post_items', [

@@ -429,6 +429,7 @@
 {{--<script src="../node_modules/masonry-layout/dist/masonry.pkgd.min.js"></script>--}}
 <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 <script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery-infinitescroll/2.0b2.120519/jquery.infinitescroll.min.js"></script>
 <script src="/admin/plugins/infinite-scroll.pkgd.js"></script>
 
 <script src="/admin/admin.js"></script>

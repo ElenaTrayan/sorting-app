@@ -93,23 +93,174 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
  //     //document.creationform.submit();
  // }
 
+ var containerWidth = 1200;
+
  var masonryOptions = {
      itemSelector: '.grid-item',
-     //columnWidth: 290,
+     //columnWidth: '.grid-item',
      gutter: 20,
      //horizontalOrder: true,
      percentPosition: true,
  };
 
- // initialize Masonry
- //var $grid = $('.grid').masonry( masonryOptions );
- var $container = $('#content');
- var $grid = $('.grid').imagesLoaded( function() {
-     // init Masonry after all images have loaded
-     $grid.masonry(masonryOptions);
- });
-
  $(document).ready(function() {
+
+     // initialize Masonry
+     // Masonry + ImagesLoaded
+     var $grid = $('.grid');
+     $grid.imagesLoaded().progress( function() {
+         // init Masonry after all images have loaded
+         $grid.masonry(masonryOptions);
+     });
+
+     // var $grid = $('.grid').imagesLoaded( function() {
+     //     $grid.masonry({
+     //         itemSelector: '.grid-item'
+     //     });
+     // });
+
+         // Infinite Scroll
+     // $grid.infinitescroll({
+     //
+     //         // selector for the paged navigation (it will be hidden)
+     //         navSelector  : ".pagination",
+     //         // selector for the NEXT link (to page 2)
+     //         nextSelector : ".page-item .page-link",
+     //         // selector for all items you'll retrieve
+     //         itemSelector : ".grid-item",
+     //
+     //         // finished message
+     //         loading: {
+     //             finishedMsg: 'No more pages to load.'
+     //         }
+     //     },
+     //
+     //     // Trigger Masonry as a callback
+     //     function( newElements ) {
+     //         // hide new items while they are loading
+     //         var $newElems = $( newElements ).css({ opacity: 0 });
+     //         // ensure that images load before adding to masonry layout
+     //         $newElems.imagesLoaded(function(){
+     //             // show elems now they're ready
+     //             $newElems.animate({ opacity: 1 });
+     //             $grid.masonry( 'appended', $newElems, true );
+     //         });
+     //
+     // });
+
+     // Resume Infinite Scroll
+     // $('#load-more').click(function(){
+     //     $grid.infinitescroll('retrieve');
+     //     return false;
+     // });
+
+     var page = 1;
+     $(window).scroll(function() {
+         console.log('---scroll---');
+         console.log($(window).scrollTop());
+         console.log($(window).height());
+         console.log($(document).height());
+         if($(window).scrollTop() + $(window).height() + 10 >= $(document).height()) {
+             console.log('---scroll2---');
+             page++;
+             loadMoreData(page);
+         }
+     });
+
+
+     function loadMoreData(page){
+         console.log('loadMoreData');
+
+         let requestUrl = '?page=' + page;
+
+         let savedHashtags = localStorage.getItem('hashtags');
+         console.log('loadMoreData savedHashtags' + savedHashtags);
+
+         if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
+             requestUrl =  $('#js-b-search')[0].getAttribute('data-action') + requestUrl;
+             console.log(requestUrl);
+         }
+
+         // disable scrolling on page load
+         document.body.style.overflow = 'hidden';
+
+         //TODO
+
+         $.ajax(
+             {
+                 url: requestUrl,
+                 type: "get",
+                 beforeSend: function()
+                 {
+                     $('.ajax-load').show();
+                 }
+             })
+             .done(function(html)
+             {
+                 console.log('ddd');
+                 console.log(html);
+
+                 //$grid.masonry('destroy'); // destroy masonry
+
+                 if(html === ""){
+                     $('.ajax-load').html("No more records found");
+                     return;
+                 }
+
+                 // $grid.append(html).masonry('appended', html);
+                 // $grid.masonry();
+
+                 $('.ajax-load').hide();
+
+                 var $content = $( html );
+                 $grid.append( $content );
+                 $grid.masonry( 'appended', $content) ;
+
+                 // wait for images and Masonry layout to load
+                 var $gridd = $('.grid').imagesLoaded( function() {
+                     // init Masonry after all images have loaded
+                     $gridd.masonry('reloadItems');
+                     $gridd.masonry(masonryOptions);
+
+                     // enable scrolling when images and Masonry layout have loaded
+                     document.body.style.overflow = '';
+                 });
+
+                 // $grid.imagesLoaded().progress( function() {
+                 //     // init Masonry after all images have loaded
+                 //     $grid.masonry('reloadItems');
+                 //     $grid.masonry(masonryOptions);
+                 //
+                 //     // enable scrolling when images and Masonry layout have loaded
+                 //     document.body.style.overflow = '';
+                 // });
+
+                 // $grid.masonry(masonryOptions)
+
+                 // var types = ['w1', 'w2', 'w3', 'w4'];
+                 // var elems = $(); // empty jquery object
+                 // for (var i = 0; i < 3; i++) {
+                 //     var elem = $("<div></div>").addClass('item ' + types[Math.floor(Math.random() * types.length)]);
+                 //     elems = elems.add( elem );
+                 // }
+                 //
+                 // $grid.append( elems );
+                 // $grid.masonry('appended',elems);
+
+                 //$grid.append(data);
+                 // initialize Masonry
+                 //$grid.masonry( masonryOptions );
+             })
+             .fail(function(jqXHR, ajaxOptions, thrownError)
+             {
+                  console.log('fff');
+                 alert('server not responding...');
+             })
+             .always(function(html)
+             {
+                 console.log('aaa');
+             });
+     }
 
      let searchInput1 = '#search-input'; //поиск в шапке
      let searchInput2 = '#search-input-2'; //поиск при добавлении хештега при создании поста
@@ -282,15 +433,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                  console.log(uploadedImages[key]);
                                  console.log(uploadedImages[key]['name']);
 
-                                 let img = '<div class="image" data-name="' + uploadedImages[key]['name'] + '">';
+                                 let img = '<div class="image" data-name="' + uploadedImages[key]['name'] + '" data-extension="' + uploadedImages[key]['extension'] + '">';
 
                                  if (uploadedImages[key]['small'] !== undefined) {
                                      img += '<span style="background-image: url(/storage/' + uploadedImages[key]['small'] + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle"></i>' +
+                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  } else {
                                      img += '<span style="background-image: url(/storage/' + uploadedImages[key]['original'] + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle"></i>' +
+                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  }
 
@@ -313,7 +464,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $(this).closest('.js-error-block').removeClass('active');
      });
 
-     $(document).on('click touchstart', '.js-delete-image', function(){
+     //удаление изображений из временной папки
+     $(document).on('click touchstart', '.js-delete-image', function() {
          console.log('delete');
 
          let savedImages = localStorage.getItem('images');
@@ -326,12 +478,50 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          console.log('image' + image);
          let name = image.dataset.name;
          console.log('name' + name);
+         let extension = image.dataset.extension;
+         console.log('extension' + extension);
 
          if (delete images[name] === true) {
-             console.log('=====images=====' + JSON.stringify(images));
-             localStorage.setItem('images', JSON.stringify(images));
 
-             image.remove();
+             console.log($(this).data('action'));
+
+             const myArray = {
+                 'name': name,
+                 'extension': extension,
+             }
+
+             let tokenValue = '';
+             let inputToken = $("[name='_token']");
+             for (let token of inputToken) {
+                 tokenValue = token.value;
+             }
+
+             //TODO
+             $.ajax({
+                 url: $(this).data('action'),
+                 type: 'post',
+                 headers: {
+                     'X-CSRF-TOKEN': tokenValue,
+                 },
+                 dataType: 'application/json',
+                 data: JSON.stringify(myArray), //image
+                 complete: function(response) {
+                     console.log("ответ");
+                     console.log(response.responseText);
+                     let result = JSON.parse(response.responseText);
+                     console.log('response' + result);
+
+                     if (result.status === true) {
+                         console.log('=====images=====' + JSON.stringify(images));
+                         localStorage.setItem('images', JSON.stringify(images));
+                         image.remove();
+                         toastr.success(result.msg);
+                     } else {
+                         toastr.error(result.msg);
+                     }
+                 },
+             });
+
          }
 
      });
@@ -904,7 +1094,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let storageKey = 'hashtags';
 
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
+         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null && localStorage.getItem('hashtags') !== '{}') {
              let savedHashtags = localStorage.getItem('hashtags');
              console.log('savedHashtags' + savedHashtags);
 
@@ -1271,6 +1461,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                  // let gridItemsNew = $('#posts-index .b-cards .grid .grid-item');
                  // console.log(gridItemsNew);
+             },
+             error: function () {
+                 console.log('eee');
              }
          });
 
@@ -1704,6 +1897,140 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      localStorage.removeItem('hashtags2');
                  }
                  $('#modal-add-hashtag #b-selected-tags-2').empty();
+
+             },
+         });
+     });
+
+     $(document).on('click', '#get-parsed-post-info', function(event) {
+         console.log('=========' + 'TTT' + '==========');
+
+         //значение input-а
+         var linkForParsing = $('#link-for-parsing').val();
+         console.log('=========' + linkForParsing + '==========');
+
+         //url для запроса
+         let actionurl = $('#get-parsed-post-info').data('action')
+
+         $.ajaxSetup({
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name = "csrf-token"]').attr('content')
+             }
+         });
+
+         $.ajax({
+             url: actionurl,
+             type: 'POST',
+             dataType: 'application/json',
+             data: {'link': linkForParsing},
+             complete: function(response) {
+                 console.log("ответ");
+                 console.log(response.responseText);
+
+                 let result = JSON.parse(response.responseText);
+                 console.log('response' + result);
+
+                 if (result.hasOwnProperty('title')) {
+                     console.log('title' + result.title);
+                     $('#title').val(result.title);
+                 }
+
+                 if (result.hasOwnProperty('alias')) {
+                     console.log('alias' + result.alias);
+                     $('#alias').val(result.alias);
+                 }
+
+                 if (result.hasOwnProperty('film_genres')) {
+                     let filmGenres = '';
+                     if (Array.isArray(result.film_genres)) {
+                         for (var i = 0; i < result.film_genres.length; i++) {
+                             filmGenres += result.film_genres[i];
+                             if (i < result.film_genres.length - 1) {
+                                 filmGenres += ', ';
+                             }
+                         }
+                     } else {
+                         filmGenres = result.film_genres;
+                     }
+
+                     $('#film-genres').val(filmGenres);
+                 }
+
+                 if (result.hasOwnProperty('imdb_rating')) {
+                     console.log('imdb_rating' + result.imdb_rating);
+                     $('#imdb-rating').val(result.imdb_rating);
+                 }
+
+                 if (result.hasOwnProperty('film_year')) {
+                     console.log('film_year' + result.film_year);
+                     $('#film-year').val(result.film_year);
+                 }
+
+                 if (result.hasOwnProperty('film_countries')) {
+                     let filmCountries = '';
+                     if (Array.isArray(result.film_countries)) {
+                         for (var i = 0; i < result.film_countries.length; i++) {
+                             filmCountries += result.film_countries[i];
+                             if (i < result.film_countries.length - 1) {
+                                 filmCountries += ', ';
+                             }
+                         }
+                     } else {
+                         filmCountries = result.film_countries;
+                     }
+
+                     console.log('film-country' + filmCountries);
+                     $('#film-country').val(filmCountries);
+                 }
+
+                 if (result.hasOwnProperty('film_directors')) {
+                     let filmDirectors = '';
+                     if (Array.isArray(result.film_directors)) {
+                         for (var i = 0; i < result.film_directors.length; i++) {
+                             filmDirectors += result.film_directors[i];
+                             if (i < result.film_directors.length - 1) {
+                                 filmDirectors += ', ';
+                             }
+                         }
+                     } else {
+                         filmDirectors = result.film_directors;
+                     }
+
+                     console.log('film-director' + filmDirectors);
+                     $('#film-director').val(filmDirectors);
+                 }
+
+                 if (result.hasOwnProperty('film_actors')) {
+                     let filmActors = '';
+                     if (Array.isArray(result.film_actors)) {
+                         for (var i = 0; i < result.film_actors.length; i++) {
+                             filmActors += result.film_actors[i];
+                             if (i < result.film_actors.length - 1) {
+                                 filmActors += ', ';
+                             }
+                         }
+                     } else {
+                         filmActors = result.film_actors;
+                     }
+
+                     console.log('film_actors' + filmActors);
+                     $('#film-actors').val(filmActors);
+                 }
+
+                 if (result.hasOwnProperty('film_duration')) {
+                     console.log('film_duration' + result.film_duration);
+                     $('#film-duration').val(result.film_duration);
+                 }
+
+                 if (result.hasOwnProperty('imdb_rating')) {
+                     console.log('imdb_rating' + result.imdb_rating);
+                     $('#film-rating-mpaa').val(result.imdb_rating);
+                 }
+
+                 if (result.hasOwnProperty('film_description')) {
+                     console.log('film_description' + result.film_description);
+                     $('#film-description').val(result.film_description);
+                 }
 
              },
          });

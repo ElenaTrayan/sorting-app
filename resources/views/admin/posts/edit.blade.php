@@ -78,6 +78,15 @@
     {{--                            </li>--}}
                             </ul>
                         </div>
+
+                        <div class="form-group">
+                            <label for="image-name">Изменить имя файла</label>
+                            <input type="text" class="form-control" name="image-name" id="image-name" value="{{ $originalImage['name'] }}" placeholder="Введите имя для файла" required>
+                            <p>{{ $originalImage['name'] . '.' . $originalImage['extension'] }}</p>
+                            <p>{{ $mediumImage['name'] }}</p>
+                            <p>{{ $smallImage['name'] }}</p>
+                        </div>
+
                     </div>
 
                     <div class="card-body-block">

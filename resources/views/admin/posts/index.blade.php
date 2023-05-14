@@ -25,7 +25,6 @@
     <section class="content">
         <div class="container-fluid">
             <div class="posts-index ribbon-box" id="posts-index">
-
                 @if (session('success'))
                     @push('footer-scripts')
                         <script>
@@ -118,12 +117,27 @@
                     </div><!-- /.b-search-and-hashtags -->
 
                     <div class="b-cards">
-                    @include('admin.posts.parts.post_items')
+                        <div class="grid">
+                            @include('admin.posts.parts.post_items')
+                        </div>
                     </div><!-- /.b-cards -->
 
                     <div class="posts-pagination">
-                        <a href="">Показать ещё</a>
-                        {{ $posts->links('admin.includes.pagination') }}
+{{--                        <a id="load-more" href="">Показать ещё</a>--}}
+                        <div class="ajax-load text-center" style="display:none">
+                            <p><img src="/images/loading-slow-internet.gif">Loading More post</p>
+                        </div>
+                        <div class="page-load-status">
+                            <div class="loader-ellips infinite-scroll-request">
+                                <span class="loader-ellips__dot"></span>
+                                <span class="loader-ellips__dot"></span>
+                                <span class="loader-ellips__dot"></span>
+                                <span class="loader-ellips__dot"></span>
+                            </div>
+                            <p class="infinite-scroll-last">End of content</p>
+                            <p class="infinite-scroll-error">No more pages to load</p>
+                        </div>
+{{--                        {{ $posts->links('admin.includes.pagination') }}--}}
                     </div>
                 </div><!-- /.b-list-of-posts -->
 
