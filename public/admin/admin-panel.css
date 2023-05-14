@@ -184,6 +184,9 @@
     cursor: pointer;
     padding: 0;
     top: 38px;
+    max-height: calc(100vh - 200px);
+    overflow: hidden;
+    overflow-y: scroll;
 }
 .b-search__results li, .b-search__results-2 li {
     width: 100%;
@@ -559,6 +562,7 @@ margin: 0 0 20px 0;
 
 .b-card__content {
     position: relative;
+    margin: 0px 0 9px;
 }
 
 .b-card__user-options {
@@ -602,7 +606,7 @@ display: inline-block; /* Строчно-блочный элемент */
 }
 
 .b-card__content__text {
-    padding: 15px;
+    padding: 15px 15px 0;
 }
 
 .b-card__content__text .title {
@@ -745,6 +749,26 @@ display: inline-block; /* Строчно-блочный элемент */
     font-weight: 600;
 }
 
+.page-load-status {
+    display: none; /* hidden by default */
+    padding-top: 20px;
+    border-top: 1px solid #DDD;
+    text-align: center;
+    color: #777;
+}
+
+/* reveal grid after images loaded */
+.grid.are-images-unloaded {
+    opacity: 0;
+}
+
+.page-load-status {
+    display: none; /* hidden by default */
+    padding-top: 20px;
+    border-top: 1px solid #DDD;
+    text-align: center;
+    color: #777;
+}
 
 
 @media (max-width: 575px) {
@@ -807,6 +831,24 @@ display: inline-block; /* Строчно-блочный элемент */
 }
 .grid-item--width2 { width: 400px; }
 
+/** Моя оценка **/
+.grid-item .b-card__content__text .my-assessment {
+    align-items: flex-start !important;
+    flex-flow: column !important;
+    margin: 10px 0 !important;
+}
+.grid-item .b-card__content__text .my-assessment .title {
+    margin: 0 0 5px 0 !important;
+}
+.grid-item .b-card__content__text .my-assessment span {
+    border-right: none !important;
+}
+.grid-item .b-card__content__text .my-assessment .rate-movie span {
+    width: 20px !important;
+}
+.my-assessment .rate-movie span:hover {
+    color: #bbbbbb !important;
+}
 
 .post-update-image {
     width: 100%;

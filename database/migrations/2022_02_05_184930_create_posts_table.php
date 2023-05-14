@@ -22,9 +22,9 @@ class CreatePostsTable extends Migration
             $table->enum('status', ['not_active', 'active', 'remote'])->default('active'); //активен, удален
             $table->boolean('is_used')->default(0); //использован ли материал
             $table->text('content')->nullable();
-            $table->string('small_image')->nullable();
-            $table->string('medium_image')->nullable();
-            $table->string('original_image')->nullable();
+            $table->text('small_image')->nullable();
+            $table->text('medium_image')->nullable();
+            $table->text('original_image')->nullable();
             $table->string('image_alt', 100)->nullable();
             $table->timestamps();
         });

@@ -93,26 +93,177 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
  //     //document.creationform.submit();
  // }
 
+ var containerWidth = 1200;
+
  var masonryOptions = {
      itemSelector: '.grid-item',
-     //columnWidth: 290,
+     //columnWidth: '.grid-item',
      gutter: 20,
      //horizontalOrder: true,
      percentPosition: true,
  };
 
- // initialize Masonry
- var $grid = $('.grid').masonry( masonryOptions );
-
- // layout Masonry after each image loads
- $grid.imagesLoaded().progress( function() {
-     $grid.masonry('layout');
- });
-
  $(document).ready(function() {
 
-     let searchInput1 = '#search-input';
-     let searchInput2 = '#search-input-2';
+     // initialize Masonry
+     // Masonry + ImagesLoaded
+     var $grid = $('.grid');
+     $grid.imagesLoaded().progress( function() {
+         // init Masonry after all images have loaded
+         $grid.masonry(masonryOptions);
+     });
+
+     // var $grid = $('.grid').imagesLoaded( function() {
+     //     $grid.masonry({
+     //         itemSelector: '.grid-item'
+     //     });
+     // });
+
+         // Infinite Scroll
+     // $grid.infinitescroll({
+     //
+     //         // selector for the paged navigation (it will be hidden)
+     //         navSelector  : ".pagination",
+     //         // selector for the NEXT link (to page 2)
+     //         nextSelector : ".page-item .page-link",
+     //         // selector for all items you'll retrieve
+     //         itemSelector : ".grid-item",
+     //
+     //         // finished message
+     //         loading: {
+     //             finishedMsg: 'No more pages to load.'
+     //         }
+     //     },
+     //
+     //     // Trigger Masonry as a callback
+     //     function( newElements ) {
+     //         // hide new items while they are loading
+     //         var $newElems = $( newElements ).css({ opacity: 0 });
+     //         // ensure that images load before adding to masonry layout
+     //         $newElems.imagesLoaded(function(){
+     //             // show elems now they're ready
+     //             $newElems.animate({ opacity: 1 });
+     //             $grid.masonry( 'appended', $newElems, true );
+     //         });
+     //
+     // });
+
+     // Resume Infinite Scroll
+     // $('#load-more').click(function(){
+     //     $grid.infinitescroll('retrieve');
+     //     return false;
+     // });
+
+     var page = 1;
+     $(window).scroll(function() {
+         console.log('---scroll---');
+         console.log($(window).scrollTop());
+         console.log($(window).height());
+         console.log($(document).height());
+         if($(window).scrollTop() + $(window).height() + 10 >= $(document).height()) {
+             console.log('---scroll2---');
+             page++;
+             loadMoreData(page);
+         }
+     });
+
+
+     function loadMoreData(page){
+         console.log('loadMoreData');
+
+         let requestUrl = '?page=' + page;
+
+         let savedHashtags = localStorage.getItem('hashtags');
+         console.log('loadMoreData savedHashtags' + savedHashtags);
+
+         if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
+             requestUrl =  $('#js-b-search')[0].getAttribute('data-action') + requestUrl;
+             console.log(requestUrl);
+         }
+
+         // disable scrolling on page load
+         document.body.style.overflow = 'hidden';
+
+         //TODO
+
+         $.ajax(
+             {
+                 url: requestUrl,
+                 type: "get",
+                 beforeSend: function()
+                 {
+                     $('.ajax-load').show();
+                 }
+             })
+             .done(function(html)
+             {
+                 console.log('ddd');
+                 console.log(html);
+
+                 //$grid.masonry('destroy'); // destroy masonry
+
+                 if(html === ""){
+                     $('.ajax-load').html("No more records found");
+                     return;
+                 }
+
+                 // $grid.append(html).masonry('appended', html);
+                 // $grid.masonry();
+
+                 $('.ajax-load').hide();
+
+                 var $content = $( html );
+                 $grid.append( $content );
+                 $grid.masonry( 'appended', $content) ;
+
+                 // wait for images and Masonry layout to load
+                 var $gridd = $('.grid').imagesLoaded( function() {
+                     // init Masonry after all images have loaded
+                     $gridd.masonry('reloadItems');
+                     $gridd.masonry(masonryOptions);
+
+                     // enable scrolling when images and Masonry layout have loaded
+                     document.body.style.overflow = '';
+                 });
+
+                 // $grid.imagesLoaded().progress( function() {
+                 //     // init Masonry after all images have loaded
+                 //     $grid.masonry('reloadItems');
+                 //     $grid.masonry(masonryOptions);
+                 //
+                 //     // enable scrolling when images and Masonry layout have loaded
+                 //     document.body.style.overflow = '';
+                 // });
+
+                 // $grid.masonry(masonryOptions)
+
+                 // var types = ['w1', 'w2', 'w3', 'w4'];
+                 // var elems = $(); // empty jquery object
+                 // for (var i = 0; i < 3; i++) {
+                 //     var elem = $("<div></div>").addClass('item ' + types[Math.floor(Math.random() * types.length)]);
+                 //     elems = elems.add( elem );
+                 // }
+                 //
+                 // $grid.append( elems );
+                 // $grid.masonry('appended',elems);
+
+                 //$grid.append(data);
+                 // initialize Masonry
+                 //$grid.masonry( masonryOptions );
+             })
+             .fail(function(jqXHR, ajaxOptions, thrownError)
+             {
+                  console.log('fff');
+                 alert('server not responding...');
+             })
+             .always(function(html)
+             {
+                 console.log('aaa');
+             });
+     }
+
+     let searchInput1 = '#search-input'; //поиск в шапке
+     let searchInput2 = '#search-input-2'; //поиск при добавлении хештега при создании поста
 
      let containerSelectedHashtagsTags1 = '#b-search__field__tags-container__tags';
      let containerSelectedHashtagsTags2 = '#b-selected-tags-2';
@@ -124,6 +275,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
          if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
              localStorage.removeItem('hashtags');
+         }
+         if (localStorage.getItem('hashtags2') !== undefined && localStorage.getItem('hashtags2') !== null) {
+             localStorage.removeItem('hashtags2');
          }
      }
 
@@ -279,15 +433,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                  console.log(uploadedImages[key]);
                                  console.log(uploadedImages[key]['name']);
 
-                                 let img = '<div class="image" data-name="' + uploadedImages[key]['name'] + '">';
+                                 let img = '<div class="image" data-name="' + uploadedImages[key]['name'] + '" data-extension="' + uploadedImages[key]['extension'] + '">';
 
                                  if (uploadedImages[key]['small'] !== undefined) {
                                      img += '<span style="background-image: url(/storage/' + uploadedImages[key]['small'] + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle"></i>' +
+                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  } else {
                                      img += '<span style="background-image: url(/storage/' + uploadedImages[key]['original'] + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle"></i>' +
+                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  }
 
@@ -310,7 +464,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $(this).closest('.js-error-block').removeClass('active');
      });
 
-     $(document).on('click touchstart', '.js-delete-image', function(){
+     //удаление изображений из временной папки
+     $(document).on('click touchstart', '.js-delete-image', function() {
          console.log('delete');
 
          let savedImages = localStorage.getItem('images');
@@ -323,12 +478,50 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          console.log('image' + image);
          let name = image.dataset.name;
          console.log('name' + name);
+         let extension = image.dataset.extension;
+         console.log('extension' + extension);
 
          if (delete images[name] === true) {
-             console.log('=====images=====' + JSON.stringify(images));
-             localStorage.setItem('images', JSON.stringify(images));
 
-             image.remove();
+             console.log($(this).data('action'));
+
+             const myArray = {
+                 'name': name,
+                 'extension': extension,
+             }
+
+             let tokenValue = '';
+             let inputToken = $("[name='_token']");
+             for (let token of inputToken) {
+                 tokenValue = token.value;
+             }
+
+             //TODO
+             $.ajax({
+                 url: $(this).data('action'),
+                 type: 'post',
+                 headers: {
+                     'X-CSRF-TOKEN': tokenValue,
+                 },
+                 dataType: 'application/json',
+                 data: JSON.stringify(myArray), //image
+                 complete: function(response) {
+                     console.log("ответ");
+                     console.log(response.responseText);
+                     let result = JSON.parse(response.responseText);
+                     console.log('response' + result);
+
+                     if (result.status === true) {
+                         console.log('=====images=====' + JSON.stringify(images));
+                         localStorage.setItem('images', JSON.stringify(images));
+                         image.remove();
+                         toastr.success(result.msg);
+                     } else {
+                         toastr.error(result.msg);
+                     }
+                 },
+             });
+
          }
 
      });
@@ -341,9 +534,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $('.js-images').empty();
      }
 
-     function resetHashtagsFromForm() {
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
-             localStorage.removeItem('hashtags');
+     function resetHashtagsFromForm(storageKey) {
+         if (localStorage.getItem(storageKey) !== undefined && localStorage.getItem(storageKey) !== null) {
+             localStorage.removeItem(storageKey);
          }
 
          $(containerSelectedHashtagsTags2).empty();
@@ -367,7 +560,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          //creationForm.append('<input type="hidden" name="images" value="' + images + '" />');
          //console.log('creationForm' + creationForm);
 
-         let hashtags = localStorage.getItem('hashtags');
+         let storageKey = 'hashtags2';
+         let hashtags = localStorage.getItem(storageKey);
 
          // for ( let i = 0; i < hashtagsElements.length; ++i) {
          //     console.log(hashtagsElements[i].getAttribute('data-id'));
@@ -418,7 +612,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      resetImagesFromForm();
 
-                     resetHashtagsFromForm();
+                     resetHashtagsFromForm(storageKey);
 
 
                      toastr.success(result.message);
@@ -451,13 +645,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      let editForm = $("#editform");
      if (editForm !== undefined && editForm !== null) {
-         let hashtags = [];
+         let savedHashtags = {};
 
          $(containerSelectedHashtagsTags2 + ' span.tag').each(function(i,elem) {
-             hashtags.push(elem.getAttribute('data-id'));
+             savedHashtags[elem.getAttribute('data-id')] = elem.getAttribute('data-name');
+             //hashtags.push(elem.getAttribute('data-id'));
          });
 
-         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+         localStorage.setItem('hashtags2', JSON.stringify(savedHashtags));
      }
 
      $('#editform input[type="file"]').on('change', function (event) {
@@ -555,7 +750,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      $('#submit-edit-form').on('click', function (e) {
          e.preventDefault();
 
-         let hashtags = localStorage.getItem('hashtags');
+         let storageKey = 'hashtags2';
+         let hashtags = localStorage.getItem(storageKey);
 
          let images = localStorage.getItem('images');
          console.log('PARSE' + JSON.parse(images));
@@ -784,7 +980,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $(this).next('.error').removeClass('active');
      });
 
-     //ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
+     // searchInput1
+     // ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
      $(document).on('input', searchInput1, function() {
          console.log('click');
 
@@ -794,9 +991,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let searchValue =  $(this).val();
          console.log(searchValue);
 
+         let storageKey = 'hashtags'
          let foundHashtagsContainer = $('#b-search__results');
 
-         searchHashtag(searchValue, searchUrl, foundHashtagsContainer);
+         searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer);
 
      });
 
@@ -809,7 +1007,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
      });
 
-     //ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
+     // searchInput2
+     // ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
      $(document).on('keyup', searchInput2, function(event) {
          let searchUrl = $(this)[0].getAttribute('data-action');
 
@@ -822,35 +1021,44 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              console.log('ENTER');
              document.getElementById("add-tag").click();
 
+             //TODO
+
              return false;
          }
 
+         let storageKey = 'hashtags2'
          let foundHashtagsContainer = $('#b-search__results-2');
 
-         searchHashtag(searchValue, searchUrl, foundHashtagsContainer);
+         searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer);
 
      });
 
-     function searchHashtag(searchValue, searchUrl, foundHashtagsContainer) {
+     // Поиск хештегов
+     function searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer) {
+
          $.ajaxSetup({
              headers: {
                  'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
              }
          });
 
-         let hashtagsValue = '';
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
-             hashtagsValue = localStorage.getItem('hashtags');
+         let hashtagsValue = [];
+         let storageHashtags = localStorage.getItem(storageKey);
+         if (storageHashtags !== undefined && storageHashtags !== null && storageHashtags !== {}) {
+             hashtagsValue = JSON.parse(storageHashtags);
          }
+
+         console.log('hashtagsValue = ' + hashtagsValue);
 
          $.ajax({
              type: 'post',
              url: searchUrl,
              data: {'search': searchValue, 'hashtags': hashtagsValue},
              success: function (response) {
-                 console.log(response);
+                 console.log('response - ' + response);
 
                  let hashtags = response.hashtags;
+                 console.log('hashtags - ' + hashtags);
 
                  foundHashtagsContainer.empty(); //удалить все предыдущие результаты
 
@@ -884,81 +1092,89 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let foundHashtagsContainer = $('#b-search__results');
 
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
+         let storageKey = 'hashtags';
+
+         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null && localStorage.getItem('hashtags') !== '{}') {
              let savedHashtags = localStorage.getItem('hashtags');
-             console.log('savedHashtags' + savedHashtags);
-             savedHashtags = JSON.parse(savedHashtags);
              console.log('savedHashtags' + savedHashtags);
 
              //проверить есть ли ключ в массиве
              //если нет - добавить значение в массив
-             if(savedHashtags.includes(hashtagId) === false) {
+             if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
+                 savedHashtags = JSON.parse(savedHashtags);
+                 console.log('savedHashtags' + savedHashtags);
 
-                 addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput1, foundHashtagsContainer, null, '#b-search__input');
+                 //проверить есть ли ключ в массиве. если нет - добавить значение в массив
+                 if(savedHashtags.hasOwnProperty(hashtagId) === false) {
+                     // addHashtagToStorage(hashtagId, hashtagTitle, savedHashtags, storageKey, foundHashtagsContainer);
+                     // focusOnInput(searchInput);
 
-                 let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
-                 let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
+                     addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput1, foundHashtagsContainer, null, '#b-search__input');
 
-                 let tagsWidth = 0;
-                 let allTagsWidth = 150;
-                 let inputWidth = 0;
-                 $('#b-search__field__tags-container__tags .tag').each(function(i,elem) {
-                     tagsWidth += $(elem).outerWidth() + 8;
-                     allTagsWidth += $(elem).outerWidth() + 8;
+                     let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
+                     let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
 
-                     console.log($(elem).data('name'));
+                     let tagsWidth = 0;
+                     let allTagsWidth = 150;
+                     let inputWidth = 0;
+                     $('#b-search__field__tags-container__tags .tag').each(function(i,elem) {
+                         tagsWidth += $(elem).outerWidth() + 8;
+                         allTagsWidth += $(elem).outerWidth() + 8;
 
-                     if (tagsWidth > fieldTagsContainerWidth) {
-                         tagsWidth = $(elem).outerWidth() + 8;
-                     }
+                         console.log($(elem).data('name'));
 
-                     let count = Math.floor(allTagsWidth / fieldTagsContainerWidth);
+                         if (tagsWidth > fieldTagsContainerWidth) {
+                             tagsWidth = $(elem).outerWidth() + 8;
+                         }
 
-                     let quotient = allTagsWidth / fieldTagsContainerWidth;
-                     console.log('quotient = ' + quotient);
-                     let numberAfterPoint = quotient.toFixed(2);
-                     console.log('numberAfterPoint = ' + numberAfterPoint);
+                         let count = Math.floor(allTagsWidth / fieldTagsContainerWidth);
 
-                     inputWidth = fieldTagsContainerWidth - tagsWidth - 24;
-                     if (inputWidth < 100) {
-                         inputWidth = 100;
-                         let quotient = (allTagsWidth + inputWidth) / fieldTagsContainerWidth;
+                         let quotient = allTagsWidth / fieldTagsContainerWidth;
                          console.log('quotient = ' + quotient);
                          let numberAfterPoint = quotient.toFixed(2);
+                         console.log('numberAfterPoint = ' + numberAfterPoint);
 
-                         //count = Math.round((allTagsWidth + inputWidth) / fieldTagsContainerWidth);
-                         // console.log('allTagsWidth + inputWidth = ' + allTagsWidth + inputWidth);
-                         // console.log('(allTagsWidth + inputWidth) / fieldTagsContainerWidth = ' + ((allTagsWidth + inputWidth) / fieldTagsContainerWidth));
-                     }
+                         inputWidth = fieldTagsContainerWidth - tagsWidth - 24;
+                         if (inputWidth < 100) {
+                             inputWidth = 100;
+                             let quotient = (allTagsWidth + inputWidth) / fieldTagsContainerWidth;
+                             console.log('quotient = ' + quotient);
+                             let numberAfterPoint = quotient.toFixed(2);
 
-                     if ((numberAfterPoint+'').split(".")[1].substr(0,2) > 80 ) {
-                         count = count + 1;
-                     }
+                             //count = Math.round((allTagsWidth + inputWidth) / fieldTagsContainerWidth);
+                             // console.log('allTagsWidth + inputWidth = ' + allTagsWidth + inputWidth);
+                             // console.log('(allTagsWidth + inputWidth) / fieldTagsContainerWidth = ' + ((allTagsWidth + inputWidth) / fieldTagsContainerWidth));
+                         }
 
-                     console.log('count = ' + count);
-                     console.log('inputWidth = ' + inputWidth);
-                     console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
-                     console.log('allTagsWidth = ' + allTagsWidth);
-                     console.log('count = ' + count);
-                     console.log('fieldTagsContainerHeightDefault = ' + fieldTagsContainerHeightDefault);
+                         if ((numberAfterPoint+'').split(".")[1].substr(0,2) > 80 ) {
+                             count = count + 1;
+                         }
 
-                     $('#b-search__input').width(inputWidth);
+                         console.log('count = ' + count);
+                         console.log('inputWidth = ' + inputWidth);
+                         console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
+                         console.log('allTagsWidth = ' + allTagsWidth);
+                         console.log('count = ' + count);
+                         console.log('fieldTagsContainerHeightDefault = ' + fieldTagsContainerHeightDefault);
 
-                     fieldTagsContainerHeight = fieldTagsContainerHeightDefault + (36 * count);
+                         $('#b-search__input').width(inputWidth);
 
-                     containerSelectedHashtagsTags.css("height", fieldTagsContainerHeight);
-                     containerSelectedHashtags.css("height", fieldTagsContainerHeight);
+                         fieldTagsContainerHeight = fieldTagsContainerHeightDefault + (36 * count);
 
-                     console.log('fieldTagsContainerHeight = ' + fieldTagsContainerHeight);
-                     console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
-                     console.log('tagsWidth = ' + tagsWidth);
+                         containerSelectedHashtagsTags.css("height", fieldTagsContainerHeight);
+                         containerSelectedHashtags.css("height", fieldTagsContainerHeight);
 
-                 });
+                         console.log('fieldTagsContainerHeight = ' + fieldTagsContainerHeight);
+                         console.log('fieldTagsContainerWidth = ' + fieldTagsContainerWidth);
+                         console.log('tagsWidth = ' + tagsWidth);
+
+                     });
+                 }
              }
 
          } else {
 
-             addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput1, foundHashtagsContainer, null, '#b-search__input');
+             addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput1, foundHashtagsContainer, null, '#b-search__input');
 
              let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
              let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
@@ -1033,12 +1249,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let foundHashtagsContainer = $('#b-search__results-2');
          let selectedHashtagsContainer = '#b-selected-tags-2';
+         let storageKey = 'hashtags2';
 
-         addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
+         addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
      });
 
      //добавить хэштег к выбранным хэштегам
-     function addHashtagToSelectedHashtags(hashtagId, hashtagTitle, searchInput, foundHashtagsContainer, selectedHashtagsContainer = null, bSearchInput = null) {
+     function addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput, foundHashtagsContainer, selectedHashtagsContainer = null, bSearchInput = null) {
 
          let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
 
@@ -1048,94 +1265,132 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              $(hashtagElement).insertBefore(bSearchInput);
          }
 
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
-             let savedHashtags = localStorage.getItem('hashtags');
-             console.log('savedHashtags' + savedHashtags);
+         let savedHashtags = localStorage.getItem(storageKey);
+         console.log('savedHashtags' + savedHashtags);
+         console.log(storageKey);
+
+         if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
              savedHashtags = JSON.parse(savedHashtags);
              console.log('savedHashtags' + savedHashtags);
 
              //проверить есть ли ключ в массиве. если нет - добавить значение в массив
-             if(savedHashtags.includes(hashtagId) === false) {
-                 addHashtagToStorage(hashtagId, savedHashtags, foundHashtagsContainer);
+             if(savedHashtags.hasOwnProperty(hashtagId) === false) {
+                 addHashtagToStorage(hashtagId, hashtagTitle, savedHashtags, storageKey, foundHashtagsContainer);
                  focusOnInput(searchInput);
              }
          } else {
-             addHashtagToStorage(hashtagId, [], foundHashtagsContainer);
+             addHashtagToStorage(hashtagId, hashtagTitle, {}, storageKey, foundHashtagsContainer);
              focusOnInput(searchInput);
          }
      }
 
-     //добавляем id хештега в массив hashtags в localStorage
-     function addHashtagToStorage(hashtagId, hashtags, foundHashtagsContainer) {
-         hashtags.push(hashtagId);
-         console.log('hashtags' + hashtags);
-         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+     //добавляем id и title хештега в массив hashtags в localStorage
+     function addHashtagToStorage(hashtagId, hashtagTitle, savedHashtags, storageKey, foundHashtagsContainer) {
+         // hashtags.push(hashtagId);
+         // console.log('hashtags' + hashtags);
+         // localStorage.setItem('hashtags', JSON.stringify(hashtags));
+
+         // const arr = {
+         //     key1: 'value1',
+         // };
+
+         // arr в JSON
+         // let str = JSON.stringify(arr);
+         // console.log('str = ' + str);
+         // str в объект (ассоциативный массив)
+
+         console.log('hashtagId = ' + hashtagId);
+         console.log('hashtagTitle = ' + hashtagTitle);
+         console.log('savedHashtags = ' + savedHashtags);
+
+         savedHashtags[hashtagId] = hashtagTitle;
+         //hashtags[2] = 'bla';
+         console.log('savedHashtags = ' + JSON.stringify(savedHashtags));
+
+         localStorage.setItem(storageKey, JSON.stringify(savedHashtags));
 
          //удалить все предыдущие результаты
          foundHashtagsContainer.empty();
      }
 
+     //сделать активным и пустым input
      function focusOnInput(searchInput) {
          $(searchInput).val('');
          $(searchInput).focus();
      }
 
-
-
      $(document).on('click touchstart', containerSelectedHashtagsTags1 + ' .tag .close', function() {
          console.log("**************");
          console.log($(this));
 
-         removeHashtag($(this));
+         let storageKey = 'hashtags';
+         removeHashtag($(this), storageKey);
          focusOnInput(searchInput1);
      });
 
+     //удалить хештег из выбранных -> вызов метода removeHashtag
      $(document).on('click touchstart', containerSelectedHashtagsTags2 + ' .tag .close', function() {
          console.log("**************");
          console.log($(this));
 
-         removeHashtag($(this));
+         let storageKey = 'hashtags2';
+
+         removeHashtag($(this), storageKey);
          focusOnInput(searchInput2);
      });
 
-     function removeHashtag(closeBtn) {
+     //удалить хештег из выбранных
+     function removeHashtag(closeBtn, storageKey) {
          let tag = closeBtn.closest('.tag');
          let tagId = tag.data('id');
          console.log('tagId = ' + tagId);
 
-         let savedHashtags = localStorage.getItem('hashtags');
-         console.log('savedHashtags' + savedHashtags);
-         savedHashtags = JSON.parse(savedHashtags);
+         let savedHashtags = localStorage.getItem(storageKey);
          console.log('savedHashtags' + savedHashtags);
 
-         var position = savedHashtags.indexOf(tagId.toString());
-         console.log('position' + position);
+         if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
+             savedHashtags = JSON.parse(savedHashtags);
+             console.log('savedHashtags' + savedHashtags);
 
-         savedHashtags.splice(position, 1);
+             // var position = savedHashtags.indexOf(tagId.toString());
+             // console.log('position' + position);
+             // savedHashtags.splice(position, 1);
 
-         let hashtags = savedHashtags;
-         console.log('hashtags' + hashtags);
-         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+             delete savedHashtags[tagId];
 
-         tag.remove();
+             let hashtags = savedHashtags;
+             console.log('hashtags' + hashtags);
+             localStorage.setItem(storageKey, JSON.stringify(hashtags));
+
+             tag.remove();
+         } else {
+             //TODO
+         }
+
      }
 
      //добавить хештег, если его нет в найденных и выбранных - кнопка Добавить тег
      $(document).on('click touchstart', '#add-tag', function() {
 
-         let savedHashtags = localStorage.getItem('hashtags');
+         let storageKey = 'hashtags2';
+
+         let savedHashtags = localStorage.getItem(storageKey);
          if (savedHashtags === undefined || savedHashtags === null) {
-             savedHashtags = [];
+             savedHashtags = {};
+         } else {
+             savedHashtags = JSON.parse(savedHashtags);
          }
-         console.log('savedHashtags' + savedHashtags);
-         //savedHashtags = JSON.parse(savedHashtags);
-         //console.log('savedHashtags' + savedHashtags);
+
+         console.log('savedHashtags' + JSON.stringify(savedHashtags));
 
          let title = $(searchInput2)[0].value;
-
          let url = $('#add-tag')[0].getAttribute('data-action');
          console.log('url = ' + url);
          console.log('title = ' + title);
+
+         // let foundHashtagsContainer = $('#b-search__results-2');
+         // let selectedHashtagsContainer = '#b-selected-tags-2';
+         // addHashtagToSelectedHashtags('88', title, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
 
          if (title !== '') {
              $.ajax({
@@ -1157,7 +1412,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          let foundHashtagsContainer = $('#b-search__results-2');
                          let selectedHashtagsContainer = '#b-selected-tags-2';
 
-                         addHashtagToSelectedHashtags(response.info.id, response.info.title, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
+                         addHashtagToSelectedHashtags(response.info.id, response.info.title, storageKey, searchInput2, foundHashtagsContainer, selectedHashtagsContainer);
                      } else {
                          if (response.message !== null && response.message !== undefined) {
                              toastr.error(response.message);
@@ -1189,21 +1444,26 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              url: searchUrl,
              data: {'hashtags': savedHashtags},
              success: function (response) {
-                 console.log(response);
-
-                 let gridItems = $('#posts-index .b-cards .grid .grid-item');
-                 console.log(gridItems);
+                 //console.log(response);
+                 // let gridItems = $('#posts-index .b-cards .grid .grid-item');
+                 // console.log(gridItems);
                  //$grid.masonry('remove', gridItems);
                  $grid.masonry('destroy'); // destroy
 
                  let postsBlock = $('#posts-index .b-cards .grid');
                  postsBlock.html("");
-
                  postsBlock.append(response);
+
+                 let postsPagination = $('#posts-index .posts-pagination');
+                 postsPagination.html("");
+
                  $grid.masonry( masonryOptions );
 
-                 let gridItemsNew = $('#posts-index .b-cards .grid .grid-item');
-                 console.log(gridItemsNew);
+                 // let gridItemsNew = $('#posts-index .b-cards .grid .grid-item');
+                 // console.log(gridItemsNew);
+             },
+             error: function () {
+                 console.log('eee');
              }
          });
 
@@ -1513,22 +1773,42 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //страница - список постов: кнопка Добавить тег -> открывается поп-ап окно
      $(document).on('click', '#posts-index [data-action=add-hashtag]', function(event) {
          $('#modal-add-hashtag').modal('show', $(this));
+
+         let searchInput = $('#modal-add-hashtag #search-input-2')[0];
+         console.log(searchInput);
+         setTimeout(function() { searchInput.focus() }, 500);
+
          let tagsBlockElement = $(this).closest('.grid-item').find('.tags li');
          console.log(tagsBlockElement);
 
-         let hashtags = [];
+         let hashtags = {};
          tagsBlockElement.each(function(i,elem) {
              //TODO добавить к .tags li  data-id
              console.log('data-id = ' + elem.getAttribute('data-id'));
              let hashtagId = elem.getAttribute('data-id');
              let hashtagTitle = elem.getAttribute('data-title');
-             hashtags.push(hashtagId);
+             hashtags[hashtagId] = hashtagTitle;
 
              let postHashtag = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
              $(containerSelectedHashtagsTags2).append(postHashtag);
          });
 
-         localStorage.setItem('hashtags', JSON.stringify(hashtags));
+         localStorage.setItem('hashtags2', JSON.stringify(hashtags));
+     });
+
+     // закрыть popup окно при клике вне его области
+     $(document).mouseup(function(e) {
+         var container = $('#modal-add-hashtag');
+         if (!container.is(e.target) && container.has(e.target).length === 0) {
+             container.hide();
+         }
+     });
+
+     //страница - список постов: кнопка Отмена -> закрывается поп-ап окно
+     $(document).on('click', '#posts-index [data-action=close-modal-add-hashtag]', function(event) {
+         $('#modal-add-hashtag').modal('hide');
+         //очистить блок свыбранными хештегами в поп-ап окне
+         $(containerSelectedHashtagsTags2).html('');
      });
 
      $(document).on('shown.bs.modal','#modal-add-hashtag', function (event) {
@@ -1544,13 +1824,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          $('[data-action=save-request]').data('url', actionUrl);
          $('[data-action=save-request]').data('post-id', postId);
-         //console.log($('[data-action=save-request]').data('url'));
+         console.log($('[data-action=save-request]').data('url'));
      });
 
      //страница - список постов: добавить хештеги к посту из localStorage после нажатия на кнопку Сохранить в поп-ап окне
      $(document).on('click', '#modal-add-hashtag [data-action=save-request]', function(event) {
          //TODO
-         let hashtags = localStorage.getItem('hashtags');
+         let hashtags = localStorage.getItem('hashtags2');
          console.log('hashtags' + hashtags);
 
          let actionurl = $(this).data('url');
@@ -1579,14 +1859,33 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      //showAlert(result.message, 'alert-info', 'fa-check');
                      let postElement = $('.grid-item[data-id='+postId+']');
                      let tagsBlock = postElement.find('.tags');
+                     let tagsBlockElements = tagsBlock.find('li');
+                     console.log(postElement);
                      console.log(tagsBlock);
+                     console.log(tagsBlockElements);
 
-                     //TODO - походу нужно в localStorage хранить не только id хештега, но и title
+                     // let selectedHashtagsElements = $('#modal-add-hashtag #b-selected-tags-2 .tag');
+                     // let selectedHashtags = [];
+                     // tagsBlockElements.each(function(i,elem) {
+                     //     console.log('data-id = ' + elem.getAttribute('data-id'));
+                     //     selectedHashtags.push(elem.getAttribute('data-id'));
+                     // });
 
-                     // for ( let i = 0; i < hashtags.length; ++i ) {
-                     //     let postHashtag = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
-                     //     $(containerSelectedHashtagsTags2).append(postHashtag);
-                     // }
+                     let postHashtagsElement = postElement.find('.tags');
+                     postHashtagsElement.empty();
+
+                     const savedHashtags = JSON.parse(hashtags);
+                     console.log('savedHashtags = ' + savedHashtags);
+
+                     $grid.masonry('destroy'); // destroy
+
+                     for (key in savedHashtags) {
+                         console.log(key);
+                         let postHashtag = '<li data-id="' + key + '" data-title="' + savedHashtags[key] + '"><a rel="tag" href="#">#' + savedHashtags[key] + '</a></li>';
+                         postHashtagsElement.append(postHashtag);
+                     }
+
+                     $grid.masonry( masonryOptions );
 
                  } else {
                      toastr.error(result.message);
@@ -1594,6 +1893,145 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  }
 
                  $('#modal-add-hashtag').modal('hide');
+                 if (localStorage.getItem('hashtags2') !== undefined && localStorage.getItem('hashtags2') !== null) {
+                     localStorage.removeItem('hashtags2');
+                 }
+                 $('#modal-add-hashtag #b-selected-tags-2').empty();
+
+             },
+         });
+     });
+
+     $(document).on('click', '#get-parsed-post-info', function(event) {
+         console.log('=========' + 'TTT' + '==========');
+
+         //значение input-а
+         var linkForParsing = $('#link-for-parsing').val();
+         console.log('=========' + linkForParsing + '==========');
+
+         //url для запроса
+         let actionurl = $('#get-parsed-post-info').data('action')
+
+         $.ajaxSetup({
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name = "csrf-token"]').attr('content')
+             }
+         });
+
+         $.ajax({
+             url: actionurl,
+             type: 'POST',
+             dataType: 'application/json',
+             data: {'link': linkForParsing},
+             complete: function(response) {
+                 console.log("ответ");
+                 console.log(response.responseText);
+
+                 let result = JSON.parse(response.responseText);
+                 console.log('response' + result);
+
+                 if (result.hasOwnProperty('title')) {
+                     console.log('title' + result.title);
+                     $('#title').val(result.title);
+                 }
+
+                 if (result.hasOwnProperty('alias')) {
+                     console.log('alias' + result.alias);
+                     $('#alias').val(result.alias);
+                 }
+
+                 if (result.hasOwnProperty('film_genres')) {
+                     let filmGenres = '';
+                     if (Array.isArray(result.film_genres)) {
+                         for (var i = 0; i < result.film_genres.length; i++) {
+                             filmGenres += result.film_genres[i];
+                             if (i < result.film_genres.length - 1) {
+                                 filmGenres += ', ';
+                             }
+                         }
+                     } else {
+                         filmGenres = result.film_genres;
+                     }
+
+                     $('#film-genres').val(filmGenres);
+                 }
+
+                 if (result.hasOwnProperty('imdb_rating')) {
+                     console.log('imdb_rating' + result.imdb_rating);
+                     $('#imdb-rating').val(result.imdb_rating);
+                 }
+
+                 if (result.hasOwnProperty('film_year')) {
+                     console.log('film_year' + result.film_year);
+                     $('#film-year').val(result.film_year);
+                 }
+
+                 if (result.hasOwnProperty('film_countries')) {
+                     let filmCountries = '';
+                     if (Array.isArray(result.film_countries)) {
+                         for (var i = 0; i < result.film_countries.length; i++) {
+                             filmCountries += result.film_countries[i];
+                             if (i < result.film_countries.length - 1) {
+                                 filmCountries += ', ';
+                             }
+                         }
+                     } else {
+                         filmCountries = result.film_countries;
+                     }
+
+                     console.log('film-country' + filmCountries);
+                     $('#film-country').val(filmCountries);
+                 }
+
+                 if (result.hasOwnProperty('film_directors')) {
+                     let filmDirectors = '';
+                     if (Array.isArray(result.film_directors)) {
+                         for (var i = 0; i < result.film_directors.length; i++) {
+                             filmDirectors += result.film_directors[i];
+                             if (i < result.film_directors.length - 1) {
+                                 filmDirectors += ', ';
+                             }
+                         }
+                     } else {
+                         filmDirectors = result.film_directors;
+                     }
+
+                     console.log('film-director' + filmDirectors);
+                     $('#film-director').val(filmDirectors);
+                 }
+
+                 if (result.hasOwnProperty('film_actors')) {
+                     let filmActors = '';
+                     if (Array.isArray(result.film_actors)) {
+                         for (var i = 0; i < result.film_actors.length; i++) {
+                             filmActors += result.film_actors[i];
+                             if (i < result.film_actors.length - 1) {
+                                 filmActors += ', ';
+                             }
+                         }
+                     } else {
+                         filmActors = result.film_actors;
+                     }
+
+                     console.log('film_actors' + filmActors);
+                     $('#film-actors').val(filmActors);
+                 }
+
+                 if (result.hasOwnProperty('film_duration')) {
+                     console.log('film_duration' + result.film_duration);
+                     $('#film-duration').val(result.film_duration);
+                 }
+
+                 if (result.hasOwnProperty('imdb_rating')) {
+                     console.log('imdb_rating' + result.imdb_rating);
+                     $('#film-rating-mpaa').val(result.imdb_rating);
+                 }
+
+                 if (result.hasOwnProperty('film_description')) {
+                     console.log('film_description' + result.film_description);
+                     $('#film-description').val(result.film_description);
+                 }
+
              },
          });
      });
@@ -1805,6 +2243,5 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //         $(this).css("background-image", "");
      //     }
      // }, ".b-card__content__image");
-
 
  });

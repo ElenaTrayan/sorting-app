@@ -5,6 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Admin\Packages\SearchController;
 use App\Http\Controllers\Controller;
 use App\Models\Hashtag;
+use Illuminate\Contracts\Foundation\Application as ApplicationAlias;
+use Illuminate\Contracts\View\Factory as FactoryAlias;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class HashtagController extends Controller
@@ -12,7 +17,7 @@ class HashtagController extends Controller
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     * @return ApplicationAlias|FactoryAlias|View
      */
     public function index()
     {
@@ -26,7 +31,7 @@ class HashtagController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     * @return ApplicationAlias|FactoryAlias|View
      */
     public function create()
     {
@@ -41,13 +46,12 @@ class HashtagController extends Controller
      * Store a newly created resource in storage.
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     * @return JsonResponse|RedirectResponse
      */
     public function store(Request $request)
     {
         if (empty($request->title)) {
             return redirect()->route('hashtags.index')->withErrors('Не удалось создать хештег: пустой обязательный параметр');
-            //return response()->json(['status' => false, 'error' => 'err']);
         }
 
         $parent_id = 0;
@@ -57,10 +61,8 @@ class HashtagController extends Controller
 
         $search = new SearchController();
         $foundHashtags = $search->searchTagByTitle($request->title, $request->hashtags ?? '');
-
         if (!$foundHashtags->isEmpty()) {
             return redirect()->route('hashtags.index')->withErrors('Хештег уже сущетвует!');
-            //return response()->json(['status' => false, 'hashtags' => $foundHashtags]);
         }
 
         $user = auth()->user();
@@ -73,10 +75,11 @@ class HashtagController extends Controller
 
         if ($newHashtagSave === true) {
             //return redirect()->route('hashtags.index')->withSuccess('Хештег был успешно создан');
-            return response()->json(['status' => true, 'message' => 'Хештег был успешно добавлен',
+            return response()->json(['status' => true,
+                'message' => 'Хештег был успешно добавлен',
                 'info' => [
-                'id' => $newHashtag->id,
-                'title' => $newHashtag->title,
+                    'id' => $newHashtag->id,
+                    'title' => $newHashtag->title,
                 ]
             ]);
         }
@@ -100,7 +103,7 @@ class HashtagController extends Controller
      * Show the form for editing the specified resource.
      *
      * @param Hashtag $hashtag
-     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     * @return ApplicationAlias|FactoryAlias|View
      */
     public function edit(Hashtag $hashtag)
     {
@@ -147,7 +150,7 @@ class HashtagController extends Controller
      *
      * @param Request $request
      * @param Hashtag $hashtag
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
     public function update(Request $request, Hashtag $hashtag)
     {
@@ -167,7 +170,7 @@ class HashtagController extends Controller
      * Remove the specified resource from storage.
      *
      * @param $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function destroy($id)
     {

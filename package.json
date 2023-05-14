@@ -23,6 +23,8 @@
     "dependencies": {
         "@fancyapps/ui": "^4.0.31",
         "clipboard": "^2.0.11",
+        "imagesloaded": "^5.0.0",
+        "infinite-scroll": "^4.0.1",
         "masonry-layout": "^4.2.2",
         "toastr": "^2.1.4"
     }

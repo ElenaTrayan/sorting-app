@@ -48,17 +48,9 @@
                 </ul>
             </div>
 
-            <div class="card-body">
+            <div class="card-body" style="display: flex;">
 
-                @if(!empty($originalImage['path']))
-                    <div class="">
-                        <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] }}">
-                            <img src="/storage{{ $mediumImage['path'] ?? $originalImage['path'] }}" />
-                        </a>
-                    </div>
-                @endif
-
-                <div class="">
+                <div style="width: 50%;margin: 0 15px 0 0;">
                     @if (!empty($post->content))
                         <div class="title">
                             <h3 class="my-3">{{ $post->title }}</h3>
@@ -71,6 +63,14 @@
                         {!! $post->content !!}
                     @endif
                 </div>
+
+                @if(!empty($originalImage['path']))
+                    <div style="width: 50%;">
+                        <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] }}">
+                            <img src="/storage{{ $mediumImage['path'] ?? $originalImage['path'] }}" style="width: 100%;"/>
+                        </a>
+                    </div>
+                @endif
 
 
 {{--                    <div class="form-group">--}}

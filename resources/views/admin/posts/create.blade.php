@@ -45,6 +45,29 @@
                 @csrf
                 <div class="card-body">
                     <div class="card-body-block">
+
+                        <div class="b-add-film">
+                            <div class="input-group input-group-lg mb-3">
+                                <div class="input-group-prepend">
+                                    <button type="button" class="btn btn-warning dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+                                        Тип поста
+                                    </button>
+                                    <ul class="dropdown-menu" x-placement="bottom-start" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 48px, 0px);">
+                                        <li class="dropdown-item"><a href="#">Изображение</a></li>
+                                        <li class="dropdown-item"><a href="#">Текст</a></li>
+                                        <li class="dropdown-item"><a href="#">Фильм / Сериал</a></li>
+                                        <li class="dropdown-item"><a href="#">Another action</a></li>
+                                        <li class="dropdown-item"><a href="#">Something else here</a></li>
+                                        <li class="dropdown-divider"></li>
+                                        <li class="dropdown-item"><a href="#">Separated link</a></li>
+                                    </ul>
+                                </div>
+                                <!-- /btn-group -->
+                                <input id="link-for-parsing" type="text" class="form-control">
+                            </div>
+                            <button type="button" class="btn btn-info btn-flat" id="get-parsed-post-info" data-action="{{ route('parse.get-parsed-post-info') }}">Спарсить информацию</button>
+                        </div>
+
                         <div class="form-group">
                             <label for="title">Название поста</label>
                             <input type="text" class="form-control" name="title" id="title" placeholder="Введите название категории ..." required>
@@ -56,11 +79,80 @@
                         <div class="form-group">
                             <label>Выберете категорию</label>
                             <select class="form-control" name="category_id" id="category_id">
+                                <option value="">-</option>
                                 @foreach($categories as $category)
                                     <option value="{{ $category->id }}">{{ $category->title }}</option>
                                 @endforeach
                             </select>
                         </div>
+
+                        <div id="tab-film">
+                            <div class="form-group">
+                                <label for="film-genres">Жанры фильма:</label>
+                                <input type="text" class="form-control" name="film-genres" id="film-genres" placeholder="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="imdb-rating">Рейтинг IMDb:</label>
+                                <input type="text" class="form-control" name="imdb-rating" id="imdb-rating" placeholder="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="my-assessment">Моя оценка:</label>
+                                <select name="my-assessment" id="my-assessment">
+                                    <option value="value0">-</option>
+                                    <option value="value10">10</option>
+                                    <option value="value9">9</option>
+                                    <option value="value8">8</option>
+                                    <option value="value7">7</option>
+                                    <option value="value6">6</option>
+                                    <option value="value5">5</option>
+                                    <option value="value4">4</option>
+                                    <option value="value3">3</option>
+                                    <option value="value2">2</option>
+                                    <option value="value1">1</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="film-year">Год:</label>
+                                <input type="text" class="form-control" name="film-year" id="film-year" placeholder="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="film-country">Страна:</label>
+                                <input type="text" class="form-control" name="film-country" id="film-country" placeholder="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="film-director">Режиссер:</label>
+                                <input type="text" class="form-control" name="film-director" id="film-director" placeholder="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="film-actors">Актёры:</label>
+                                <input type="text" class="form-control" name="film-actors" id="film-actors" placeholder="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="film-duration">Длительность:</label>
+                                <input type="text" class="form-control" name="film-duration" id="film-duration" placeholder="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="film-rating-mpaa">Pейтинг MPAA:</label>
+                                <input type="text" class="form-control" name="film-rating-mpaa" id="film-rating-mpaa" placeholder="">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="film-description">Описание:</label>
+                                <textarea class="form-control" name="film-description" id="film-description" placeholder=""></textarea>
+                            </div>
+
+                        </div>
+
+                        <button type="button" class="btn btn-info btn-flat" id="get-parsed-post-info" data-action="">Сформировать пост</button>
+
                         <div class="b-add-tag">
                             <div class="input-group input-group-sm add-tag">
                                 <input id="search-input-2" type="text" class="form-control" data-action="{{ route('search.hashtag') }}">
@@ -75,6 +167,7 @@
                         </div>
 
                     </div>
+
                     <div class="card-body-block">
                         <div class="upload-image-section">
                             <section class="js-upload-image-section" data-action="{{ route('image.upload-to-temp-directory') }}">

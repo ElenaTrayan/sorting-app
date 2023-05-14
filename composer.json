@@ -7,7 +7,11 @@
     "require": {
         "php": "^7.3|^8.0",
         "ext-json": "*",
+        "ext-dom": "*",
+        "ext-libxml": "*",
+        "ext-curl": "*",
         "barryvdh/laravel-elfinder": "*",
+        "doctrine/dbal": "^3.5",
         "firebase/php-jwt": "^6.2",
         "fruitcake/laravel-cors": "^2.0",
         "guzzlehttp/guzzle": "^7.0.1",
