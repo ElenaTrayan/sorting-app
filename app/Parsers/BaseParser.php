@@ -3,6 +3,7 @@
 namespace App\Parsers;
 
 use Illuminate\Support\Facades\Http;
+use GuzzleHttp\Client;
 
 abstract class BaseParser
 {
@@ -28,6 +29,27 @@ abstract class BaseParser
         $response = Http::get($this->url);
         $html = $response->body();
         //dd($html);
+
+//        $client = new Client();
+//
+//        $response = $client->request('GET', $this->url, [
+//            'headers' => [
+//                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36',
+//            ],
+//        ]);
+//
+//        $html = $response->getBody()->getContents();
+//        dd($html);
+
+//        $ch = curl_init('https://www.instagram.com/аккаунт/');
+//        curl_setopt($ch, CURLOPT_PROXY, 'xxx.xxx.xxx.xxx:8080');
+//        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+//        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+//        curl_setopt($ch, CURLOPT_HEADER, false); // true - чтобы вывести заголовки
+//        $html = curl_exec($ch);
+//        curl_close($ch);
+
+//        dd($html);
 
         $this->dom = new \DOMDocument(); //"ext-dom": "*", в composer.json
         libxml_use_internal_errors(true); // добавим вот эту строку
@@ -57,4 +79,5 @@ abstract class BaseParser
 
         return trim($title);
     }
+
 }

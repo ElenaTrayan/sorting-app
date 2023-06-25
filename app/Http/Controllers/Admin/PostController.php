@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Components\ImageReader;
+use App\Http\Controllers\Admin\Packages\InstagramParser;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Packages\UploadImageController;
 use App\Models\Hashtag;
@@ -9,8 +11,11 @@ use App\Models\Post;
 use App\Models\PostsCategory;
 use App\Parsers\BaseParser;
 use App\Parsers\DefaultParser;
+use App\Parsers\EdaRuParser;
 use App\Parsers\HdFilmixFunParser;
 use App\Parsers\HdRezkaParser;
+use App\Parsers\InstagramComParser;
+use App\Parsers\PinterestParser;
 use App\Parsers\SweetTvParser;
 use App\Parsers\UaKinoClubParser;
 use Illuminate\Contracts\Foundation\Application;
@@ -658,6 +663,14 @@ class PostController extends Controller
         return $result;
     }
 
+    public function getTextFromImage(Request $request)
+    {
+        if ($request->ajax() && !empty($request->imagePath)) {
+            $imageReader = new ImageReader();
+            $imageReader->recognizeText($request->imagePath);
+        }
+    }
+
     /**
      * @param $alias
      * @param $userId
@@ -682,6 +695,11 @@ class PostController extends Controller
         //dd((strripos($link, 'rezka.ag')));
         //dd($link);
         switch ($link) {
+            //Инстаграм блокирует мои запросы с локального ip
+            case (strripos($link, 'instagram.com') !== false):
+                return new InstagramComParser($link);
+            case (strripos($link, 'pinterest.com') !== false):
+                return new PinterestParser($link);
             //почему-то парсит только на украинском языке, хотя вставляю ссылку с ru в урле
             case (strripos($link, 'sweet.tv') !== false):
                 return new SweetTvParser($link);
@@ -692,6 +710,8 @@ class PostController extends Controller
                 return new UaKinoClubParser($link);
             case (strripos($link, 'hd.filmix.fun') !== false):
                 return new HdFilmixFunParser($link);
+            case (strripos($link, 'eda.ru') !== false):
+                return new EdaRuParser($link);
 //            case 2:
 //                echo "i equals 2";
 //                break;

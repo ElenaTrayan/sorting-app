@@ -56,8 +56,6 @@ class DefaultParser extends BaseParser
         // alias
         $result['alias'] = str_slug($result['title']);
 
-        dd($result);
-
         return $result;
     }
 
@@ -66,7 +64,7 @@ class DefaultParser extends BaseParser
      *
      * @return string
      */
-    private function getPostTitle(): string
+    protected function getPostTitle(): string
     {
         dd($this->dom);
         $titleElement = $this->dom->getElementsByTagName('h1')->item(0);

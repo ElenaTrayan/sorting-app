@@ -12,6 +12,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
             {text: 'HTML/XML', value: 'markup'},
             {text: 'CSS', value: 'css'}
         ],
+        extended_valid_elements: "svg[*],defs[*],pattern[*],desc[*],metadata[*],g[*],mask[*],path[*],line[*],marker[*],rect[*],circle[*],ellipse[*],polygon[*],polyline[*],linearGradient[*],radialGradient[*],stop[*],image[*],view[*],text[*],textPath[*],title[*],tspan[*],glyph[*],symbol[*],switch[*],use[*]",
         /* enable title field in the Image dialog*/
         image_title: true,
         /* enable automatic uploads of images represented by blob or data URIs*/
@@ -1902,6 +1903,35 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      });
 
+     // Выбрать тип данных, которые будем парсить (dropdown-menu)
+     let bParseInfoDropdownMenu = $(".card-create .b-parse-info .dropdown-menu");
+     if (bParseInfoDropdownMenu !== undefined && bParseInfoDropdownMenu !== null) {
+
+         var liItems = bParseInfoDropdownMenu.find('li[data-type]');
+         console.log(liItems);
+
+         var changeTypeButton = $('#change-type-for-parsing');
+         //var liItems = $('.card-create .b-parse-info .dropdown-item[data-type]');
+
+         liItems.on('click', function(event) {
+             event.preventDefault();
+             var liText = $(this).text().trim();
+             var liDataType = $(this).data('type');
+             changeTypeButton.text(liText);
+             changeTypeButton.data('type', liDataType);
+             console.log(changeTypeButton.data('type'));
+
+             var parsingTypeBlocks = $('.b-parsing-type-blocks > div');
+             console.log('parsingTypeBlocks = ' + parsingTypeBlocks);
+
+             parsingTypeBlocks.hide();
+             let tabType = liDataType.substring(liDataType.indexOf("-") + 1).replace("-", "")
+             console.log(tabType);
+             $('#tab-' + tabType).show();
+         });
+     }
+
+
      $(document).on('click', '#get-parsed-post-info', function(event) {
          console.log('=========' + 'TTT' + '==========');
 
@@ -1929,6 +1959,77 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                  let result = JSON.parse(response.responseText);
                  console.log('response' + result);
+
+                 //TODO
+                 if (result.hasOwnProperty('image')) {
+                     let imageObj = result.image;
+
+                     if (localStorage.getItem('images') !== undefined && localStorage.getItem('images') !== null) {
+                         let savedImages = localStorage.getItem('images');
+                         console.log('savedImages' + savedImages);
+                         //localStorage images
+                         let lsImages = JSON.parse(savedImages);
+                         console.log('lsImages' + lsImages);
+
+                         for (let key in imageObj) {
+                             if (lsImages.hasOwnProperty(key) === false) {
+                                 let image = imageObj[key];
+
+                                 //data-extension="' + image.image_extension + '"
+                                 let img = '<div class="image" data-name="' + image.image_name + '"  data-extension="' + image.image_extension + '">';
+
+                                 if (image.s_image_name !== undefined) {
+                                     img += '<span style="background-image: url(/storage/temp_directory/' + image.s_image_name + ')"></span>' +
+                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                         '</div>';
+                                 } else {
+                                     img += '<span style="background-image: url(/storage/temp_directory/' + image.image_name + '.' + image.image_extension + ')"></span>' +
+                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                         '</div>';
+                                 }
+
+                                 // Добавить в контейнер
+                                 $('.js-upload-image-section .images').append(img);
+
+                                 $('.upload-image-section .title').hide();
+                             }
+                         }
+
+                         let images = Object.assign({}, lsImages, imageObj);
+                         console.log('images' + images);
+
+                         localStorage.setItem('images', JSON.stringify(images));
+                     } else {
+
+                         for (let key in imageObj) {
+                             if (imageObj.hasOwnProperty(key)) {
+                                 let image2 = imageObj[key];
+
+                                 //data-extension="' + image.image_extension + '"
+                                 let img = '<div class="image" data-name="' + image2.image_name + '"  data-extension="' + image2.image_extension + '">';
+
+                                 if (image2.s_image_name !== undefined) {
+                                     img += '<span style="background-image: url(/storage/temp_directory/' + image2.s_image_name + ')"></span>' +
+                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                         '</div>';
+                                 } else {
+                                     img += '<span style="background-image: url(/storage/temp_directory/' + image2.image_name + '.' + image2.image_extension + ')"></span>' +
+                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                         '</div>';
+                                 }
+
+                                 // Добавить в контейнер
+                                 $('.js-upload-image-section .images').append(img);
+
+                                 $('.upload-image-section .title').hide();
+                             }
+                         }
+
+                         localStorage.setItem('images', JSON.stringify(imageObj));
+                     }
+
+                     console.log('TEST-------' + localStorage.getItem('images'));
+                 }
 
                  if (result.hasOwnProperty('title')) {
                      console.log('title' + result.title);
@@ -2022,14 +2123,203 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      $('#film-duration').val(result.film_duration);
                  }
 
-                 if (result.hasOwnProperty('imdb_rating')) {
-                     console.log('imdb_rating' + result.imdb_rating);
-                     $('#film-rating-mpaa').val(result.imdb_rating);
+                 if (result.hasOwnProperty('mpaa_rating')) {
+                     console.log('mpaa_rating' + result.mpaa_rating);
+                     $('#film-rating-mpaa').val(result.mpaa_rating);
                  }
 
                  if (result.hasOwnProperty('film_description')) {
                      console.log('film_description' + result.film_description);
                      $('#film-description').val(result.film_description);
+                 }
+
+             },
+         });
+     });
+
+     //Generate post TODO
+     $(document).on('click', '#generate-post', function(event) {
+         console.log('=========' + 'generate-post' + '==========');
+         console.log($('#film-rating-mpaa').val());
+
+         //TODO - в зависимости от типа (film, text, recept)
+         let generateText = '<div style="width:100%; display:block; font-family: Roboto,sans-serif">';
+         generateText += '<h2 style="font-size: 16px;font-style: italic;color: #757575; line-height: 24px;">';
+         generateText += 'The Lord of the Rings: The Fellowship of the Ring';
+         generateText += '</h2>';
+
+
+         if ($('#film-genres').val() !== null && $('#film-genres').val() !== undefined) {
+             generateText += '<p style="display: block; clear:both; line-height: 28px; margin: 0 0 10px;">';
+             generateText += '<span style="font-weight: bold;">Жанр: </span>';
+             generateText += '<span>';
+             generateText += $('#film-genres').val();
+             generateText += '</span>';
+             generateText += '</p>';
+         }
+
+         if ($('#imdb-rating').val() !== null && $('#imdb-rating').val() !== undefined) {
+             generateText += '<p style="display: block; clear:both; display:flex;align-items: center; line-height: 28px; margin:0;">';
+             generateText += '<span style="font-weight: bold; padding: 0 5px 0 0;">Рейтинг IMDb:</span>\n' +
+                 '        <svg xmlns="http://www.w3.org/2000/svg" width="37" height="16" viewBox="0 0 37 16" fill="none">\n' +
+                 '        <path d="M4.02172 0H32.9783C35.1994 0 37 1.79085 37 3.99998V12C37 14.2091 35.1994 16 32.9783 16H4.02172C1.80059 16 0 14.2091 0 12V3.99998C0 1.79085 1.80059 0 4.02172 0Z" fill="#FFC107"></path>\n' +
+                 '        <path fill-rule="evenodd" clip-rule="evenodd" d="M7.23943 12.8002C6.79521 12.8002 6.43506 12.442 6.43506 12.0001V4.00022C6.43506 3.55839 6.79521 3.2002 7.23943 3.2002C7.68366 3.2002 8.04381 3.55839 8.04381 4.00022V12.0002C8.04381 12.442 7.68366 12.8002 7.23943 12.8002ZM16.891 12.8002C16.4468 12.8002 16.0866 12.442 16.0866 12.0002V4.80017H15.9418L14.4619 12.1602C14.3735 12.5932 13.9489 12.8729 13.5136 12.785C13.197 12.7211 12.9497 12.4751 12.8853 12.1602L11.4053 4.80025H11.2605V12.0002C11.2605 12.4421 10.9004 12.8003 10.4562 12.8003C10.0119 12.8003 9.65186 12.4421 9.65186 12.0002V4.00022C9.65186 3.5584 10.012 3.2002 10.4562 3.2002H12.0649C12.4472 3.20012 12.7767 3.46765 12.8531 3.84017L13.6736 7.92017L14.494 3.84017C14.5705 3.46765 14.9 3.20012 15.2822 3.2002H16.891C17.3352 3.2002 17.6954 3.5584 17.6954 4.00022V12.0002C17.6954 12.4421 17.3352 12.8002 16.891 12.8002ZM20.1095 12.8002H21.7182C23.0509 12.8002 24.1312 11.7256 24.1312 10.4002V5.60019C24.1312 4.27472 23.0509 3.2002 21.7182 3.2002H20.1095C19.6653 3.2002 19.3052 3.55839 19.3052 4.00022V12.0001C19.3052 12.442 19.6653 12.8002 20.1095 12.8002ZM21.7182 11.2002H20.9138V4.80016H21.7182C22.1624 4.80016 22.5226 5.15836 22.5226 5.60019V10.4002C22.5226 10.842 22.1624 11.2002 21.7182 11.2002ZM26.5436 12.8002C26.0994 12.8002 25.7393 12.442 25.7393 12.0001V10.3998V7.19979V4.00022C25.7393 3.55839 26.0994 3.2002 26.5436 3.2002C26.9879 3.2002 27.348 3.55839 27.348 4.00022V4.93635C27.5995 4.84792 27.8702 4.7998 28.1523 4.7998C29.485 4.7998 30.5654 5.87432 30.5654 7.19979V10.3998C30.5654 11.7253 29.485 12.7998 28.1523 12.7998C27.7798 12.7998 27.4271 12.7159 27.1122 12.566C26.9666 12.7107 26.7656 12.8002 26.5436 12.8002ZM27.348 10.4126C27.3548 10.8485 27.7123 11.1999 28.1523 11.1999C28.5965 11.1999 28.9567 10.8416 28.9567 10.3998V7.19979C28.9567 6.75804 28.5965 6.39985 28.1523 6.39985C27.7123 6.39985 27.3548 6.75122 27.348 7.18718V10.4126Z" fill="black"></path>\n' +
+                 '        &nbsp;</svg>';
+             generateText += '<span style="padding: 0 0 0 4px;">';
+             generateText += $('#imdb-rating').val();
+             generateText += '</span>';
+             generateText += '</p>';
+         }
+
+         if ($('#my-assessment').val() !== null && $('#my-assessment').val() !== undefined) {
+             let myAssessment = $('#my-assessment').val();
+             myAssessment = myAssessment.replace(/value/, "");
+             if (myAssessment === "0") {
+                 myAssessment = "-";
+             }
+
+             generateText += '<div class="my-assessment" style="display:flex;align-items:center;">';
+             generateText += '<p style="margin: 0 10px 0 0;">\n' +
+                 '            <span class="title" style="font-weight: bold;padding: 0 4px 0 0;">Моя оценка: </span>';
+             generateText += '<span style="height:20px;width:25px;border-right:1px solid rgba(120, 119, 119, .5);padding: 0 15px 0 0;">';
+             generateText += myAssessment;
+             generateText += '</span>';
+             generateText += '</p>';
+             generateText += '<div style="display:flex;flex-flow: column wrap;align-items:center;">\n' +
+                 '            <p class="wrapper_block_rating" style="display:inline-block;float:left;width:auto;margin: 0 0 5px;color: #b8b8b8;font: 500 13px roboto, sans-serif;">Оценить фильм \n' +
+                 '            </p>\n' +
+                 '            <p class="rate-movie" style="display: flex;font: 700 18px/30px roboto, sans-serif;margin:0;">\n' +
+                 '                <span data-value="1" style="color:#ff3300;cursor:pointer;display:block;text-align:center;width:30px;">1</span>\n' +
+                 '                <span data-value="2" style="color:#ff3300;cursor:pointer;display:block;text-align:center;width:30px;">2</span>\n' +
+                 '                <span data-value="3" style="color:#ff3300;cursor:pointer;display:block;text-align:center;width:30px;">3</span>';
+             generateText += '<span data-value="4" style="color:#ff3300;cursor:pointer;display:block;text-align:center;width:30px;">4</span>\n' +
+                 '                <span data-value="5" style="color:#ff9900;cursor:pointer;display:block;text-align:center;width:30px;">5</span>\n' +
+                 '                <span data-value="6" style="color:#ff9900;cursor:pointer;display:block;text-align:center;width:30px;">6</span>\n' +
+                 '                <span data-value="7" style="color:#ff9900;cursor:pointer;display:block;text-align:center;width:30px;">7</span>\n' +
+                 '                <span data-value="8" style="color:#00b400;cursor:pointer;display:block;text-align:center;width:30px;">8</span>\n' +
+                 '                <span data-value="9" style="color:#00b400;cursor:pointer;display:block;text-align:center;width:30px;">9</span>\n' +
+                 '                <span data-value="10" style="color:#00b400;cursor:pointer;display:block;text-align:center;width:30px;">10</span>\n' +
+                 '            </p>\n' +
+                 '        </div>';
+             generateText += '</div>';
+         }
+
+         if ($('#film-year').val() !== null && $('#film-year').val() !== undefined) {
+             generateText += '<p style="display: block; clear:both;line-height: 28px; margin: 0 0 10px;">';
+             generateText += '<span style="font-weight: bold;">Год: </span>';
+             generateText += $('#film-year').val();
+             generateText += '</p>';
+         }
+
+         if ($('#film-country').val() !== null && $('#film-country').val() !== undefined) {
+             generateText += '<p style="display: block; clear:both; line-height: 28px; margin: 0 0 10px;">';
+             generateText += '<span style="font-weight: bold;">Страна: </span>';
+             generateText += $('#film-country').val();
+             generateText += '</p>';
+         }
+
+         if ($('#film-director').val() !== null && $('#film-director').val() !== undefined) {
+             generateText += '<p style="display: block; clear:both;line-height: 28px; margin: 0 0 10px;">';
+             generateText += '<span style="font-weight: bold;">Режиссер: </span>';
+             generateText += $('#film-director').val();
+             generateText += '</p>';
+         }
+
+         if ($('#film-actors').val() !== null && $('#film-actors').val() !== undefined) {
+             generateText += '<p style="display: block; clear:both; line-height: 28px; margin: 0 0 10px;">';
+             generateText += '<span style="font-weight: bold;">Актёры: </span>';
+             generateText += $('#film-actors').val();
+             generateText += '</p>';
+         }
+
+         if ($('#film-duration').val() !== null && $('#film-duration').val() !== undefined) {
+             generateText += '<p style="clear:both; display:flex; align-items: center;line-height: 28px; margin: 0 0 10px;">';
+             generateText += '<span style="font-weight: bold;padding: 0 5px 0 0;">Длительность: </span>\n' +
+                 '    <svg class="film__duration--clock" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">\n' +
+                 '        <path fill-rule="evenodd" clip-rule="evenodd" d="M0.666668 9.19735C0.666668 4.60235 4.405 0.864014 9 0.864014C13.595 0.864014 17.3333 4.60235 17.3333 9.19735C17.3333 13.7923 13.595 17.5307 9 17.5307C4.405 17.5307 0.666668 13.7923 0.666668 9.19735ZM9 15.864C5.32417 15.864 2.33333 12.8732 2.33333 9.19735C2.33333 5.52151 5.32417 2.53068 9 2.53068C12.6758 2.53068 15.6667 5.52151 15.6667 9.19735C15.6667 12.8732 12.6758 15.864 9 15.864ZM12.3333 8.36401H9.83333V5.86401C9.83333 5.40318 9.46 5.03068 9 5.03068C8.54 5.03068 8.16667 5.40318 8.16667 5.86401V9.19735C8.16667 9.65818 8.54 10.0307 9 10.0307H12.3333C12.7942 10.0307 13.1667 9.65818 13.1667 9.19735C13.1667 8.73651 12.7942 8.36401 12.3333 8.36401Z" fill="#20BEC6"></path>\n' +
+                 '    &nbsp;</svg>';
+             generateText += '<span style="padding: 0 0 0 3px;">';
+             generateText += $('#film-duration').val();
+             generateText += '</span>';
+             generateText += '</p>';
+         }
+
+         if ($('#film-rating-mpaa').val() !== null && $('#film-rating-mpaa').val() !== undefined) {
+             generateText += '<p style="display:flex; align-items: center;clear:both;line-height: 28px; margin: 0 0 10px;">';
+             generateText += '<span style="font-weight: bold;padding: 0 5px 0 0;">Pейтинг MPAA: </span>\n' +
+                 '    <svg width="15" height="15" viewBox="0 0 20 18" fill="grey" xmlns="http://www.w3.org/2000/svg">';
+             generateText += '<path fill-rule="evenodd" clip-rule="evenodd" d="M1.29275 0.292599C1.68375 -0.0974008 2.31675 -0.0974008 2.70675 0.292599L18.7067 16.2926C19.0977 16.6836 19.0977 17.3166 18.7067 17.7066C18.5117 17.9026 18.2558 17.9996 17.9998 17.9996C17.7437 17.9996 17.4888 17.9026 17.2927 17.7066L11.6628 12.0766C11.1548 12.3526 10.5898 12.4996 9.99975 12.4996C8.07075 12.4996 6.49975 10.9296 6.49975 8.9996C6.49975 8.4106 6.64675 7.8456 6.92375 7.3376L1.29275 1.7066C0.90275 1.3166 0.90275 0.683599 1.29275 0.292599ZM16.9548 13.1266C18.4767 11.7386 19.4527 10.2206 19.8678 9.4976C20.0438 9.1896 20.0438 8.8106 19.8678 8.5026C19.2297 7.3906 15.7048 1.8166 9.72975 2.0036C8.54475 2.0336 7.47375 2.2896 6.50175 2.6736L8.08175 4.2536C8.61775 4.1116 9.18075 4.0176 9.78075 4.0026C14.0717 3.8936 16.8948 7.5856 17.8267 9.0046C17.3708 9.7186 16.6038 10.7646 15.5437 11.7156L16.9548 13.1266ZM13.4978 15.3266L11.9178 13.7466C11.3828 13.8886 10.8198 13.9826 10.2198 13.9976C5.91475 14.0976 3.10475 10.4146 2.17275 8.9956C2.62975 8.2816 3.39575 7.2356 4.45575 6.2846L3.04475 4.8726C1.52275 6.2616 0.54675 7.7796 0.13275 8.5026C-0.04425 8.8106 -0.04425 9.1896 0.13275 9.4976C0.76175 10.5946 4.16175 15.9996 10.0247 15.9996C10.1067 15.9996 10.1888 15.9986 10.2708 15.9966C11.4548 15.9666 12.5268 15.7106 13.4978 15.3266ZM9.99975 10.4996C9.17275 10.4996 8.49975 9.8276 8.49975 8.9996C8.49975 8.98667 8.50269 8.97427 8.50567 8.96172C8.50845 8.95001 8.51127 8.93815 8.51175 8.9256L10.0747 10.4886C10.0624 10.4891 10.0507 10.4916 10.0391 10.4941L10.0391 10.4941L10.039 10.4941C10.0262 10.4968 10.0134 10.4996 9.99975 10.4996Z"></path>\n' +
+                 '        &nbsp;</svg>';
+             generateText += '<span style="padding: 0 0 0 3px;">';
+             generateText += $('#film-rating-mpaa').val();
+             generateText += '</span>';
+             generateText += '</p>';
+         }
+
+         if ($('#film-description').val() !== null && $('#film-description').val() !== undefined) {
+             generateText += '<p style="display: block; clear:both; line-height: 28px; margin: 0 0 10px;">';
+             generateText += '<span style="font-weight: bold;">Описание: </span>';
+             generateText += $('#film-description').val();
+             generateText += '</p>';
+         }
+
+         generateText += '</div>';
+
+         console.log(generateText);
+
+         var editor = tinymce.get('editor');
+        // Проверяем, что редактор найден
+         if (editor) {
+             // Устанавливаем новый текст в редактор
+             var newText = 'Новый текст';
+             editor.setContent(generateText);
+         }
+     });
+
+     //считать текст с изображения
+     $(document).on('click', '.js-get-text-from-image', function(event) {
+         //url для запроса
+         let actionurl = $('.js-get-text-from-image').data('action');
+         let imagePath = '';
+
+         if (localStorage.getItem('images') !== undefined && localStorage.getItem('images') !== null) {
+             let savedImages = localStorage.getItem('images');
+             console.log('savedImages' + savedImages);
+             //localStorage images
+             let lsImages = JSON.parse(savedImages);
+             console.log('lsImages' + lsImages);
+
+             for (let key in lsImages) {
+                 console.log(lsImages[key]);
+                 let image = lsImages[key];
+
+                 imagePath = '/storage/temp_directory/' + image.image_name + '.' + image.image_extension;
+             }
+         }
+
+         console.log('imagePath = ' + imagePath);
+
+         $.ajaxSetup({
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name = "csrf-token"]').attr('content')
+             }
+         });
+
+         $.ajax({
+             url: actionurl,
+             type: 'POST',
+             dataType: 'application/json',
+             data: {'imagePath': imagePath},
+             complete: function(response) {
+                 console.log("ответ");
+                 console.log(response.responseText);
+
+                 let result = JSON.parse(response.responseText);
+                 console.log('response' + result);
+
+                 if (result.hasOwnProperty('title')) {
+                     console.log('title' + result.title);
+                     $('#title').val(result.title);
                  }
 
              },

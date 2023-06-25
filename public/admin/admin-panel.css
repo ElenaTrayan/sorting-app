@@ -222,8 +222,7 @@
 
 .upload-image-section {
     position: relative;
-    height: 100%;
-    /*height: calc(100% - 53px);*/
+    height: calc(100vh - 200px);
     margin: 0 0 15px;
 }
 .upload-image-section section{
@@ -391,8 +390,9 @@ text-align: center;
 
 /* Контейнер с загруженными картинками */
 .upload-image-section .images {
-    width: 380px;
-    overflow: hidden;
+    /*width: 380px;*/
+    width: 100%;
+    /*overflow: hidden;*/
     margin: 0 auto;
 }
 
@@ -806,7 +806,8 @@ display: inline-block; /* Строчно-блочный элемент */
 @media (min-width: 1200px) {
     /* Стили для устройств с большой шириной экрана >1200px */
     .card-create .card-body {
-        flex-flow: row;
+        flex-flow: row wrap;
+        align-content: flex-start;
     }
     .card-body-block {
         width: 50%;

@@ -5,17 +5,8 @@ namespace App\Parsers;
 use App\Http\Controllers\Admin\Packages\UploadImageController;
 use Illuminate\Support\Facades\Http;
 
-class SweetTvParser extends BaseParser
+class EdaRuParser extends BaseParser
 {
-    /*
-        $parser = new SweetTvParser(link);
-        $result = $parser->parse();
-
-        echo $result['title']; // Выведет "Отпетые мошенницы"
-        echo $result['rating']; // Выведет "7.9"
-        echo $result['description']; // Выведет описание фильма
-     */
-
     protected $spanElements;
 
     /**
@@ -28,6 +19,8 @@ class SweetTvParser extends BaseParser
         $this->url = $link;
         $this->getPageContent();
         $this->spanElements = $this->dom->getElementsByTagName('span');
+//        var_dump($this->spanElements);
+//        exit();
     }
 
     /**
@@ -39,112 +32,88 @@ class SweetTvParser extends BaseParser
     {
         $result = [];
 
+        $titleElement = $this->dom->getElementsByTagName('h1')->item(0);
+        $title = $titleElement ? $titleElement->textContent : '';
+
         // Парсим название фильма
-        $result['title'] = $this->getPostTitle();
+        $result['title'] = $title;
         // Парсим жанры фильма
-        $result['film_genres'] = $this->getFilmGenres();
-        // Парсим год фильма
-        $result['film_year'] = $this->getFilmYear();
-
-        $result['film_countries'] = [];
-        $result['film_directors'] = [];
-        $result['film_actors'] = [];
-
-        foreach ($this->pElements as $pElement) {
-            if ($pElement->hasAttribute('itemprop')) {
-                if ($pElement->getAttribute('itemprop') === 'countryOfOrigin') {
-                    // Парсим страны фильма
-                    $aElements = $pElement->getElementsByTagName('a');
-                    foreach ($aElements as $aElement) {
-                        $result['film_countries'][] = trim($aElement->nodeValue);
-                    }
-
-                } elseif ($pElement->getAttribute('itemprop') === 'director') {
-                    // Парсим режиссеров фильма
-                    $aElements = $pElement->getElementsByTagName('a');
-                    foreach ($aElements as $aElement) {
-                        $result['film_directors'][] = trim($aElement->nodeValue);
-                    }
-
-                } elseif ($pElement->getAttribute('itemprop') === 'actor') {
-                    // Парсим актеров фильма
-                    $aElements = $pElement->getElementsByTagName('a');
-                    foreach ($aElements as $aElement) {
-                        $result['film_actors'][] = trim($aElement->nodeValue);
-                    }
-
-                } elseif ($pElement->getAttribute('itemprop') === 'description') {
-                    // Парсим описание фильма
-                    $result['film_description'] = trim($pElement->nodeValue);
-                }
-
-            }
-        }
-
-        foreach ($this->spanElements as $spanElement) {
-            if ($spanElement->hasAttribute('itemprop') && $spanElement->getAttribute('itemprop') === 'ratingValue') {
-                // Парсим рейтинг фильма
-                $result['imdb_rating'] = trim($spanElement->nodeValue);
-            } elseif ($spanElement->hasAttribute('class') && $spanElement->getAttribute('class') === 'film-left__time') {
-                // Парсим длительность фильма
-                $result['film_duration'] = trim($spanElement->nodeValue);
-            }
-        }
-
-        foreach ($this->divElements as $divElement) {
-            if ($divElement->hasAttribute('class') && strripos($divElement->getAttribute('class'), 'film__age') !== false) {
-                $elements = $divElement->getElementsByTagName('div');
-                foreach ($elements as $element) {
-                    if ($element->hasAttribute('class') && strripos($element->getAttribute('class'), 'film-left__flex') !== false) {
-                        // Парсим MPAA рейтинг фильма
-                        $result['mpaa_rating'] = trim($element->nodeValue);
-                    }
-                }
-            }
-        }
-
-        // alias
-        $result['alias'] = str_slug($result['title']);
-
-        $imageUrl = $this->getImageUrl();
-        $imageName = $this->getImageName($imageUrl);
-
-        //$imgUrl = 'https://static.sweet.tv/images/cache/movie_banners/BCEVSEQCOJ2SAAQ=/11401-kniga-dzhungley_1280x720.jpg';
-        $response = Http::get($imageUrl);
-        $imagePath = '../public/storage/temp_directory/' . $imageName['name'] . '.' . $imageName['extension'];
-        $saveToTempDirectory = file_put_contents($imagePath, $response);
-        //TODO проверка $saveToTempDirectory
-
-        $imageSmallObject = new UploadImageController();
-        $image = $imageSmallObject->saveParseImageToTempDirectory(
-            $imagePath,
-            $imageName['name'],
-            $imageName['extension'],
-        );
-
-        if (!empty($image)) {
-            $result['image'] = $image;
-        }
-
-        return $result;
-    }
-
-//    /**
-//     * Рейтинг фильма
-//     *
-//     * @return string
-//     */
-//    private function getPostIMDbRating(): string
-//    {
-//        $ratingElements = $this->dom->getElementsByTagName('span');
-//        foreach ($ratingElements as $ratingElement) {
-//            if ($ratingElement->hasAttribute('itemprop') && $ratingElement->getAttribute('itemprop') === 'ratingValue') {
-//                return trim($ratingElement->nodeValue);
+//        $result['film_genres'] = $this->getFilmGenres();
+//        // Парсим год фильма
+//        $result['film_year'] = $this->getFilmYear();
+//
+//        $result['film_countries'] = [];
+//        $result['film_directors'] = [];
+//        $result['film_actors'] = [];
+//
+//        foreach ($this->pElements as $pElement) {
+//            if ($pElement->hasAttribute('itemprop')) {
+//                if ($pElement->getAttribute('itemprop') === 'countryOfOrigin') {
+//                    // Парсим страны фильма
+//                    $aElements = $pElement->getElementsByTagName('a');
+//                    foreach ($aElements as $aElement) {
+//                        $result['film_countries'][] = trim($aElement->nodeValue);
+//                    }
+//
+//                } elseif ($pElement->getAttribute('itemprop') === 'director') {
+//                    // Парсим режиссеров фильма
+//                    $aElements = $pElement->getElementsByTagName('a');
+//                    foreach ($aElements as $aElement) {
+//                        $result['film_directors'][] = trim($aElement->nodeValue);
+//                    }
+//
+//                } elseif ($pElement->getAttribute('itemprop') === 'actor') {
+//                    // Парсим актеров фильма
+//                    $aElements = $pElement->getElementsByTagName('a');
+//                    foreach ($aElements as $aElement) {
+//                        $result['film_actors'][] = trim($aElement->nodeValue);
+//                    }
+//
+//                } elseif ($pElement->getAttribute('itemprop') === 'description') {
+//                    // Парсим описание фильма
+//                    $result['film_description'] = trim($pElement->nodeValue);
+//                }
+//
 //            }
 //        }
 //
-//        return '';
-//    }
+//        foreach ($this->spanElements as $spanElement) {
+//            if ($spanElement->hasAttribute('itemprop') && $spanElement->getAttribute('itemprop') === 'ratingValue') {
+//                // Парсим рейтинг фильма
+//                $result['imdb_rating'] = trim($spanElement->nodeValue);
+//            } elseif ($spanElement->hasAttribute('class') && $spanElement->getAttribute('class') === 'film-left__time') {
+//                // Парсим длительность фильма
+//                $result['film_duration'] = trim($spanElement->nodeValue);
+//            }
+//        }
+//
+//        // alias
+//        $result['alias'] = str_slug($result['title']);
+//
+//        $imageUrl = $this->getImageUrl();
+//        $imageName = $this->getImageName($imageUrl);
+//
+//        //$imgUrl = 'https://static.sweet.tv/images/cache/movie_banners/BCEVSEQCOJ2SAAQ=/11401-kniga-dzhungley_1280x720.jpg';
+//        $response = Http::get($imageUrl);
+//        $imagePath = '../public/storage/temp_directory/' . $imageName['name'];
+//        $saveToTempDirectory = file_put_contents($imagePath, $response);
+//        //TODO проверка $saveToTempDirectory
+//
+//        $imageSmallObject = new UploadImageController();
+//        $image = $imageSmallObject->saveParseImageToTempDirectory(
+//            $imagePath,
+//            $imageName['name'],
+//            $imageName['extension'],
+//        );
+//
+//        if (!empty($image)) {
+//            $result['image'] = $image;
+//        }
+
+        //dd($result);
+
+        return $result;
+    }
 
     /**
      * Год фильма
@@ -208,18 +177,9 @@ class SweetTvParser extends BaseParser
     private function getImageName(string $imageUrl): array
     {
         $parseName = explode('/', $imageUrl);
-        $imageNameWithExtension = end($parseName);
-
+        $imageName = end($parseName);
         $parseImageExtension = explode('.', $imageUrl);
         $imageExtension = end($parseImageExtension);
-
-        $imageName = str_replace('.' . $imageExtension, '', $imageNameWithExtension);
-
-        $sizePattern = '/[_]\d{2,4}[x_]\d{2,4}/';
-        if (preg_match($sizePattern, $imageName, $matches)) {
-            $imageSize = $matches[0];
-            $imageName = str_replace($imageSize, '', $imageName);
-        }
 
         return [
             'name' => $imageName,

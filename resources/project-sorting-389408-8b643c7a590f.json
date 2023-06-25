@@ -1,0 +1,14 @@
+//TODO - настройки для ImageReader (от Google)
+{
+  "type": "service_account",
+  "project_id": "project-sorting-389408",
+  "private_key_id": "8b643c7a590fd28d30af827f9a87b9fae263b790",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDVXLUDqdtlbJsE\no42Q2VV8X120h8cNx7RtVdcLEyZZFjnP3pyg8M5cwtCBS4I+nKCfjeTV9JF2Vb9+\nuavguTsk47h6/tJl1zUI1IOKRdRX63cXVk4mPBQCO82NSS69y6gYkmaMMJUugWTv\nN/nLPFP+5D9TTsgDERPN1wMePKmlbdYm0AmwrESNFDVw1owdWfC7VkgVPE+gTV+Q\n0pQ4DVO4I4ao0Mur0GXcvVGzPAucRmZ/uoZn7qwEL3AMtpPt4Bv5fZAgEi/TgwPa\netGzbuwZyPQWYWTJd9VZf6uWnYl0k+CRkpOoxJan877SAhvcVsbqTuovxCIRrGxh\nw2oz0A6rAgMBAAECggEALCfagl6VvCDE2Cns80w3J90orGLpLA3nZjU8otsctZUm\n88ETUy9i1cmvkwKIeuK5TyvzbuAFdqL6VYShcImFFvZVyIaSDmeCX0hzzJr0/hkJ\n9Xd0Bu+qCGhN+u5pUPgj2qn5tQuc5Bn9RJCmDox2qaqc/GWyeQgAvDnCOHC/fy+i\nOfatJeGAxbzcy+QCNbWBeyb/+kbUSkeXw6zd9Kanh/wRPnhMOk6m/hyrB39zyBlU\nxBxeAkVOUL7C980Z1SJEb1QbrONvMnab5QSt+Kkmb4TqUVAMheMylpAmroEE897G\nQpQjBMFYdTs6FaqDuZhtkwKIYCib5IeQjEKfxWeiEQKBgQDwy+tAfwY1QqH26PYT\nVr0Z30lHPhi9TG8MKIYNM5fNjLWuG2dxMKfDsWpSeERWfICzapMsIMOok1t3xlrk\nznQ8PUxnLhkigRdc36oBIZrCi5cYha/Z9R0FnIAZScMeQiY2UqdHOPvlBm0SOWYJ\nLvrcDUOvNDTE271QNKQTYYnhYwKBgQDi1VsSm1EcRa2FKkyCe5v3q6pXgjSkhVxQ\nlwpDwaY8migeJx5LMywU+IAknkwJAzZil4BJ8G6X5AUbRvEkbPn0DVgBHojNL+IV\n25rLhgxtML0U9ZxPqHArOrW/SRpNNPZ3utzsbBPeVayDKvRElI34bR0iqKSY7Z2g\nMMMUAPaEGQKBgDpdYvcuEsYkEXf0fXiwhINZ4LwY7AwuE5iB1gQrJjdXTM4XrFn+\nLhu7zAaTShUgdl2GjoeapXIdzYTZmjxtYjUbsoIr5UG8wnnraJx/lbBj/0qdVMNi\nqxcqGM6IV3flFrgCDrOvtzaK+TL6oKXHMlzWBjrYT5YLoPZo3AAqmy37AoGAQGJi\n6VMgoK++Yu/wq5C+Ynxda11P5+ramx1kEnti3gy7mmNsG9g4iPNIHBy6ZEx/IVjz\nVwlhusdEE8v9ImO0RuuKsTajieoveBjPRTmVSWDuKobUiV+8BukxMUxkpMmFs9Jc\nZtb+hLs4rjqA/v5TldIS1QWdQrMfbJqqpIDpd/ECgYArEZYn8ERebclDzo0Erske\na2JCDMPvczevneOWSzo5TR7bElWEcFMKg2OE+v3fVBnuPXLGkJClsOXpecqsJLkZ\nsOkxKaofZLAZLG8+AO15kvGw8wOlHN+Ej220pFyx+kQ6unHz8+NH1IDW+/V/FBLA\n/ol6p2vKYJysxDZGE96Rzw==\n-----END PRIVATE KEY-----\n",
+  "client_email": "sorting@project-sorting-389408.iam.gserviceaccount.com",
+  "client_id": "112741170879796375638",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/sorting%40project-sorting-389408.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

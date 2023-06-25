@@ -42,6 +42,8 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
     Route::post('/instagram-parser-get-media', [App\Http\Controllers\Admin\ParserController::class, 'getMediaFilesFromInstagram'])->name('instagram-parser-get-media');
     Route::post('/get-parsed-post-info', [\App\Http\Controllers\Admin\PostController::class, 'getParsedPostInfo'])->name('parse.get-parsed-post-info');
 
+    Route::post('/get-text-from-image', [\App\Http\Controllers\Admin\PostController::class, 'getTextFromImage'])->name('get-text-from-image');
+
     Route::get('/generate-docs', function(){
 
         $headers = array(

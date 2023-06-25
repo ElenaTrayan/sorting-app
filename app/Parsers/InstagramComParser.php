@@ -5,17 +5,8 @@ namespace App\Parsers;
 use App\Http\Controllers\Admin\Packages\UploadImageController;
 use Illuminate\Support\Facades\Http;
 
-class SweetTvParser extends BaseParser
+class InstagramComParser extends BaseParser
 {
-    /*
-        $parser = new SweetTvParser(link);
-        $result = $parser->parse();
-
-        echo $result['title']; // Выведет "Отпетые мошенницы"
-        echo $result['rating']; // Выведет "7.9"
-        echo $result['description']; // Выведет описание фильма
-     */
-
     protected $spanElements;
 
     /**
@@ -27,7 +18,8 @@ class SweetTvParser extends BaseParser
     {
         $this->url = $link;
         $this->getPageContent();
-        $this->spanElements = $this->dom->getElementsByTagName('span');
+        $this->imgElements = $this->dom->getElementsByTagName('img');
+        //$this->spanElements = $this->dom->getElementsByTagName('span');
     }
 
     /**
@@ -41,86 +33,49 @@ class SweetTvParser extends BaseParser
 
         // Парсим название фильма
         $result['title'] = $this->getPostTitle();
-        // Парсим жанры фильма
-        $result['film_genres'] = $this->getFilmGenres();
-        // Парсим год фильма
-        $result['film_year'] = $this->getFilmYear();
 
-        $result['film_countries'] = [];
-        $result['film_directors'] = [];
-        $result['film_actors'] = [];
+        //_aagv
+        // div._aagu._aa20._aato > div._aagv
 
-        foreach ($this->pElements as $pElement) {
-            if ($pElement->hasAttribute('itemprop')) {
-                if ($pElement->getAttribute('itemprop') === 'countryOfOrigin') {
-                    // Парсим страны фильма
-                    $aElements = $pElement->getElementsByTagName('a');
-                    foreach ($aElements as $aElement) {
-                        $result['film_countries'][] = trim($aElement->nodeValue);
-                    }
-
-                } elseif ($pElement->getAttribute('itemprop') === 'director') {
-                    // Парсим режиссеров фильма
-                    $aElements = $pElement->getElementsByTagName('a');
-                    foreach ($aElements as $aElement) {
-                        $result['film_directors'][] = trim($aElement->nodeValue);
-                    }
-
-                } elseif ($pElement->getAttribute('itemprop') === 'actor') {
-                    // Парсим актеров фильма
-                    $aElements = $pElement->getElementsByTagName('a');
-                    foreach ($aElements as $aElement) {
-                        $result['film_actors'][] = trim($aElement->nodeValue);
-                    }
-
-                } elseif ($pElement->getAttribute('itemprop') === 'description') {
-                    // Парсим описание фильма
-                    $result['film_description'] = trim($pElement->nodeValue);
-                }
-
-            }
+        $test = [];
+        foreach ($this->imgElements as $imgElement) {
+            //dd($imgElement);
+            $test[] = $imgElement->getAttribute('src');
         }
+        dd($test);
 
-        foreach ($this->spanElements as $spanElement) {
-            if ($spanElement->hasAttribute('itemprop') && $spanElement->getAttribute('itemprop') === 'ratingValue') {
-                // Парсим рейтинг фильма
-                $result['imdb_rating'] = trim($spanElement->nodeValue);
-            } elseif ($spanElement->hasAttribute('class') && $spanElement->getAttribute('class') === 'film-left__time') {
-                // Парсим длительность фильма
-                $result['film_duration'] = trim($spanElement->nodeValue);
-            }
-        }
-
+        //dd($this->divElements);
         foreach ($this->divElements as $divElement) {
-            if ($divElement->hasAttribute('class') && strripos($divElement->getAttribute('class'), 'film__age') !== false) {
-                $elements = $divElement->getElementsByTagName('div');
-                foreach ($elements as $element) {
-                    if ($element->hasAttribute('class') && strripos($element->getAttribute('class'), 'film-left__flex') !== false) {
-                        // Парсим MPAA рейтинг фильма
-                        $result['mpaa_rating'] = trim($element->nodeValue);
-                    }
-                }
+            if ($divElement->hasAttribute('class') && strripos($divElement->getAttribute('class'), '_aagv') !== false) {
+                $elements = $divElement->getElementsByTagName('img');
+                dd($elements);
+//                foreach ($elements as $element) {
+//                    if ($element->hasAttribute('class') && strripos($element->getAttribute('class'), 'film-left__flex') !== false) {
+//                        // Парсим MPAA рейтинг фильма
+//                        $result['mpaa_rating'] = trim($element->nodeValue);
+//                    }
+//                }
             }
         }
 
         // alias
         $result['alias'] = str_slug($result['title']);
 
-        $imageUrl = $this->getImageUrl();
-        $imageName = $this->getImageName($imageUrl);
-
-        //$imgUrl = 'https://static.sweet.tv/images/cache/movie_banners/BCEVSEQCOJ2SAAQ=/11401-kniga-dzhungley_1280x720.jpg';
-        $response = Http::get($imageUrl);
-        $imagePath = '../public/storage/temp_directory/' . $imageName['name'] . '.' . $imageName['extension'];
-        $saveToTempDirectory = file_put_contents($imagePath, $response);
-        //TODO проверка $saveToTempDirectory
-
-        $imageSmallObject = new UploadImageController();
-        $image = $imageSmallObject->saveParseImageToTempDirectory(
-            $imagePath,
-            $imageName['name'],
-            $imageName['extension'],
-        );
+//        $imageUrl = $this->getImageUrl();
+//        $imageName = $this->getImageName($imageUrl);
+//
+//        //$imgUrl = 'https://static.sweet.tv/images/cache/movie_banners/BCEVSEQCOJ2SAAQ=/11401-kniga-dzhungley_1280x720.jpg';
+//        $response = Http::get($imageUrl);
+//        $imagePath = '../public/storage/temp_directory/' . $imageName['name'] . '.' . $imageName['extension'];
+//        $saveToTempDirectory = file_put_contents($imagePath, $response);
+//        //TODO проверка $saveToTempDirectory
+//
+//        $imageSmallObject = new UploadImageController();
+//        $image = $imageSmallObject->saveParseImageToTempDirectory(
+//            $imagePath,
+//            $imageName['name'],
+//            $imageName['extension'],
+//        );
 
         if (!empty($image)) {
             $result['image'] = $image;
