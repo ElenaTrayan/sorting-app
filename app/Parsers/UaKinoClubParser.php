@@ -66,11 +66,11 @@ class UaKinoClubParser extends BaseParser
      *
      * @return string
      */
-    private function getPostTitle(): string
+    protected function getPostTitle(): string
     {
-        dd($this->dom);
+        //dd($this->dom);
         $titleElement = $this->dom->getElementsByTagName('h1')->item(0);
-        dd($titleElement);
+        //dd($titleElement);
         $title = $titleElement ? $titleElement->textContent : '';
 
         return trim($title);

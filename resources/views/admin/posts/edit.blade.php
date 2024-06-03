@@ -24,7 +24,7 @@
 <!-- Main content -->
 <section class="content">
     <div class="container-fluid">
-        <div class="card card-primary">
+        <div class="card card-primary" data-id="{{ $post->id }}">
 
             <!-- form start -->
             <form action="{{ route('posts.update', [$post->id]) }}" method="POST" enctype="multipart/form-data" id="editform" name="editform">
@@ -79,17 +79,68 @@
                             </ul>
                         </div>
 
-                        <div class="form-group">
-                            <label for="image-name">Изменить имя файла</label>
-                            <input type="text" class="form-control" name="image-name" id="image-name" value="{{ $originalImage['name'] }}" placeholder="Введите имя для файла" required>
-                            <p>{{ $originalImage['name'] . '.' . $originalImage['extension'] }}</p>
-                            <p>{{ $mediumImage['name'] }}</p>
-                            <p>{{ $smallImage['name'] }}</p>
-                        </div>
+                        @if (!empty($originalImage))
+                            @if (isset($originalImage['path']))
+                                <div class="form-group">
+                                    <label for="image-name">Изменить имя файла</label>
+                                    <input type="text" class="form-control" name="image-name" id="image-name" value="{{ $originalImage['name'] ?? '' }}" placeholder="Введите имя для файла" required>
+                                    <p>{{ $originalImage['name'] ?? '' . '.' . $originalImage['extension'] ?? '' }}</p>
+                                    <p>{{ $mediumImage['name'] ?? '' }}</p>
+                                    <p>{{ $smallImage['name'] ?? '' }}</p>
+                                </div>
+                            @else
+                                @foreach($originalImage as $image)
+                                    <div class="form-group">
+                                        <label for="image-name">Изменить имя файла</label>
+                                        <input type="text" class="form-control" name="image-name" id="image-name"
+                                               value="{{ $image['name'] ?? '' }}"
+                                               placeholder="Введите имя для файла" required>
+                                        <p>{{ $image['name'] ?? '' . '.' . $image['extension'] ?? '' }}</p>
+{{--                                        <p>{{ $mediumImage['name'] ?? '' }}</p>--}}
+{{--                                        <p>{{ $smallImage['name'] ?? '' }}</p>--}}
+                                    </div>
+                                @endforeach
+                            @endif
+                        @endif
 
                     </div>
 
                     <div class="card-body-block">
+
+                        <div class="upload-image-section">
+                            <section class="js-upload-image-section" data-action="{{ route('image.upload-to-temp-directory') }}">
+                                <div class="js-images images">
+                                    @if (!empty($originalImage))
+                                        @foreach($originalImage as $image)
+                                            <div class="image saved"
+                                                 data-name="{{ $image['name'] }}"
+                                                 data-extension="{{ $image['extension'] }}"
+                                                 data-path="{{ $image['path'] }}"
+                                            >
+                                                <span style="background-image: url(/storage/{{ $image['path'] }})"></span>
+                                                <i class="js-delete-image saved fas fa-times-circle" data-action="/admin_panel/delete-post-file"></i>
+                                            </div>
+                                        @endforeach
+                                    @endif
+                                </div>
+                                @if (empty($originalImage))
+                                    <div class="title">
+                                        <figure></figure>
+                                        <p>Перетащите сюда фото или видео</p>
+                                    </div>
+                                @endif
+                                <input type="file" name="files[]" multiple="multiple" accept="image/x-png,image/jpeg">
+                            </section>
+                            <div class="progress">
+                                <div class="progress-bar"></div>
+                                <div class="progress-value">0 %</div>
+                            </div>
+                            <div class="js-error-block error-block alert alert-warning alert-dismissible">
+                                <button type="button" class="js-close-error-block close">×</button>
+                                <i class="icon fas fa-exclamation-triangle"></i><p></p>
+                            </div>
+                        </div>
+
                         <div class="post-update-image">
 {{--                            <div class="mb-3">--}}
 {{--                                <label for="imagefile">Default file input</label>--}}

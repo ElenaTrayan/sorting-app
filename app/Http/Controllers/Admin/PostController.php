@@ -36,7 +36,8 @@ class PostController extends Controller
     {
         //$posts = Post::orderBy('title', 'asc')->get();
 
-        $posts = Post::selectRaw('posts.id, posts.title, posts.alias, posts.user_id, posts.category_id, posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image')
+        $posts = Post::selectRaw('posts.id, posts.title, posts.alias, posts.user_id, posts.category_id,
+        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image')
             ->with([
                 'category' => function($q) {
                     $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
@@ -55,12 +56,17 @@ class PostController extends Controller
             ->latest()
             ->paginate(50);
 
-        //dd($posts);
-
         foreach ($posts as $post) {
+            //dd($post);
+
             if (!empty($post->small_image) && isJson($post->small_image)) {
                 $smallImage = json_decode($post->small_image, true);
-                $post['cover_image'] = $smallImage['path'];
+                if (!isset($smallImage['path'])) {
+                    $firstPicture = array_shift($smallImage);
+                    $post['cover_image'] = $firstPicture['path'] ?? '';
+                } else {
+                    $post['cover_image'] = $smallImage['path'];
+                }
             } elseif (!empty($post->medium_image) && isJson($post->medium_image)) {
                 $mediumImage = json_decode($post->medium_image, true);
                 $post['cover_image'] = $mediumImage['path'];
@@ -69,8 +75,6 @@ class PostController extends Controller
                 $post['cover_image'] = $originalImage['path'];
             }
         }
-
-        //dd($posts);
 
         if ($request->ajax()) {
             return view('admin.posts.parts.post_items', [
@@ -107,6 +111,7 @@ class PostController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
+        //dd($request);
 
         if (!empty($request->images)) {
 
@@ -114,32 +119,65 @@ class PostController extends Controller
 
             //если картинок больше одной
             if (count($images) > 1) {
-                $count = 0;
-                $errors = [];
-                foreach ($images as $key => $image) {
-                    $count++;
 
-                    $newPost = $this->createPost($request, $user->id, $image);
+                if (!empty($request->numberOfPosts) && $request->numberOfPosts === 'one-post') {
+                    // array:2 [
+                    //  "239599730-874421156782213-4428682906124005867-n" => array:7 [
+                    //    "image_name" => "239599730-874421156782213-4428682906124005867-n"
+                    //    "image_extension" => "jpg"
+                    //    "image_path" => "temp_directory/239599730-874421156782213-4428682906124005867-n.jpg"
+                    //    "s_image_name" => "239599730-874421156782213-4428682906124005867-n_350_438.jpg"
+                    //    "s_image_path" => "temp_directory/239599730-874421156782213-4428682906124005867-n_350_438.jpg"
+                    //    "m_image_name" => "239599730-874421156782213-4428682906124005867-n_800_1000.jpg"
+                    //    "m_image_path" => "temp_directory/239599730-874421156782213-4428682906124005867-n_800_1000.jpg"
+                    //  ]
+                    //  "3117x4500-0xac120003-11617019221616755779" => array:7 [
+                    //    "image_name" => "3117x4500-0xac120003-11617019221616755779"
+                    //    "image_extension" => "jpg"
+                    //    "image_path" => "temp_directory/3117x4500-0xac120003-11617019221616755779.jpg"
+                    //    "s_image_name" => "3117x4500-0xac120003-11617019221616755779_350_505.jpg"
+                    //    "s_image_path" => "temp_directory/3117x4500-0xac120003-11617019221616755779_350_505.jpg"
+                    //    "m_image_name" => "3117x4500-0xac120003-11617019221616755779_800_1155.jpg"
+                    //    "m_image_path" => "temp_directory/3117x4500-0xac120003-11617019221616755779_800_1155.jpg"
+                    //  ]
+                    //]
+                    $newPost = $this->createPost($request, $user->id, $images);
 
                     if ($newPost !== true) {
-                        $errors[] = $newPost['errors'];
+                        return response()->json([
+                            'errors' => $newPost['errors'],
+                        ]);
                     }
-                }
+                } else {
+                    $count = 0;
+                    $errors = [];
+                    foreach ($images as $key => $image) {
+                        $count++;
 
-                if (!empty($errors)) {
+                        $newPost = $this->createPost($request, $user->id, $image);
+
+                        if ($newPost !== true) {
+                            $errors[] = $newPost['errors'];
+                        }
+                    }
+
+                    if (!empty($errors)) {
+                        return response()->json([
+                            'errors' => $errors,
+                        ]);
+                    }
+
                     return response()->json([
-                        'errors' => $errors,
+                        'status' => true,
+                        'message' => 'Посты были успешно добавлены',
                     ]);
                 }
 
-                return response()->json([
-                    'status' => true,
-                    'message' => 'Посты были успешно добавлены',
-                ]);
             }
 
+            //TODO
             $image = array_shift($images);
-
+            //dd($image);
             $newPost = $this->createPost($request, $user->id, $image);
             if ($newPost === true) {
                 //return back()->with('success','Item created successfully!');
@@ -195,7 +233,11 @@ class PostController extends Controller
 
         $originalImage = json_decode($post->original_image, true);
         $mediumImage = json_decode($post->medium_image, true);
-        //dd($mediumImage);
+//        dd($originalImage);
+//        foreach ($originalImage as $key => $image) {
+//            //dd($mediumImage[$key]['path'] ?? $image['path'] ?? '');
+//            dd($image['path']);
+//        }
 
         return view('admin.posts.show', ['categories' => $categories, 'post' => $post, 'originalImage' => $originalImage, 'mediumImage' => $mediumImage]);
     }
@@ -313,8 +355,8 @@ class PostController extends Controller
                 //return $saveImageForPost['errors'];
             } else {
                 if (!empty($post->original_image)) {
-                    $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->original_image, $user->id, $categoryId);
-                    if ($deleteImageFromPost !== true) {
+                    $deleteImageByPath = (new UploadImageController)->deleteImageByPath($post->original_image, $user->id, $categoryId);
+                    if ($deleteImageByPath !== true) {
                         return response()->json([
                             'status' => false,
                             'message' => 'Ошибка при удалении original_image',
@@ -324,8 +366,8 @@ class PostController extends Controller
                 $post->original_image = json_encode($saveImageForPost['original_image']);
 
                 if (!empty($post->medium_image)) {
-                    $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->medium_image, $user->id, $categoryId);
-                    if ($deleteImageFromPost !== true) {
+                    $deleteImageByPath = (new UploadImageController)->deleteImageByPath($post->medium_image, $user->id, $categoryId);
+                    if ($deleteImageByPath !== true) {
                         return response()->json([
                             'status' => false,
                             'message' => 'Ошибка при удалении medium_image',
@@ -340,8 +382,8 @@ class PostController extends Controller
                 }
 
                 if (!empty($post->small_image)) {
-                    $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->small_image, $user->id, $categoryId);
-                    if ($deleteImageFromPost !== true) {
+                    $deleteImageByPath = (new UploadImageController)->deleteImageByPath($post->small_image, $user->id, $categoryId);
+                    if ($deleteImageByPath !== true) {
                         return response()->json([
                             'status' => false,
                             'message' => 'Ошибка при удалении small_image',
@@ -426,7 +468,7 @@ class PostController extends Controller
 
             }
 
-            dd($post); //TODO
+            //dd($post); //TODO
         }
 
         $postSave = $post->save();
@@ -462,49 +504,38 @@ class PostController extends Controller
         $post = Post::where('id', $id)->where('posts.user_id', $user->id)->first();
         $categoryId = $post->category_id;
 
-        $errors = [];
+        try {
+            $deletePostImages = (new UploadImageController)->deletePostImages($post);
+            if ($deletePostImages !== true) {
+                $errorMessage = 'Ошибка при удалении изображений поста.';
+                if (!empty($deletePostImages['errors'])) {
+                    throw new \Exception($errorMessage . '. ' . $deletePostImages['errors']);
+                }
 
-        if (!empty($post->original_image)) {
-            $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->original_image, $user->id, $categoryId);
-            if ($deleteImageFromPost !== true) {
-                $errors[] = 'Ошибка при удалении original_image: ' . $post->original_image;
+                throw new \Exception($errorMessage);
             }
-        }
 
-        if (!empty($post->medium_image)) {
-            $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->medium_image, $user->id, $categoryId);
-            if ($deleteImageFromPost !== true) {
-                $errors[] = 'Ошибка при удалении medium_image: ' . $post->medium_image;
+            if ($post->delete() === true) {
+                //dd('UDALENO');
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Пост был успешно удалён',
+                ]);
             }
-        }
-
-        if (!empty($post->small_image)) {
-            $deleteImageFromPost = (new UploadImageController)->deleteImageFromPost($post->small_image, $user->id, $categoryId);
-            if ($deleteImageFromPost !== true) {
-                $errors[] = 'Ошибка при удалении small_image: ' . $post->small_image;
-            }
-        }
-
-        if (!empty($errors)) {
-            //TODO - Добавить запиь ошибок в логи в БД
 
             return response()->json([
                 'status' => false,
-                'error' => $errors,
+                'error' => 'Ошибка при удалении поста.',
             ]);
-        }
 
-        if ($post->delete() === true) {
+        } catch (\Exception $exception) {
+            //TODO - Добавить запись ошибок в логи в БД
+
             return response()->json([
-                'status' => true,
-                'message' => 'Пост был успешно удалён',
+                'status' => false,
+                'error' => 'Ошибка при удалении поста',
             ]);
         }
-
-        return response()->json([
-            'status' => false,
-            'error' => 'Ошибка при удалении поста',
-        ]);
     }
 
     /**
@@ -512,10 +543,12 @@ class PostController extends Controller
      * @param string $userId
      * @param array $image
      * @param string $imageAlias
-     * @return bool
+     * @return array|bool|bool[]|string|string[]
      */
     private function createPost(Request $request, string $userId, array $image = [], string $imageAlias = '')
     {
+        //TODO описать что происходит в методе
+
         //dd($request->hashtags);
 
         $title = '';
@@ -531,38 +564,126 @@ class PostController extends Controller
             $new_post->content = $request->text;
         }
 
-        if (!empty($image)) {
-            $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $userId, $categoryId);
-            if (!empty($saveImageForPost['errors'])) {
-                return $saveImageForPost['errors'];
-            } else {
-                $new_post->original_image = json_encode($saveImageForPost['original_image']);
-                if (!empty($saveImageForPost['medium_image'])) {
-                    $new_post->medium_image = json_encode($saveImageForPost['medium_image']);
+        if (!empty($image) && !isset($image['image_path']) && !empty($request->numberOfPosts) && $request->numberOfPosts === 'one-post') {
+            //dd('ssss');
+            $errors = [];
+            $originalImages = [];
+            $mediumImages = [];
+            $smallImages = [];
+            $lastImage = [];
+
+            //var_dump($image);
+            //var_dump('---------------');
+
+            foreach ($image as $key => $img) {
+                //dd($img);
+                //array:7 [
+                //  "image_name" => "243283257-579176736665198-7143984547937799899-n"
+                //  "image_extension" => "jpg"
+                //  "image_path" => "temp_directory/243283257-579176736665198-7143984547937799899-n.jpg"
+                //  "s_image_name" => "243283257-579176736665198-7143984547937799899-n_350_435.jpg"
+                //  "s_image_path" => "temp_directory/243283257-579176736665198-7143984547937799899-n_350_435.jpg"
+                //  "m_image_name" => "243283257-579176736665198-7143984547937799899-n_800_994.jpg"
+                //  "m_image_path" => "temp_directory/243283257-579176736665198-7143984547937799899-n_800_994.jpg"
+                //]
+
+                $saveImageForPost = (new UploadImageController)->saveImageForPost($img, $userId, $categoryId);
+
+                $lastImage = $saveImageForPost;
+                //dd($saveImageForPost);
+
+                if (!empty($saveImageForPost['errors'])) {
+                    $errors[] = $saveImageForPost['errors'];
+                } elseif (!empty($saveImageForPost)) {
+                    $originalImages[$saveImageForPost['original_image']['name']] = $saveImageForPost['original_image'];
+                    if (!empty($saveImageForPost['medium_image'])) {
+                        $mediumImages[$saveImageForPost['medium_image']['name']] = $saveImageForPost['medium_image'];
+                    }
+                    if (!empty($saveImageForPost['small_image'])) {
+                        $smallImages[$saveImageForPost['small_image']['name']] = $saveImageForPost['small_image'];
+                    }
                 }
-                if (!empty($saveImageForPost['small_image'])) {
-                    $new_post->small_image = json_encode($saveImageForPost['small_image']);
+
+                //var_dump($originalImages);
+            }
+
+            //dd($originalImages);
+            // array:2 [
+            //  "7b55e55ab8be71ed1ebfa4330c" => array:3 [
+            //    "name" => "7b55e55ab8be71ed1ebfa4330c"
+            //    "extension" => "jpg"
+            //    "path" => "/images/1/0/0_0_7b55e55ab8be71ed1ebfa4330c.jpg"
+            //  ]
+            //  "6007c754f8969269fca41b1220" => array:3 [
+            //    "name" => "6007c754f8969269fca41b1220"
+            //    "extension" => "jpg"
+            //    "path" => "/images/1/0/0_0_6007c754f8969269fca41b1220.jpg"
+            //  ]
+            //]
+
+            if (!empty($errors)) {
+                return $errors;
+            } else {
+                $new_post->original_image = json_encode($originalImages);
+                $new_post->medium_image = json_encode($mediumImages);
+                $new_post->small_image = json_encode($smallImages);
+            }
+
+            if (!empty($request->title)) {
+                $title = $request->title;
+                $alias = str_slug($request->title);
+            } else {
+                $alias = $userId . '_' . $categoryId . '_' . time();
+            }
+
+            // elseif (!empty($lastImage['original_image']['name'])) {
+            //     $alias = $userId . '_' . $categoryId . '_' . $lastImage['original_image']['name'];
+            // }
+
+            $new_post->title = $title;
+
+            if ($this->aliasExist($alias, $userId) === null) {
+                $new_post->alias = $alias;
+            } else {
+                dd($this->aliasExist($alias, $userId));
+            }
+
+        } else {
+            //dd('tttt');
+            if (!empty($image)) {
+                $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $userId, $categoryId);
+                //dd($saveImageForPost);
+                if (!empty($saveImageForPost['errors'])) {
+                    return $saveImageForPost['errors'];
+                } else {
+                    $new_post->original_image = json_encode($saveImageForPost['original_image']);
+                    if (!empty($saveImageForPost['medium_image'])) {
+                        $new_post->medium_image = json_encode($saveImageForPost['medium_image']);
+                    }
+                    if (!empty($saveImageForPost['small_image'])) {
+                        $new_post->small_image = json_encode($saveImageForPost['small_image']);
+                    }
                 }
             }
-        }
 
-        //dd($saveImageForPost);
+            //dd($saveImageForPost);
 
-        if (!empty($request->title)) {
-            $title = $request->title;
-            $alias = str_slug($request->title);
-        } elseif (!empty($saveImageForPost['original_image']['name'])) {
-            $alias = $userId . '_' . $categoryId . '_' . $saveImageForPost['original_image']['name'];
-        } else {
-            $alias = $userId . '_' . $categoryId . '_' . time();
-        }
+            if (!empty($request->title)) {
+                $title = $request->title;
+                $alias = str_slug($request->title);
+            } elseif (!empty($saveImageForPost['original_image']['name'])) {
+                $alias = $userId . '_' . $categoryId . '_' . $saveImageForPost['original_image']['name'];
+            } else {
+                $alias = $userId . '_' . $categoryId . '_' . time();
+            }
 
-        $new_post->title = $title;
+            $new_post->title = $title;
 
-        if ($this->aliasExist($alias, $userId) === null) {
-            $new_post->alias = $alias;
-        } else {
-            dd($this->aliasExist($alias, $userId));
+            if ($this->aliasExist($alias, $userId) === null) {
+                $new_post->alias = $alias;
+            } else {
+                $new_post->alias = $userId . '_' . $categoryId . '_' . time();
+            }
         }
 
         $newPost = $new_post->save();
@@ -668,6 +789,37 @@ class PostController extends Controller
         if ($request->ajax() && !empty($request->imagePath)) {
             $imageReader = new ImageReader();
             $imageReader->recognizeText($request->imagePath);
+        }
+    }
+
+    public function deletePostFile(Request $request)
+    {
+        try {
+            //получаем пост
+            if ($request->ajax() && !empty($request->postId) && !empty($request->name) && !empty($request->path)) {
+
+                $user = auth()->user();
+                $post = Post::where('id', $request->postId)->where('posts.user_id', $user->id)->first();
+
+                $deletePostImages = (new UploadImageController)->deletePostImages($post, $request->name);
+
+                if ($deletePostImages !== true) {
+                    $errorMessage = 'Ошибка при удалении изображения: ' . $request->name;
+                    if (!empty($deletePostImages['errors'])) {
+                        throw new \Exception($errorMessage . '. ' . $deletePostImages['errors']);
+                    }
+
+                    throw new \Exception($errorMessage);
+                }
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Изображение ' . $request->name . ' успешно удалено',
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'msg' => $e->getMessage()]);
         }
     }
 

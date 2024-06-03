@@ -112,8 +112,7 @@ class SearchController extends Controller
      */
     public function searchPostsByHashtags(Request $request)
     {
-        //$a = $b;
-
+        //TODO
         if ($request->ajax() && !empty($request->hashtags)) {
             $hashtags = $request->hashtags;
             session(['hashtags' => $hashtags]);

@@ -57,6 +57,7 @@ abstract class BaseParser
         //dd($this->dom);
 
         $this->pElements = $this->dom->getElementsByTagName('p');
+        //dd($this->pElements);
         $this->divElements = $this->dom->getElementsByTagName('div');
     }
 

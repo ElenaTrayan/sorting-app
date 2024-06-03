@@ -105,26 +105,30 @@ class SweetTvParser extends BaseParser
 
         // alias
         $result['alias'] = str_slug($result['title']);
+        //dd($result);
 
         $imageUrl = $this->getImageUrl();
-        $imageName = $this->getImageName($imageUrl);
+        //$imgUrl = 'http://static.sweet.tv/images/cache/movie_banners/BDJUKEQCOVVSAAQ=/8915-bridzhit-dzhons-3_1280x720.jpg';
 
-        //$imgUrl = 'https://static.sweet.tv/images/cache/movie_banners/BCEVSEQCOJ2SAAQ=/11401-kniga-dzhungley_1280x720.jpg';
-        $response = Http::get($imageUrl);
-        $imagePath = '../public/storage/temp_directory/' . $imageName['name'] . '.' . $imageName['extension'];
-        $saveToTempDirectory = file_put_contents($imagePath, $response);
-        //TODO проверка $saveToTempDirectory
+        $imageInfo = $this->getImageNameAndExtension($imageUrl);
+        //$imageInfo = [
+        //  "name" => "8915-bridzhit-dzhons-3"
+        //  "extension" => "jpg"
+        //]
 
-        $imageSmallObject = new UploadImageController();
-        $image = $imageSmallObject->saveParseImageToTempDirectory(
-            $imagePath,
-            $imageName['name'],
-            $imageName['extension'],
+        $imageObject = new UploadImageController();
+        $image = $imageObject->saveParseImageToTempDirectory(
+            $imageUrl,
+            $imageInfo
         );
+        //dd($image);
 
         if (!empty($image)) {
-            $result['image'] = $image;
+            $result['images'] = $image;
         }
+        //dd($result);
+
+        //TODO можно также возвращать список тегов: Жанр, Год, Страна, Рейтинг IMDb, Моя оценка, Актёры, Режиссер
 
         return $result;
     }
@@ -190,13 +194,22 @@ class SweetTvParser extends BaseParser
      */
     private function getImageUrl(): string
     {
-        $elementPicture = $this->dom->getElementsByTagName('picture')->item(0);
-        $sourceElements = $elementPicture->getElementsByTagName('source');
-        foreach ($sourceElements as $sourceElement) {
-            if ($sourceElement->hasAttribute('media') && $sourceElement->getAttribute('media') === '(min-width: 600px)') {
-                return $sourceElement->getAttribute('srcset');
+        foreach ($this->divElements as $divElement) {
+            if ($divElement->hasAttribute('class') && strripos($divElement->getAttribute('class'), 'film-right__img') !== false) {
+                $imgElement = $divElement->getElementsByTagName('img')->item(0);
+                if ($imgElement && $imgElement->getAttribute('class') === 'lozad') {
+                    return $imgElement->getAttribute('src');
+                }
             }
         }
+
+//        $elementPicture = $this->dom->getElementsByTagName('picture')->item(0);
+//        $sourceElements = $elementPicture->getElementsByTagName('source');
+//        foreach ($sourceElements as $sourceElement) {
+//            if ($sourceElement->hasAttribute('media') && $sourceElement->getAttribute('media') === '(min-width: 600px)') {
+//                return $sourceElement->getAttribute('srcset');
+//            }
+//        }
 
         return '';
     }
@@ -205,7 +218,7 @@ class SweetTvParser extends BaseParser
      * @param string $imageUrl - example: 'https://static.sweet.tv/images/cache/movie_banners/BCEVSEQCOJ2SAAQ=/11401-kniga-dzhungley_1280x720.jpg'
      * @return array
      */
-    private function getImageName(string $imageUrl): array
+    private function getImageNameAndExtension(string $imageUrl): array
     {
         $parseName = explode('/', $imageUrl);
         $imageNameWithExtension = end($parseName);

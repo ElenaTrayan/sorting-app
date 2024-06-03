@@ -1,5 +1,7 @@
 @foreach($posts as $post)
+    <?php //dd($post); ?>
     <div class="grid-item" data-id="{{ $post->id }}">
+
         <div class="b-card__user-options">
             <a href="#" id="triggerId" class="button" data-toggle="dropdown" aria-haspopup="true"
                aria-expanded="false">
@@ -43,15 +45,17 @@
             @endif
         </div><!-- /.b-card__content -->
 
-        <div class="b-card__footer">
-            <ul class="tags">
+        @if (!empty($post->hashtags) && is_array($post->hashtags))
+            <div class="b-card__footer">
                 @foreach($post->hashtags as $hashtag)
-                    <li data-id="{{ $hashtag->id }}" data-title="{{ $hashtag->title }}"><a rel="tag"
-                                                                                           href="#">#{{ $hashtag->title }}</a>
-                    </li>
+                    <ul class="tags">
+                        <li data-id="{{ $hashtag->id }}" data-title="{{ $hashtag->title }}">
+                            <a rel="tag" href="#">#{{ $hashtag->title }}</a>
+                        </li>
+                    </ul>
                 @endforeach
-            </ul>
-        </div><!-- /.card-footer -->
+            </div><!-- /.card-footer -->
+        @endif
 
         @if (!empty($post->is_used))
             <div class="ribbon ribbon-success float-end"><i class="fas fa-solid fa-check mr-1"></i>Использовано

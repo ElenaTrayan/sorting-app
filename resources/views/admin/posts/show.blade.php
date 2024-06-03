@@ -50,28 +50,60 @@
 
             <div class="card-body" style="display: flex;">
 
-                <div style="width: 50%;margin: 0 15px 0 0;">
-                    @if (!empty($post->content))
+                @if (!empty($post->content) && !empty($originalImage))
+                    <div style="width: 50%;margin: 0 15px 0 0;">
                         <div class="title">
                             <h3 class="my-3">{{ $post->title }}</h3>
                             <span class="edit"><i class="nav-icon fas fa-edit"></i></span>
-                            <button type="button" aria-label="Copy code to clipboard" class="copyButton_wuS7 clean-btn">Copy</button>
+                            <button type="button" aria-label="Copy code to clipboard" class="copyButton_wuS7 clean-btn">
+                                Copy
+                            </button>
                         </div>
-                    @endif
 
-                    @if (!empty($post->content))
                         {!! $post->content !!}
-                    @endif
-                </div>
+                    </div>
 
-                @if(!empty($originalImage['path']))
                     <div style="width: 50%;">
-                        <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] }}">
-                            <img src="/storage{{ $mediumImage['path'] ?? $originalImage['path'] }}" style="width: 100%;"/>
-                        </a>
+                        @if (isset($originalImage['path']))
+                            <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] ?? '' }}">
+                                <img src="/storage{{ $mediumImage['path'] ?? $originalImage['path'] ?? '' }}" style="width: 100%;"/>
+                            </a>
+                        @else
+                            @foreach($originalImage as $key => $image)
+                                <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $image['path'] ?? '' }}">
+                                    <img src="/storage{{ $mediumImage[$key]['path'] ?? $image['path'] ?? '' }}" style="width: 100%;"/>
+                                </a>
+                            @endforeach
+                        @endif
+                    </div>
+
+                @elseif(!empty($post->content))
+                    <div style="width: 100%; margin: 0 15px 0 0;">
+                        <div class="title">
+                            <h3 class="my-3">{{ $post->title }}</h3>
+                            <span class="edit"><i class="nav-icon fas fa-edit"></i></span>
+                            <button type="button" aria-label="Copy code to clipboard" class="copyButton_wuS7 clean-btn">
+                                Copy
+                            </button>
+                        </div>
+
+                        {!! $post->content !!}
+                    </div>
+                @elseif(!empty($originalImage))
+                    <div style="max-width: 800px;">
+                        @if (isset($originalImage['path']))
+                            <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] ?? '' }}">
+                                <img src="/storage{{ $mediumImage['path'] ?? $originalImage['path'] ?? '' }}" style="width: auto;"/>
+                            </a>
+                        @else
+                            @foreach($originalImage as $key => $image)
+                                <a class="post-image" data-fancybox="gallery" data-src="/storage{{ $image['path'] ?? '' }}">
+                                    <img src="/storage{{ $mediumImage[$key]['path'] ?? $image['path'] ?? '' }}" style="width: auto;"/>
+                                </a>
+                            @endforeach
+                        @endif
                     </div>
                 @endif
-
 
 {{--                    <div class="form-group">--}}
 {{--                        <label>Выберете категорию</label>--}}

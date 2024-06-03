@@ -4,14 +4,20 @@ namespace App\Http\Controllers\Admin\Packages;
 
 use App\Http\Controllers\Admin\DevHelpersContoller;
 use App\Http\Controllers\Controller;
+use App\Models\Post;
+use Illuminate\Http\File;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
 use App\Models\PostsCategory;
+use \Exception;
 
 class UploadImageController extends Controller
 {
-    const TEMP_IMAGE_PATH = 'app/public/temp_directory'; //temporary image path
+    const TEMP_IMAGE_PATH = 'app/public/temp_directory/'; //temporary image path
     const IMAGE_PATH = 'images/';
 
     private const MAX_IMAGE_MEDIUM_WIDTH = '800';
@@ -19,123 +25,119 @@ class UploadImageController extends Controller
     private const MAX_IMAGE_SMALL_WIDTH = '350';
     private const MAX_IMAGE_SMALL_HEIGHT = '350';
 
-    private $errors = [];
+    private array $errors = [];
+    private int $userId;
 
+    /* Error messages */
+    private const EM_ERROR_LOADING_IMAGE = 'Ошибка при загрузке изображения.';
+    private const EM_FILE_EXIST_IN_TEMP_DERICTORY = 'Невозможно завершить операцию. ' .
+    'Файл с таким именем уже существует во временной папке. Пожалуйста, переименуйте текущий файл.';
+    private const EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY = 'Ошибка при сохранении изображения во временную папку.';
+    private const EM_NO_FILES_PROVIDED_FOR_UPLOAD = 'No files were provided for upload.';
     //получить размер изображения - Storage::size($path);
 
-    /**
+    //TODO ОШИБКА:
+    //Can't write image data to path (D:\Webprojects\sorting\storage\app/public/temp_directory1/398524193-649704540366648-8345501453876316855-n_350_350.jpg)
+
+    /** uploadImageToTempDirectory -> uploadImagesToTempDirectory
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function uploadImageToTempDirectory(Request $request)
+    public function uploadImagesToTempDirectory(Request $request): \Illuminate\Http\JsonResponse
     {
-        request()->validate([
-            'files.*' => 'mimes:jpeg,png,jpg,gif,svg,webp',
-        ]);
+        try {
+            request()->validate([
+                'files.*' => 'mimes:jpeg,png,jpg,gif,svg,webp',
+            ]);
 
-        $images = [];
+            if (!request()->has('files')) {
+                throw new Exception(self::EM_NO_FILES_PROVIDED_FOR_UPLOAD);
+            }
 
-        if (request()->has('files')) {
+            $images = [];
+
             foreach (request()->file('files') as $file) {
+                //Returns the original file name
                 $originalImageName = $file->getClientOriginalName();
 
                 $path_info = pathinfo($originalImageName);
-
-//                if (!File::exists($path_info)) {
-//                    File::makeDirectory($path_info);
-//                }
-
                 if (empty($path_info['filename']) || empty($path_info['extension'])) {
-                    return response()->json(['status' => false, 'error' => "Ошибка при загрузке изображения"]);
+                    throw new Exception(self::EM_ERROR_LOADING_IMAGE);
                 }
 
-                //удаляем из названия изображения скобки и пробелы
-                $imageName = strtr($path_info['filename'], array('(' => '', ')' => '', ' ' => ''));
-                $imageName = str_slug($imageName);
+                $this->userId = Auth::id();
 
-                $imageSize = getimagesize($file);
-                //$imageSize[0] - ширина, $imageSize[1] - высота
+                //Очищаем имя файла от лишних символов
+                $imageName = $this->sanitizeFileName($path_info['filename']);
+                $imageNameWithExtension = $imageName . '.' . $path_info['extension'];
+                $tempPathForImage = 'temp_directory' . '/' . $this->userId;
 
-                if ($imageSize[0] >= self::MAX_IMAGE_SMALL_WIDTH && $imageSize[1] >= self::MAX_IMAGE_SMALL_HEIGHT) {
-                    $imageSmall = $this->resizeImage(
-                        $file,
-                        $imageName,
-                        $path_info['extension'],
-                        storage_path(self::TEMP_IMAGE_PATH),
-                        false,
-                        self::MAX_IMAGE_SMALL_WIDTH,
-                        self::MAX_IMAGE_SMALL_HEIGHT
+                /* проверяем есть ли уже файл с таким именем в папке */
+                /* exists возвращает true/false */
+                if (Storage::disk('local')->exists($tempPathForImage . '/' . $imageNameWithExtension)) {
+                    //get uploaded file size in bytes
+                    $uploadedFileSize = filesize($file);
+
+                    //get the size of an existing file in bytes
+                    $existingFileSize = Storage::disk('local')->size(
+                        $tempPathForImage . '/' . $imageNameWithExtension
                     );
-                    $small_name = $imageSmall->basename;
+
+                    if ($uploadedFileSize === $existingFileSize) {
+                        throw new Exception(self::EM_FILE_EXIST_IN_TEMP_DERICTORY);
+                    } else {
+                        //TODO Возвращаем ответ на форму и показываем пользователю существующий файл с таким же именем
+                        $imageName = $imageName . '-' . time();
+                    }
                 }
 
-//                return response()->json(['status' => true, 'image' => 'test']);
+                //сохраняем оригинальное изображение во временную папку
+                $path = Storage::putFileAs($tempPathForImage, $file, $imageNameWithExtension);
 
-                if ($imageSize[0] >= self::MAX_IMAGE_MEDIUM_WIDTH || $imageSize[1] >= self::MAX_IMAGE_MEDIUM_HEIGHT) {
-                    $imageMedium = $this->resizeImage(
-                        $file,
-                        $imageName,
-                        $path_info['extension'],
-                        storage_path(self::TEMP_IMAGE_PATH),
-                        false,
-                        self::MAX_IMAGE_MEDIUM_WIDTH,
-                        self::MAX_IMAGE_MEDIUM_HEIGHT
-                    );
-                    $medium_name = $imageMedium->basename;
+                if (empty($path)) {
+                    throw new Exception(self::EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY);
                 }
 
-                //проверяем есть ли уже файл с таким именем в папке
-//                if (Storage::disk('local')->exists($imageName . '.' . $path_info['extension'])) {
-//                    dd('eeeee');
-//                }
-
-                $file = Storage::putFileAs(
-                    'temp_directory',
-                    $file,
-                    $imageName . '.' . $path_info['extension']
+                $images[$imageName] = $this->saveSmallAndMediumImageSizesToTempDirectory(
+                    $path,
+                    $imageName,
+                    $path_info['extension'],
+                    $tempPathForImage  . '/'
                 );
-
-                $images[$imageName] = [
-                    'name' => $imageName,
-                    'extension' => $path_info['extension'],
-                    'original' => $file, // '/storage/' . $file,
-                ];
-
-                if (!empty($small_name)) {
-                    $images[$imageName]['small_name'] = $small_name;
-                    $images[$imageName]['small'] = 'temp_directory' . '/' . $small_name; // '/storage/temp_directory' . '/' . $imageSmall->basename,
-                }
-
-                if (!empty($medium_name)) {
-                    $images[$imageName]['medium_name'] = $medium_name;
-                    $images[$imageName]['medium'] = 'temp_directory' . '/' . $medium_name;
-                }
-
-//                extension:"png"
-//                medium:"temp_directory/logo_700_700.png"
-//                medium_name:"logo_700_700.png"
-//                name:"logo"
-//                original:"temp_directory/logo.png"
-//                small:"temp_directory/logo_320_320.png"
-//                small_name:"logo_320_320.png"
             }
-        }
 
-        return response()->json(['status' => true, 'images' => $images]);
+            return response()->json(['status' => true, 'images' => $images]);
+
+        } catch (Exception $exception) {
+            //TODO - Переопределить Exception, как в Praxis
+            //TODO - Добавить запись ошибок в логи в БД
+
+//            var_dump('TEST Exception');
+//
+//            var_dump($exception->getTraceAsString());
+//            exit();
+
+            return response()->json(['status' => false, 'error' => $exception->getMessage()]);
+        }
     }
 
     /**
+     * уменьшаем изображение (s_image) до MAX_IMAGE_SMALL_WIDTH и MAX_IMAGE_SMALL_HEIGHT
+     * (например, 350_528)
+     *
      * @param string $imagePath
      * @param string $imageName
      * @param string $imageExtension
      * @param array $imageSize
+     * @param string $tempPathForImage
      * @return array|array[]
      */
     public function saveSmallImageToTempDirectory(
         string $imagePath,
         string $imageName,
         string $imageExtension,
-        array $imageSize
+        array $imageSize,
+        string $tempPathForImage
     ): array
     {
         if ($imageSize[0] >= self::MAX_IMAGE_SMALL_WIDTH && $imageSize[1] >= self::MAX_IMAGE_SMALL_HEIGHT) {
@@ -143,20 +145,17 @@ class UploadImageController extends Controller
                 $imagePath,
                 $imageName,
                 $imageExtension,
-                storage_path(self::TEMP_IMAGE_PATH),
                 false,
                 self::MAX_IMAGE_SMALL_WIDTH,
                 self::MAX_IMAGE_SMALL_HEIGHT
             );
 
-            $smallImageName = $imageSmall->basename;
+            $smallImageName = $imageSmall->filename;
 
             if (!empty($smallImageName)) {
-                //s_image_name
-                //s_image_path
                 return [
                     's_image_name' => $smallImageName,
-                    's_image_path' => 'temp_directory' . '/' . $smallImageName,
+                    's_image_path' => $tempPathForImage,
                 ];
             }
         }
@@ -165,17 +164,22 @@ class UploadImageController extends Controller
     }
 
     /**
+     * уменьшаем изображение (m_image) до MAX_IMAGE_MEDIUM_WIDTH и MAX_IMAGE_MEDIUM_HEIGHT
+     * (например, 800_1422)
+     *
      * @param string $imagePath
      * @param string $imageName
      * @param string $imageExtension
      * @param array $imageSize
+     * @param string $tempPathForImage
      * @return array|array[]
      */
     public function saveMediumImageToTempDirectory(
         string $imagePath,
         string $imageName,
         string $imageExtension,
-        array $imageSize
+        array $imageSize,
+        string $tempPathForImage
     ): array
     {
         if ($imageSize[0] >= self::MAX_IMAGE_MEDIUM_WIDTH && $imageSize[1] >= self::MAX_IMAGE_MEDIUM_HEIGHT) {
@@ -183,18 +187,17 @@ class UploadImageController extends Controller
                 $imagePath,
                 $imageName,
                 $imageExtension,
-                storage_path(self::TEMP_IMAGE_PATH),
                 false,
                 self::MAX_IMAGE_MEDIUM_WIDTH,
                 self::MAX_IMAGE_MEDIUM_HEIGHT
             );
 
-            $mediumImageName = $imageMedium->basename;
+            $mediumImageName = $imageMedium->filename;
 
             if (!empty($mediumImageName)) {
                 return [
                     'm_image_name' => $mediumImageName,
-                    'm_image_path' => 'temp_directory' . '/' . $mediumImageName,
+                    'm_image_path' => $tempPathForImage,
                 ];
             }
         }
@@ -202,207 +205,183 @@ class UploadImageController extends Controller
         return [];
     }
 
-    public function saveParseImageToTempDirectory(string $imagePath, string $imageName, string $imageExtension)
+    /**
+     * Save small and medium image sizes to temp directory
+     *
+     * @param string $imagePath - example: temp_directory/1/jysk-205344.jpg
+     * @param string $imageName - example: jysk-205344
+     * @param string $imageExtension - example: jpg
+     * @param string $tempPathForImage - example: temp_directory/1
+     * @return array
+     */
+    private function saveSmallAndMediumImageSizesToTempDirectory(
+        string $imagePath,
+        string $imageName,
+        string $imageExtension,
+        string $tempPathForImage
+    ): array
     {
-        $imageSize = getimagesize($imagePath);
-        //$imageSize[0] - ширина, $imageSize[1] - высота
-
-        $smallImage = $this->saveSmallImageToTempDirectory(
-            $imagePath,
-            $imageName,
-            $imageExtension,
-            $imageSize
-        );
-
-        $mediumImage = $this->saveMediumImageToTempDirectory(
-            $imagePath,
-            $imageName,
-            $imageExtension,
-            $imageSize
-        );
-
         $originalImage = [
             'image_name' => $imageName,
             'image_extension' => $imageExtension,
             'image_path' => $imagePath,
         ];
 
-        $images[$imageName] = array_merge($originalImage, $mediumImage, $smallImage);
+        //Получаем путь к изображению
+        $imagePath = Storage::path($imagePath);
+        //получаем размер изображения: $imageSize[0] - ширина, $imageSize[1] - высота
+        $imageSize = getimagesize($imagePath);
 
-        return $images;
-    }
+        /* уменьшаем изображение (s_image) до MAX_IMAGE_SMALL_WIDTH и MAX_IMAGE_SMALL_HEIGHT
+        (например, 350_528) */
+        $smallImage = $this->saveSmallImageToTempDirectory(
+            $imagePath,
+            $imageName,
+            $imageExtension,
+            $imageSize,
+            $tempPathForImage
+        );
 
-    /**
-     * @param Request $request
-     * @return mixed
-     */
-    public function upload(Request $request)
-    {
-        //DevHelpersContoller::writeLogToFile('TEST');
-        try {
-            request()->validate([
-                'files.*' => 'mimes:jpeg,png,jpg,gif,svg,webp',
-            ]);
-
-            $images = [];
-
-            if (request()->has('files')) {
-                foreach (request()->file('files') as $file) {
-                    //"originalName": "246021903_272829371422961_6110518103173326510_n.jpg"
-                    //"mimeType":"image/jpeg"
-                    $originalImageName = $file->getClientOriginalName();
-
-                    $path_info = pathinfo($originalImageName);
-                    if (empty($path_info['filename']) || empty($path_info['extension'])) {
-                        return response()->json(['status' => false, 'msg' => "Ошибка при загрузке изображения"]);
-                    }
-                    //array(4) {
-                    // ["dirname"]=> string(1) "."
-                    // ["basename"]=> string(51) "246021903_272829371422961_6110518103173326510_n.jpg"
-                    // ["extension"]=> string(3) "jpg"
-                    // ["filename"]=> string(47) "246021903_272829371422961_6110518103173326510_n"
-                    // }
-
-                    $imageSmall = $this->resizeImage($file, $path_info['filename'], $path_info['extension'], storage_path(self::TEMP_IMAGE_PATH), 120, 120);
-//                    var_dump($filePath);
-//                    var_dump($imageSmall->basename);
-//                    var_dump($filePath . '/' . $imageSmall->basename);
-                    //exit();
-
-//                    $filePath = public_path('/images');
-//                    $image->move($filePath, $input['imagename']);
-
-//                    $file = Storage::disk('public')->putFileAs(
-//                        'temp_directory',
-//                        $file,
-//                        $originalFilename
-//                    );
-
-                    //"Impossible to create the root directory \"F:\\Webprojects\\sorting\\storage\\app/public\\F:/Webprojects/sorting/storage/app/public/temp_directory\". "
-                    $file = Storage::putFileAs(
-                        'temp_directory',
-                        $file,
-                        $originalImageName
-                    );
-
-                    //http://sorting.local/storage/temp_directory/GettyImages-527424712-696x952.jpg
-
-                    //$images[] = '/storage/' . $file;
-
-                    //[
-                    //  " /storage/temp_directory/120_120TzweP9ZVtWDTfctUWw31yw-default.jpg"
-                    //]
-
-                    $images[] = [
-                        'original' => '/storage/' . $file,
-                        'small' => '/storage/temp_directory' . '/' . $imageSmall->basename,
-                        'name' => $path_info['filename'],
-                        'extension' => $path_info['extension'],
-                    ];
-                }
-            }
-
-
-//            $uploadedFile = $request->file('userfile');
-//
-//            $filename = $uploadedFile->getClientOriginalName();
-//
-//            Storage::disk('local')->putFileAs(
-//                'temp_directory/',
-//                $uploadedFile,
-//                $filename
-//            );
-
-            return response()->json(['Files' => $images]);
-            //return response()->json(['method' => 'TEST']);
-            //return response()->json(['status' => true, 'msg' => "Загрузка прошла успешно"]);
-        } catch (Throwable $e) {
-            return response()->json(['status' => false, 'msg' => "Ошибка при загрузке изображения"]);
+        if (!empty($smallImage)) {
+            $originalImage = array_merge($originalImage, $smallImage);
         }
 
+        //уменьшаем изображение (m_image) до MAX_IMAGE_MEDIUM_WIDTH и MAX_IMAGE_MEDIUM_HEIGHT
+        // (например, 800_1422)
+        $mediumImage = $this->saveMediumImageToTempDirectory(
+            $imagePath,
+            $imageName,
+            $imageExtension,
+            $imageSize,
+            $tempPathForImage
+        );
 
+        if (!empty($mediumImage)) {
+            $originalImage = array_merge($originalImage, $mediumImage);
+        }
+
+        return $originalImage;
     }
 
     /**
-     * @param $file
-     * @param $filename
-     * @param $extension
-     * @param $imagePath
-     * @param bool $isQuadratic
-     * @param int $width
-     * @param int $height
-     * @return \Illuminate\Http\JsonResponse|\Intervention\Image\Image
+     * @param string $imageUrl
+     * @param array $imageInfo
+     * @return \Illuminate\Http\JsonResponse|string[]
      */
-    public function resizeImage($file, $filename, $extension, $imagePath, bool $isQuadratic = false, int $width = 200, int $height = 200)
+    public function saveParseImageToTempDirectory(
+        string $imageUrl,
+        array $imageInfo
+    ): array|\Illuminate\Http\JsonResponse
     {
         try {
-            $imageName = $filename . '_' . $width . '_' . $height . '.' . $extension;
+            $this->userId = Auth::id();
+
+            //удаляем из названия изображения скобки и пробелы
+            $imageName = $this->sanitizeFileName($imageInfo['name']);
+
+            $tempPathForImage = 'temp_directory/' . $this->userId;
+
+            //dd( Storage::disk('temp_directory'));
+            //dd(Storage::path($imagePath));
+            //$imagePath = '../public/storage/temp_directory/' . $this->userId . '/' . $imageName . '.' . $imageInfo['extension'];
+            $imagePath = $tempPathForImage . '/' . $imageName . '.' . $imageInfo['extension'];
+            $imageSavePath = Storage::disk('local')->path($imagePath);
+            //dd($imagePath);
+
+            $response = Http::get($imageUrl);
+            $saveToTempDirectory = file_put_contents($imageSavePath, $response);
+            if (!$saveToTempDirectory) {
+                throw new Exception(self::EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY);
+            }
+
+            //$path = Storage::putFileAs(
+            //                        'temp_directory/' . $this->userId,
+            //                        $file,
+            //                        $imageName . '.' . $path_info['extension']
+            //                    );
+            //
+            //                    if (empty($path)) {
+            //                        throw new Exception(self::EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY);
+            //                    }
+
+            $images[$imageName] = $this->saveSmallAndMediumImageSizesToTempDirectory(
+                $imagePath,
+                $imageInfo['name'],
+                $imageInfo['extension'],
+                $tempPathForImage
+            );
+
+            //dd($images);
+
+            return $images;
+
+        } catch (Exception $exception) {
+            //TODO - Добавить запись ошибок в логи в БД
+            dd($exception->getMessage());
+
+            return response()->json(['status' => false, 'error' => $exception->getMessage()]);
+        }
+    }
+
+    /**
+     * @param string $filePath
+     * @param string $filename
+     * @param string $extension
+     * @param bool $isQuadratic - если изображение должно быть квадратным
+     * @param int $width
+     * @param int $height
+     * @return \Intervention\Image\Image
+     */
+    public function resizeImage(
+        string $filePath,
+        string $filename,
+        string $extension,
+       // string $imagePath,
+        bool $isQuadratic = false,
+        int $width = 200,
+        int $height = 200
+    ): \Intervention\Image\Image
+    {
+        try {
+            //var_dump($filePath);
+            //D:\Webprojects\sorting\storage\app/public\temp_directory/1/89b158b01ec4ffbdb076024c67a49652.jpg
+            //$isQuadratic = true;
+
             $w_h = $width . '_' . $height;
+            $imageName = $filename . '_' . $w_h . '.' . $extension;
 
-            $filePath = is_array($file) ? $file->path() : $file;
             $img = Image::make($filePath);
-
             $originalWidth = $img->width();
             $originalHeight = $img->height();
 
-            if ($isQuadratic === true) {
-                if ($originalHeight > $originalWidth) {
-                    $height = null;
-                    $cropSize = $width;
-                } elseif ($originalWidth > $originalHeight) {
-                    $width = null;
-                    $cropSize = $height;
-                } else {
-                    $cropSize = $height;
-                }
-
-                $img->resize($width, $height, function ($constraint) {
-                    $constraint->aspectRatio();
-                });
-                $img->crop($cropSize, $cropSize);
-
-                $imageSize2 = getimagesize($img);
-
-                //var_dump('image SIZE');
-//                var_dump($imageSize2);
-//                exit();
-
-                $resizeImage = $img->save($imagePath . '/' . $imageName);
+            if ($originalHeight > $originalWidth) {
+                $height = null;
+                $cropSize = ($isQuadratic === true) ? $width : null;
+            } elseif ($originalHeight < $originalWidth) {
+                $width = null;
+                $cropSize = ($isQuadratic === true) ? $height : null;
             } else {
-
-                if ($width < 451 || $height > 451) {
-                    if ($originalHeight > $originalWidth) {
-                        $height = null;
-                    } else {
-                        $width = null;
-                    }
-                } else {
-                    $originalHeight > $originalWidth ? $width = null : $height = null;
-                }
-
-                $img->resize($width, $height, function ($constraint) {
-                    $constraint->aspectRatio();
-                });
-
-                $resizeImage = $img->save($imagePath . '/' . $imageName);
-//                var_dump($resizeImage);
-//                var_dump($imagePath);
-//                var_dump($imageName);
-//                var_dump($resizeImage->dirname . '/' . $resizeImage->basename);
-                //exit();
-
-//                if ($this->moveImage('/temp_directory/' . $imageName, '/temp_directory/' . '/' . $newName)) {
-//                    $resizeImage->basename = $newName;
-//                }
+                $cropSize = ($isQuadratic === true) ? $height : null;
             }
 
-            //var_dump($resizeImage);
+            $img->resize($width, $height, function ($constraint) {
+                $constraint->aspectRatio();
+            });
 
-            $imageSize2 = getimagesize($imagePath . '/' . $imageName);
+            if (!empty($cropSize)) {
+                $img->crop($cropSize, $cropSize);
+            }
+
+            //dd(storage_path(self::TEMP_IMAGE_PATH . $this->userId));
+            //D:\Webprojects\sorting\storage\app/public/temp_directory/1
+            //dd(storage_path());
+            //D:\Webprojects\sorting\storage
+
+            $resizeImage = $img->save(storage_path(self::TEMP_IMAGE_PATH . $this->userId) . '/' . $imageName);
+
+            $imageSize2 = getimagesize(storage_path(self::TEMP_IMAGE_PATH . $this->userId) . '/' . $imageName);
             $newName = str_replace($w_h, $imageSize2[0] . '_' . $imageSize2[1], $imageName);
-//                var_dump($width . '_' . $height);
-//                var_dump($imageSize2[0] . '_' . $imageSize2[1]);
-//                var_dump($newName);
+
 //                $path = Storage::path($imageName);
 //                var_dump($path);
 
@@ -410,7 +389,10 @@ class UploadImageController extends Controller
             //var_dump(file_exists('D:\Webprojects\sorting\storage\app/public/temp_directory/4d21abef01a086c36f71c7d2f3a044d4_350_350.jpg'));
             //var_dump(Storage::disk('local')->exists('/temp_directory/' . $resizeImage->basename));
 
-            if (rename($imagePath . '/' . $imageName, $imagePath . '/' . $newName)) {
+            if (rename(
+                storage_path(self::TEMP_IMAGE_PATH . $this->userId) . '/' . $imageName,
+                storage_path(self::TEMP_IMAGE_PATH . $this->userId) . '/' . $newName
+            )) {
                 $resizeImage->basename = $newName;
             }
 
@@ -475,11 +457,6 @@ class UploadImageController extends Controller
         }
     }
 
-//    public function renameFile()
-//    {
-//
-//    }
-
     /**
      * Переместить изображение из временной папки в нужную
      *
@@ -541,6 +518,8 @@ class UploadImageController extends Controller
         if (Storage::disk('local')->exists($originalNewPath)) {
             $existsFileSize = Storage::size($originalNewPath);
             $fileSize = Storage::size($originalOldPath);
+            var_dump($existsFileSize);
+            dd($fileSize);
 
             if ($existsFileSize === $fileSize) {
                 return [
@@ -609,23 +588,53 @@ class UploadImageController extends Controller
             $imageSize = self::getImageSize($oldPath);
         }
 
-        $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId) ?: $categoryId;
+        $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId) ?: '0';
+        $today = date("Y-m-d");
+
+        $imageName = $categoryParentId . '_' . $categoryId . '_' . $imageName;
 
         if (isset($imageSize) && is_array($imageSize)) {
             // "7_6_a17ac3f0262325f5c3bc30cb34fb9350_800_1337.jpg"
-            $imageName = $categoryParentId . '_' . $categoryId . '_' . $imageName . '_' . $imageSize['width'] . '_' . $imageSize['height'] . '.' . $imageExtension;
+            $imageName .= '_' . $imageSize['width'] . '_' . $imageSize['height'] . '.' . $imageExtension;
+            //var_dump('imageName = ' . $imageName);
         } else {
             // "7_6_a17ac3f0262325f5c3bc30cb34fb9350.jpg"
-            $imageName = $categoryParentId . '_' . $categoryId . '_' . $imageName . '.' . $imageExtension;
+            $imageName .= '.' . $imageExtension;
+            //var_dump('TEST = ' . $imageName);
         }
 
-        // "/images/1/7/image_name.jpg"
-        $imagePath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryParentId . '/' . $imageName;
+        // / user_id / category parent_id / date today / category parent_id - category_id - image_title - image_size - расширение файла
+        // "/images/1/7/2020-02-11/image_name.jpg"
+        // $imagePath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryId . '/' . $today . '/' . $imageName;
+        $imagePath = '/' . UploadImageController::IMAGE_PATH . $userId . '/' . $categoryId . '/' . $today;
 
         return [
             'image_name' => $imageName,
             'image_path' => $imagePath
         ];
+    }
+
+    /**
+     * Очищает имя файла, удаляя числа в скобках, текст "— копия", скобки и пробелы.
+     *
+     * Этот метод принимает строку, представляющую имя файла, и выполняет следующие действия:
+     * - Удаляет числа в скобках, например, (1), (2) и т.д.
+     * - Удаляет текст "— копия".
+     * - Заменяет пробелы на дефисы.
+     * - Удаляет круглые скобки.
+     * - Преобразует оставшееся имя файла в URL-дружественный формат.
+     *
+     * @param string $fileName Имя файла для очистки.
+     * @return string Очищенное и отформатированное имя файла.
+     */
+    private function sanitizeFileName(string $fileName): string
+    {
+        // Удаляем числа в скобках, например (1) или (2) и т.д.
+        $fileName = preg_replace('/\s*\(\d+\)/', '', $fileName);
+        // Удаляем "— копия", скобки и пробелы
+        $fileName = strtr($fileName, array('— копия' => '', ' ' => '-', '(' => '', ')' => ''));
+
+        return str_slug($fileName, '-');
     }
 
     /**
@@ -635,10 +644,15 @@ class UploadImageController extends Controller
      * $imagePath - 'img/flag.jpg'
      *
      * @param string $imagePath
-     * @return array|false
+     * @return array
      */
-    private static function getImageSize(string $imagePath)
+    private static function getImageSize(string $imagePath): array
     {
+        //$img = Image::make($filePath);
+        //
+        //            $originalWidth = $img->width();
+        //            $originalHeight = $img->height();
+
         $imageSize = getimagesize($imagePath);
 
         if (is_array($imageSize)) {
@@ -648,167 +662,408 @@ class UploadImageController extends Controller
             ];
         }
 
-        return false;
+        return [];
     }
 
     /**
-     * @param $image
-     * @param $userId
-     * @param $categoryId
-     * @return array[]|\bool[][]|string[]|\string[][]
+     * @param array $image
+     * @param string $userId
+     * @param string $categoryId
+     * @return array|array[]|\bool[][]|string[]|\string[][]
      */
-    public function saveImageForPost($image, $userId, $categoryId)
+    public function saveImageForPost(array $image, string $userId, string $categoryId): array
     {
-        $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId) ?: $categoryId;
+        //TODO добавить сохранение в папку с сегоднешней датой
+        // с  category parent_id ещё не понятно нужно ли это
+        // если не пустой category parent_id:
+        // / user_id / category parent_id / date today / category parent_id - category_id - image_title - image_size - расширение файла
+        // если пустой category parent_id:
+        // / user_id / 0 / date today / category parent_id - category_id - image_title - image_size - расширение файла
+        //$categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId) ?: '0';
 
         $errors = [];
 
-        //OLD - $originalOldPath = '/temp_directory/' . $image['name'] . '.' . $image['extension'];
-        $originalOldPath = '/temp_directory/' . $image['image_name'] . '.' . $image['image_extension'];
+        /*
+{
+  ["image_name"]=>
+  string(22) "pxl-20220517-092114902"
+  ["image_extension"]=>
+  string(3) "jpg"
+  ["image_path"]=>
+  string(43) "temp_directory/1/pxl-20220517-092114902.jpg"
+  ["s_image_name"]=>
+  string(34) "pxl-20220517-092114902_350_465.jpg"
+  ["s_image_path"]=>
+  string(51) "temp_directory/1/pxl-20220517-092114902_350_465.jpg"
+  ["m_image_name"]=>
+  string(35) "pxl-20220517-092114902_800_1063.jpg"
+  ["m_image_path"]=>
+  string(52) "temp_directory/1/pxl-20220517-092114902_800_1063.jpg"
+}
+         * */
 
-        //user_id / category parent_id / category parent_id - category_id - image_title - image_size - расширение файла
-//        OLD - $originalNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-//            . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
-//            . $image['name'] . '.' . $image['extension'];
-        $originalNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-            . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
-            . $image['image_name'] . '.' . $image['image_extension'];
+        if (!empty($image) &&
+            !empty($image['image_path']) &&
+            !empty($image['image_name']) &&
+            !empty($image['image_extension'])
+        ) {
+            $originalOldPath = '/' . $image['image_path'];
+            // /temp_directory/1/faceapp-1684793403208.jpg
 
-//        OLD - $originalNewPath = self::generateImageNameAndPath(
-//            $image['name'],
-//            $image['extension'],
-//            $userId,
-//            $categoryId,
-//        );
-        $originalNewPath = self::generateImageNameAndPath(
-            $image['image_name'],
-            $image['image_extension'],
-            $userId,
-            $categoryId,
-        );
+            //user_id / category parent_id / category parent_id - category_id - image_title - image_size - расширение файла
+            $originalNewPath = self::generateImageNameAndPath(
+                $image['image_name'],
+                $image['image_extension'],
+                $userId,
+                $categoryId,
+            );
+            //["image_name"]=> string(29) "0_0_faceapp-1684793403208.jpg"
+            // ["image_path"]=> string(22) "/images/1/0/2024-06-01"
 
-        //проверяем есть ли уже файл с таким именем в папке
-        //OLD - $checkIfOriginalFileExists = $this->checkIfFileExists($image['name'], $image['extension'], $originalOldPath, $originalNewPath['image_path']);
-        $checkIfOriginalFileExists = $this->checkIfFileExists($image['image_name'], $image['image_extension'], $originalOldPath, $originalNewPath['image_path']);
+            //var_dump($originalOldPath);
+            //var_dump($originalNewPath['image_path'] . '/' . $originalNewPath['image_name']);
 
-        if (!empty($checkIfOriginalFileExists)) {
-            if (!empty($checkIfOriginalFileExists['new_image_path']) && !empty($checkIfOriginalFileExists['image_name'])) {
-                $originalNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-                    . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
-                    . $checkIfOriginalFileExists['image_name'] . '.' . $image['extension'];
+            //проверяем есть ли уже файл с таким именем в папке
+            $checkIfOriginalFileExists = $this->checkIfFileExists(
+                $originalNewPath['image_name'],
+                $image['image_extension'],
+                $originalOldPath,
+                $originalNewPath['image_path'] . '/' . $originalNewPath['image_name']
+            );
 
-                $originalOldPath = $checkIfOriginalFileExists['new_image_path'];
-                $image['name'] = $checkIfOriginalFileExists['image_name'];
-            } elseif (!empty($checkIfOriginalFileExists['error'])) {
+//            if (!empty($checkIfOriginalFileExists)) {
+//                if (!empty($checkIfOriginalFileExists['new_image_path']) &&
+//                    !empty($checkIfOriginalFileExists['image_name'])
+//                ) {
+//                    $originalNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+//                        . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
+//                        . $checkIfOriginalFileExists['image_name'] . '.' . $image['extension'];
+//
+//                    $originalOldPath = $checkIfOriginalFileExists['new_image_path'];
+//                    $image['image_name'] = $checkIfOriginalFileExists['image_name'];
+//                } elseif (!empty($checkIfOriginalFileExists['error'])) {
+//                    return [
+//                        'errors' => $checkIfOriginalFileExists['error']
+//                    ];
+//                }
+//            }
+
+            $saveOriginalImage = $this->saveImage(
+                $originalNewPath['image_name'],
+                $image['image_extension'],
+                $originalOldPath,
+                $originalNewPath['image_path'] . '/' . $originalNewPath['image_name']
+            );
+
+            if (!empty($saveOriginalImage['error'])) {
+                $errors[] = $saveOriginalImage['error'];
+            }
+
+            if (!empty($image['m_image_name'])) {
+                $mediumOldPath = '/temp_directory/' . $image['m_image_name'] . '.' . $image['image_extension'];
+                $mediumNewPath = self::generateImageNameAndPath(
+                    $image['m_image_name'],
+                    $image['image_extension'],
+                    $userId,
+                    $categoryId,
+                );
+
+                var_dump($mediumOldPath);
+                dd($mediumNewPath);
+
+//                    '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+//                    . $categoryParentId . '/' . $categoryParentId . '_'
+//                    . $categoryId . '_' . $image['m_image_name'] . '.' . $image['image_extension'];
+//                $mediumOldPath = '/' . $image['m_image_path']; // '/temp_directory/' . $image['m_image_name'] . '.' . $image['image_extension'];
+
+                $checkIfMediumFileExists = $this->checkIfFileExists(
+                    $mediumNewPath['image_name'],
+                    $image['image_extension'],
+                    $mediumOldPath,
+                    $mediumNewPath['image_path'] . '/' . $mediumNewPath['image_name']
+                );
+
+//                if (!empty($checkIfMediumFileExists)) {
+//                    if (!empty($checkIfMediumFileExists['new_image_path'])
+//                        && !empty($checkIfMediumFileExists['image_name'])
+//                    ) {
+//                        $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+//                            . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
+//                            . $checkIfMediumFileExists['image_name'];
+//
+//                        $mediumOldPath = $checkIfMediumFileExists['new_image_path'];
+//                        $image['m_image_name'] = $checkIfMediumFileExists['image_name'];
+//                    } elseif (!empty($checkIfMediumFileExists['error'])) {
+//                        return [
+//                            'errors' => $checkIfMediumFileExists['error']
+//                        ];
+//                    }
+//                }
+
+                $saveMediumImage = $this->saveImage(
+                    $mediumNewPath['image_name'],
+                    $image['image_extension'],
+                    $mediumOldPath,
+                    $mediumNewPath['image_path'] . '/' . $mediumNewPath['image_name']
+                );
+
+                if (!empty($saveMediumImage['error'])) {
+                    $errors[] = $saveMediumImage['error'];
+                }
+            }
+
+            //OLD - if (!empty($image['small_name'])) {
+            if (!empty($image['s_image_name'])) {
+                $smallNewPath = self::generateImageNameAndPath(
+                    $image['s_image_name'],
+                    $image['image_extension'],
+                    $userId,
+                    $categoryId,
+                );
+                $smallOldPath = '/temp_directory/' . $userId . '/' . $image['s_image_name']  . '.' . $image['image_extension'];
+
+                $checkIfSmallFileExists = $this->checkIfFileExists(
+                    $smallNewPath['image_name'],
+                    $image['image_extension'],
+                    $smallOldPath,
+                    $smallNewPath['image_path'] . '/' . $smallNewPath['image_name']
+                );
+
+//                if (!empty($checkIfSmallFileExists)) {
+//                    if (!empty($checkIfSmallFileExists['new_image_path'])
+//                        && !empty($checkIfSmallFileExists['image_name'])
+//                    ) {
+//                        $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
+//                            . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
+//                            . $checkIfSmallFileExists['image_name'];
+//
+//                        $smallOldPath = $checkIfSmallFileExists['new_image_path'];
+//                        $image['s_image_name'] = $checkIfSmallFileExists['image_name'];
+//                    } elseif (!empty($checkIfSmallFileExists['error'])) {
+//                        return [
+//                            'errors' => $checkIfSmallFileExists['error']
+//                        ];
+//                    }
+//                }
+
+                $saveSmallImage = $this->saveImage(
+                    $smallNewPath['image_name'],
+                    $image['image_extension'],
+                    $smallOldPath,
+                    $smallNewPath['image_path'] . '/' . $smallNewPath['image_name']
+                );
+
+                if (!empty($saveSmallImage['error'])) {
+                    $errors[] = $saveSmallImage['error'];
+                }
+            }
+
+            if (!empty($errors)) {
                 return [
-                    'errors' => $checkIfOriginalFileExists['error']
+                    'errors' => $errors
                 ];
             }
-        }
 
-        //OLD - $saveOriginalImage = $this->saveImage($image['name'], $image['extension'], $originalOldPath, $originalNewPath);
-        $saveOriginalImage = $this->saveImage($image['image_name'], $image['image_extension'], $originalOldPath, $originalNewPath['image_path']);
-        if (!empty($saveOriginalImage['error'])) {
-            $errors[] = $saveOriginalImage['error'];
-        }
-
-        //OLD - if (!empty($image['medium_name'])) {
-        if (!empty($image['m_image_name'])) {
-//            OLD - $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-//                . $categoryParentId . '/' . $categoryParentId . '_'
-//                . $categoryId . '_' . $image['medium_name'];
-//            $mediumOldPath = '/temp_directory/' . $image['medium_name'];
-            $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-                . $categoryParentId . '/' . $categoryParentId . '_'
-                . $categoryId . '_' . $image['m_image_name'] . '.' . $image['image_extension'];
-            $mediumOldPath = '/temp_directory/' . $image['m_image_name'] . '.' . $image['image_extension'];
-
-            //OLD - $checkIfMediumFileExists = $this->checkIfFileExists($image['medium_name'], $image['extension'], $mediumOldPath, $mediumNewPath);
-            $checkIfMediumFileExists = $this->checkIfFileExists($image['m_image_name'], $image['image_extension'], $mediumOldPath, $mediumNewPath);
-            if (!empty($checkIfMediumFileExists)) {
-                if (!empty($checkIfMediumFileExists['new_image_path']) && !empty($checkIfMediumFileExists['image_name'])) {
-                    $mediumNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-                        . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
-                        . $checkIfMediumFileExists['image_name'];
-
-                    $mediumOldPath = $checkIfMediumFileExists['new_image_path'];
-                    $image['name'] = $checkIfMediumFileExists['image_name'];
-                } elseif (!empty($checkIfMediumFileExists['error'])) {
-                    return [
-                        'errors' => $checkIfMediumFileExists['error']
-                    ];
-                }
-            }
-
-            //OLD - $saveMediumImage = $this->saveImage($image['medium_name'], $image['extension'], $mediumOldPath, $mediumNewPath);
-            $saveMediumImage = $this->saveImage($image['m_image_name'], $image['image_extension'], $mediumOldPath, $mediumNewPath);
-            if (!empty($saveMediumImage['error'])) {
-                $errors[] = $saveMediumImage['error'];
-            }
-        }
-
-        //OLD - if (!empty($image['small_name'])) {
-        if (!empty($image['s_image_name'])) {
-//            OLD - $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-//                . $categoryParentId . '/' . $categoryParentId . '_'
-//                . $categoryId . '_' . $image['small_name'];
-//            $smallOldPath = '/temp_directory/' . $image['small_name'];
-            $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-                . $categoryParentId . '/' . $categoryParentId . '_'
-                . $categoryId . '_' . $image['s_image_name'];
-            $smallOldPath = '/temp_directory/' . $image['s_image_name'];
-
-            //OLD - $checkIfSmallFileExists = $this->checkIfFileExists($image['small_name'], $image['extension'], $smallOldPath, $smallNewPath);
-            $checkIfSmallFileExists = $this->checkIfFileExists($image['s_image_name'], $image['image_extension'], $smallOldPath, $smallNewPath);
-            if (!empty($checkIfSmallFileExists)) {
-                if (!empty($checkIfSmallFileExists['new_image_path']) && !empty($checkIfSmallFileExists['image_name'])) {
-                    $smallNewPath = '/' . UploadImageController::IMAGE_PATH . $userId . '/'
-                        . $categoryParentId . '/' . $categoryParentId . '_' . $categoryId . '_'
-                        . $checkIfSmallFileExists['image_name'];
-
-                    $smallOldPath = $checkIfSmallFileExists['new_image_path'];
-                    $image['name'] = $checkIfSmallFileExists['image_name'];
-                } elseif (!empty($checkIfSmallFileExists['error'])) {
-                    return [
-                        'errors' => $checkIfSmallFileExists['error']
-                    ];
-                }
-            }
-
-            //OLD - $saveSmallImage = $this->saveImage($image['small_name'], $image['extension'], $smallOldPath, $smallNewPath);
-            $saveSmallImage = $this->saveImage($image['s_image_name'], $image['image_extension'], $smallOldPath, $smallNewPath);
-            if (!empty($saveSmallImage['error'])) {
-                $errors[] = $saveSmallImage['error'];
-            }
-        }
-
-        if (!empty($errors)) {
-            return [
-                'errors' => $errors
+            $imagesInfo = [
+                'original_image' => $saveOriginalImage,
             ];
+
+            if (!empty($saveMediumImage)) {
+                $imagesInfo['medium_image'] = $saveMediumImage;
+            }
+
+            if (!empty($saveSmallImage)) {
+                $imagesInfo['small_image'] = $saveSmallImage;
+            }
+
         }
 
-        $imagesInfo = [
-            'original_image' => $saveOriginalImage,
-        ];
+        //dd($imagesInfo ?? 'test');
+        // [
+        //  "original_image" => array:3 [
+        //    "name" => "angelina-jolie-plastic-surgery-before-and-after-photo"
+        //    "extension" => "jpg"
+        //    "path" => "/images/1/0/0_0_angelina-jolie-plastic-surgery-before-and-after-photo.jpg"
+        //  ]
+        //]
 
-        if (!empty($saveMediumImage)) {
-            $imagesInfo['medium_image'] = $saveMediumImage;
-        }
-
-        if (!empty($saveSmallImage)) {
-            $imagesInfo['small_image'] = $saveSmallImage;
-        }
-
-        return $imagesInfo;
+        return $imagesInfo ?? [];
     }
 
-    public function deleteImageFromPost($image, $userId, $categoryId)
+    /**
+     * Удалить у поста original_image, medium_image, small_image по имени изображения (ключ в JSON)
+     *
+     * @param $post
+     * @param $imageName
+     * @return array|bool
+     */
+    public function deletePostImages($post, $imageName = null)
     {
-        $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId) ?: 0;
+        //TODO переписать через try-catch и Exception
+        $errors = [];
 
-        $image = json_decode($image, true);
-        $imagePath = $image['path'];
+        try {
+            if (!empty($post->original_image)) {
+                $originalImage = json_decode($post->original_image, true);
+
+                if (isset($originalImage['name'])) {
+                    //var_dump('NO');
+                    //TODO если одно изображение - старый вариант - потом нужно будет убрать
+                } else {
+                    //$image['name']
+                    //dd('========');
+                    foreach ($originalImage as $key => $image) {
+                        //var_dump($key);
+                        //var_dump($image);
+                        if (!empty($imageName)) {
+                            if ($key === $imageName) {
+                                if (empty($image['path'])) {
+                                    throw new \Exception('Ошибка при удалении original_image: пустой параметр path.');
+                                }
+
+                                $deleteImageByPath = $this->deleteImageByPath($image['path']);
+                                if ($deleteImageByPath !== true) {
+                                    //$errors[] = 'Ошибка при удалении original_image: ' . $post->original_image;
+                                    throw new \Exception('Ошибка при удалении original_image: ' . $post->original_image);
+                                }
+
+                                unset($originalImage[$key]);
+                            }
+                        } else {
+                            if (empty($image['path'])) {
+                                throw new \Exception('Ошибка при удалении original_image: пустой параметр path.');
+                            }
+
+                            $deleteImageByPath = $this->deleteImageByPath($image['path']);
+                            if ($deleteImageByPath !== true) {
+                                //$errors[] = 'Ошибка при удалении original_image: ' . $post->original_image;
+                                throw new \Exception('Ошибка при удалении original_image: ' . $post->original_image);
+                            }
+
+                            unset($originalImage[$key]);
+                        }
+                    }
+
+                    //обновить пост в БД
+                    $post->original_image = json_encode($originalImage);
+                    $postSave = $post->save();
+                    if ($postSave !== true) {
+                        throw new \Exception('Ошибка при обновлении original_image в БД: ' . $originalImage);
+                    }
+                }
+            }
+
+            if (!empty($post->medium_image)) {
+                $mediumImage = json_decode($post['medium_image'], true);
+                if (isset($mediumImage['name'])) {
+                    //TODO если одно изображение - старый вариант - потом нужно будет убрать
+                } else {
+                    foreach ($mediumImage as $key => $image) {
+                        if (!empty($imageName)) {
+                            if (strripos($key, $imageName) !== false) {
+                                if (empty($image['path'])) {
+                                    throw new \Exception('Ошибка при удалении medium_image: пустой параметр path.');
+                                }
+
+                                $deleteImageByPath = (new UploadImageController)->deleteImageByPath($image['path']);
+                                if ($deleteImageByPath !== true) {
+                                    //$errors[] = 'Ошибка при удалении medium_image: ' . $post->medium_image;
+                                    throw new \Exception('Ошибка при удалении medium_image: ' . $post->original_image);
+                                }
+
+                                unset($mediumImage[$key]);
+                            }
+                        } else {
+                            if (empty($image['path'])) {
+                                throw new \Exception('Ошибка при удалении medium_image: пустой параметр path.');
+                            }
+
+                            $deleteImageByPath = (new UploadImageController)->deleteImageByPath($image['path']);
+                            if ($deleteImageByPath !== true) {
+                                //$errors[] = 'Ошибка при удалении medium_image: ' . $post->medium_image;
+                                throw new \Exception('Ошибка при удалении medium_image: ' . $post->original_image);
+                            }
+
+                            unset($mediumImage[$key]);
+                        }
+                    }
+
+                    //обновить пост в БД
+                    $post->medium_image = json_encode($mediumImage);
+                    $postSave = $post->save();
+                    if ($postSave !== true) {
+                        throw new \Exception('Ошибка при обновлении medium_image в БД: ' . $mediumImage);
+                    }
+                }
+            }
+
+            if (!empty($post->small_image)) {
+                $smallImage = json_decode($post['small_image'], true);
+                if (isset($smallImage['name'])) {
+                    //TODO если одно изображение - старый вариант - потом нужно будет убрать
+                } else {
+                    foreach ($smallImage as $key => $image) {
+                        if (!empty($imageName)) {
+                            if (strripos($key, $imageName) !== false) {
+                                if (empty($image['path'])) {
+                                    throw new \Exception('Ошибка при удалении small_image: пустой параметр path.');
+                                }
+
+                                $deleteImageByPath = (new UploadImageController)->deleteImageByPath($image['path']);
+                                if ($deleteImageByPath !== true) {
+                                    //$errors[] = 'Ошибка при удалении small_image: ' . $post->small_image;
+                                    throw new \Exception('Ошибка при удалении small_image: ' . $post->original_image);
+                                }
+
+                                unset($smallImage[$key]);
+                            }
+                        } else {
+                            if (empty($image['path'])) {
+                                throw new \Exception('Ошибка при удалении small_image: пустой параметр path.');
+                            }
+
+                            $deleteImageByPath = (new UploadImageController)->deleteImageByPath($image['path']);
+                            if ($deleteImageByPath !== true) {
+                                //$errors[] = 'Ошибка при удалении small_image: ' . $post->small_image;
+                                throw new \Exception('Ошибка при удалении small_image: ' . $post->original_image);
+                            }
+
+                            unset($smallImage[$key]);
+                        }
+                    }
+                }
+
+                //обновить пост в БД
+                $post->small_image = json_encode($smallImage);
+                $postSave = $post->save();
+                if ($postSave !== true) {
+                    throw new \Exception('Ошибка при обновлении small_image в БД: ' . $smallImage);
+                }
+            }
+
+            return true;
+
+        } catch (\Exception $exception) {
+            //TODO - Добавить запись ошибок в логи в БД
+
+            return [
+                'errors' => $exception->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Удалить изображение по пути
+     *
+     * @param $imagePath
+     * @return bool
+     */
+    public function deleteImageByPath($imagePath): bool
+    {
+        //$categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId) ?: 0;
+
+        //$image = json_decode($image, true);
+        //$imagePath = $image['path'];
 
         if (Storage::exists($imagePath)) {
             //dd('TRUE');

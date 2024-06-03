@@ -157,14 +157,17 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      var page = 1;
      $(window).scroll(function() {
-         console.log('---scroll---');
-         console.log($(window).scrollTop());
-         console.log($(window).height());
-         console.log($(document).height());
-         if($(window).scrollTop() + $(window).height() + 10 >= $(document).height()) {
-             console.log('---scroll2---');
-             page++;
-             loadMoreData(page);
+         if (window.location.pathname === '/admin_panel/posts') {
+             console.log(window.location.pathname);
+             console.log('---scroll---');
+             console.log($(window).scrollTop());
+             console.log($(window).height());
+             console.log($(document).height());
+             if($(window).scrollTop() + $(window).height() + 10 >= $(document).height()) {
+                 console.log('---scroll2---');
+                 page++;
+                 loadMoreData(page);
+             }
          }
      });
 
@@ -263,10 +266,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
      }
 
-     let searchInput1 = '#search-input'; //поиск в шапке
+     let searchInput1 = '#search-input'; //поиск в шапке - по хештегам
+     let searchInput1_2 = '#search-input-1-2'; //поиск в шапке - по хештегам (not in)
+
      let searchInput2 = '#search-input-2'; //поиск при добавлении хештега при создании поста
 
      let containerSelectedHashtagsTags1 = '#b-search__field__tags-container__tags';
+     let containerSelectedHashtagsTags1_2 = '#b-search__field__tags-container__tags-1-2';
      let containerSelectedHashtagsTags2 = '#b-selected-tags-2';
 
      //очищаем images в localStorage
@@ -351,6 +357,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  console.log('imageName' + imageName);
                  if (imageName in images) {
                      console.log('Уже есть!');
+                     formData.append('files[]', files[i]);
                  } else {
                      formData.append('files[]', files[i]);
                  }
@@ -358,7 +365,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          } else {
              for( let i = 0; i < files.length; ++i ) {
-                 console.log('***' + JSON.stringify(files));
+                 console.log('***');
+                 console.log(files);
                  formData.append('files[]', files[i]);
              }
          }
@@ -432,17 +440,17 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          for (let key in uploadedImages) {
                              if (uploadedImages.hasOwnProperty(key)) {
                                  console.log(uploadedImages[key]);
-                                 console.log(uploadedImages[key]['name']);
+                                 console.log(uploadedImages[key]['image_name']);
 
-                                 let img = '<div class="image" data-name="' + uploadedImages[key]['name'] + '" data-extension="' + uploadedImages[key]['extension'] + '">';
+                                 let img = '<div class="image" data-name="' + uploadedImages[key]['image_name'] + '" data-extension="' + uploadedImages[key]['image_extension'] + '">';
 
                                  if (uploadedImages[key]['small'] !== undefined) {
-                                     img += '<span style="background-image: url(/storage/' + uploadedImages[key]['small'] + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                     img += '<span style="background-image: url(/storage/' + uploadedImages[key]['s_image_path'] + ')"></span>' +
+                                         '<i class="js-delete-image temp fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  } else {
-                                     img += '<span style="background-image: url(/storage/' + uploadedImages[key]['original'] + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                     img += '<span style="background-image: url(/storage/' + uploadedImages[key]['image_path'] + ')"></span>' +
+                                         '<i class="js-delete-image temp fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  }
 
@@ -465,8 +473,73 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $(this).closest('.js-error-block').removeClass('active');
      });
 
+     //удаление изображений из поста на странице edit post
+     $(document).on('click touchstart', '.js-delete-image.saved', function() {
+         console.log('test delete image saved');
+         let postImages = localStorage.getItem('postImages');
+         console.log('postImages' + postImages);
+         let images = JSON.parse(postImages);
+         console.log('images' + images);
+
+         let image = $(this)[0].closest('.image');
+         console.log('image' + image);
+         let name = image.dataset.name;
+         console.log('name' + name);
+         let extension = image.dataset.extension;
+         console.log('extension' + extension);
+         let path = image.dataset.path;
+         console.log('path' + path);
+
+         let postId = $(this)[0].closest('.card').dataset.id;
+
+         if (delete images[name] === true) {
+
+             console.log($(this).data('action'));
+
+             const myArray = {
+                 'postId': postId,
+                 'name': name,
+                 'extension': extension,
+                 'path': path,
+             }
+
+             let tokenValue = '';
+             let inputToken = $("[name='_token']");
+             for (let token of inputToken) {
+                 tokenValue = token.value;
+             }
+
+             //TODO
+             $.ajax({
+                 url: $(this).data('action'),
+                 type: 'post',
+                 headers: {
+                     'X-CSRF-TOKEN': tokenValue,
+                 },
+                 dataType: 'application/json',
+                 data: myArray, //image
+                 complete: function(response) {
+                     console.log("ответ");
+                     console.log(response.responseText);
+                     let result = JSON.parse(response.responseText);
+                     console.log('response' + result);
+
+                     if (result.status === true) {
+                         console.log('=====images=====' + JSON.stringify(images));
+                         localStorage.setItem('images', JSON.stringify(images));
+                         image.remove();
+                         toastr.success(result.message);
+                     } else {
+                         toastr.error(result.message);
+                     }
+                 },
+             });
+
+         }
+     });
+
      //удаление изображений из временной папки
-     $(document).on('click touchstart', '.js-delete-image', function() {
+     $(document).on('click touchstart', '.js-delete-image.temp', function() {
          console.log('delete');
 
          let savedImages = localStorage.getItem('images');
@@ -581,6 +654,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let textareaContent = tinyMCE.activeEditor.getContent({format: 'raw'});
 
+         var numberOfPosts = $('input[type="radio"]:checked').val();
+         //console.log('Выбрана кнопка с значением: ' + numberOfPosts);
+         var groupPosts = document.getElementById("group-posts").checked;
+         //console.log('checked: ' + groupPosts);
+
          //get the action-url of the form
          var actionurl = $('#creationform').attr('action');
          console.log('actionurl' + actionurl);
@@ -589,8 +667,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          data.push({name: 'images', value: images});
          data.push({name: 'hashtags', value: hashtags});
          data.push({name: 'text', value: textareaContent});
+         data.push({name: 'numberOfPosts', value: numberOfPosts});
+         data.push({name: 'groupPosts', value: groupPosts});
 
-         console.log(data);
+         //console.log(data);
+         //return true;
+
          //do your own request an handle the results
          $.ajax({
              url: actionurl,
@@ -646,14 +728,41 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      let editForm = $("#editform");
      if (editForm !== undefined && editForm !== null) {
+         //записать в localStorage теги поста при загрузке страницы
          let savedHashtags = {};
-
          $(containerSelectedHashtagsTags2 + ' span.tag').each(function(i,elem) {
              savedHashtags[elem.getAttribute('data-id')] = elem.getAttribute('data-name');
              //hashtags.push(elem.getAttribute('data-id'));
          });
 
          localStorage.setItem('hashtags2', JSON.stringify(savedHashtags));
+
+         //записать в localStorage изображения поста при загрузке страницы
+         //{"f-93293":{
+         // "image_name":"f-93293","image_extension":"jpg","image_path":"temp_directory/f-93293.jpg",
+         // "s_image_name":"f-93293_567_350.jpg","s_image_path":"temp_directory/f-93293_567_350.jpg",
+         // "m_image_name":"f-93293_1296_800.jpg","m_image_path":"temp_directory/f-93293_1296_800.jpg"
+         // }}
+         let postImages = {};
+         $('.js-images .image').each(function(i,elem) {
+             let imageName = elem.getAttribute('data-name');
+             if (!postImages[imageName]) {
+                 postImages[imageName] = [];
+             }
+             let imageExtension = elem.getAttribute('data-extension');
+             let imagePath = elem.getAttribute('data-path');
+             // let sImageName = elem.getAttribute('data-');
+             // let sImagePath = elem.getAttribute('data-');
+             // let mImageName = elem.getAttribute('data-');
+             // let mImagePath = elem.getAttribute('data-');
+             postImages[imageName] = {
+                 image_name: imageName,
+                 image_extension: imageExtension,
+                 image_path: imagePath
+             };
+         });
+         console.log(postImages);
+         localStorage.setItem('postImages', JSON.stringify(postImages));
      }
 
      $('#editform input[type="file"]').on('change', function (event) {
@@ -984,12 +1093,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // searchInput1
      // ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
      $(document).on('input', searchInput1, function() {
-         console.log('click');
+         console.log('click searchInput1');
 
          let searchUrl = $('#js-b-search__field')[0].getAttribute('data-action');
          console.log(searchUrl);
 
-         let searchValue =  $(this).val();
+         let searchValue = $(this).val();
          console.log(searchValue);
 
          let storageKey = 'hashtags'
@@ -998,6 +1107,40 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer);
 
      });
+
+     // searchInput1
+     // ПОИСК - поиск тегов при вводе букв в input и вывод результатов в b-search__results
+     $(document).on('input', searchInput1_2, function() {
+         console.log('click searchInput1_2');
+
+         let searchUrl = $('#js-b-search__field')[0].getAttribute('data-action');
+         console.log(searchUrl);
+
+         let searchValue = $(this).val();
+         console.log(searchValue);
+
+         let storageKey = 'hashtags'
+         let foundHashtagsContainer = $('#b-search__results-1-2');
+
+         searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer);
+     });
+
+     // $('#b-search__results').mousedown(function(event){
+     //     event.preventDefault();
+     //     if(event.button === 0) {
+     //         alert('Вы кликнули левой клавишей');
+     //     } else if(event.button === 1) {
+     //         alert('Вы кликнули левой колесиком');
+     //     } else if(event.button === 2) {
+     //         //alert('Вы кликнули правой клавишей');
+     //         let myDiv = document.createElement('div');
+     //         myDiv.id = 'my';
+     //         myDiv.className = 'some';
+     //         console.log('target', event.target);
+     //         console.log('target', event.target);
+     //         event.target.append($('<div id="menu_id"/>'));
+     //     }
+     // });
 
      $(document).keypress(function (e) {
          if (e.which === 13) {
@@ -1066,7 +1209,6 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  if (hashtags) {
                      for (let key in hashtags) {
                          let hashtagElement = '<li data-id="' + hashtags[key]['id'] + '" data-name="' + hashtags[key]['title'] + '">' + hashtags[key]['title'] + '</li>';
-
                          // Добавить в контейнер
                          foundHashtagsContainer.append(hashtagElement);
                      }
@@ -1079,19 +1221,40 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //добавить хештег в список выбранных хештегов, после клика на хештег из результатов поиска
      $(document).on('click touchstart', '#b-search__results li', function() {
          console.log('CLICK-CLICK');
+         addHashtagToListForSearch(
+             $(this)[0],
+             '#b-search__field__tags-container',
+             '#b-search__results',
+             containerSelectedHashtagsTags1,
+             '#b-search__input'
+         );
+     });
 
-         let hashtagId = $(this)[0].getAttribute('data-id');
-         let hashtagTitle = $(this)[0].getAttribute('data-name');
+     //добавить хештег в список выбранных хештегов, после клика на хештег из результатов поиска
+     $(document).on('click touchstart', '#b-search__results-1-2 li', function() {
+         console.log('CLICK-CLICK b-search__results-1-2');
+         addHashtagToListForSearch(
+             $(this)[0],
+             '#b-search__field__tags-container-1-2',
+             '#b-search__results-1-2',
+             containerSelectedHashtagsTags1_2,
+             '#b-search__input-1-2'
+         );
+     });
 
+     //addTagToSelectedList
+     function addHashtagToListForSearch(element, tagsContainer, searchResults, containerSelectedHashtagsTagsElem, searchInput)
+     {
+         let hashtagId = element.getAttribute('data-id');
+         let hashtagTitle = element.getAttribute('data-name');
          console.log('hashtagId = ' + hashtagId);
          console.log('hashtagTitle = ' + hashtagTitle);
 
-         let containerSelectedHashtags = $('#b-search__field__tags-container');
-
-         let containerSelectedHashtagsTags = $(containerSelectedHashtagsTags1);
+         let containerSelectedHashtags = $(tagsContainer);
+         let containerSelectedHashtagsTags = $(containerSelectedHashtagsTagsElem);
          console.log('containerSelectedHashtagsTags' + containerSelectedHashtagsTags);
 
-         let foundHashtagsContainer = $('#b-search__results');
+         let foundHashtagsContainer = $(searchResults);
 
          let storageKey = 'hashtags';
 
@@ -1110,7 +1273,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      // addHashtagToStorage(hashtagId, hashtagTitle, savedHashtags, storageKey, foundHashtagsContainer);
                      // focusOnInput(searchInput);
 
-                     addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput1, foundHashtagsContainer, null, '#b-search__input');
+                     addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput1, foundHashtagsContainer, null, searchInput);
 
                      let fieldTagsContainerWidth = containerSelectedHashtagsTags.width();
                      let fieldTagsContainerHeightDefault = 42; //containerSelectedHashtags.height();
@@ -1235,8 +1398,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  console.log('tagsWidth = ' + tagsWidth);
              });
          }
-
-     });
+     }
 
      //добавить хештег в список выбранных хештегов, после клика на хештег из результатов поиска
      $(document).on('click touchstart', '#b-search__results-2 li', function() {
@@ -1636,7 +1798,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //удаление постов на странице /admin_panel/posts -
      // при нажатии на кнопку Удалить в попап окне #modal-delete-item происходит ajax-запрос
      $(document).on('click touchstart', '#posts-index [data-action=delete-request]', function() {
-         console.log('delete-request');
+         console.log('delete-request POST');
 
          let actionUrl = $(this).data('actionUrl');
          let postId = $(this).data('elementId');
@@ -1656,6 +1818,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              success: function (response) {
                  $('#modal-delete-item').modal('hide');
 
+                 console.log('test 77777777');
                  console.log(response);
 
                  if (response.status === true) {
@@ -1956,13 +2119,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              complete: function(response) {
                  console.log("ответ");
                  console.log(response.responseText);
-
                  let result = JSON.parse(response.responseText);
                  console.log('response' + result);
 
+                 // let uploadedImages = result['images'];
+                 // console.log('uploadedImages' + uploadedImages);
+
                  //TODO
-                 if (result.hasOwnProperty('image')) {
-                     let imageObj = result.image;
+                 if (result.hasOwnProperty('images')) {
+                     let uploadedImages = result['images'];
 
                      if (localStorage.getItem('images') !== undefined && localStorage.getItem('images') !== null) {
                          let savedImages = localStorage.getItem('images');
@@ -1971,20 +2136,21 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          let lsImages = JSON.parse(savedImages);
                          console.log('lsImages' + lsImages);
 
-                         for (let key in imageObj) {
+                         for (let key in uploadedImages) {
                              if (lsImages.hasOwnProperty(key) === false) {
-                                 let image = imageObj[key];
+                                 let image = uploadedImages[key];
+                                 console.log('image' + image);
 
                                  //data-extension="' + image.image_extension + '"
                                  let img = '<div class="image" data-name="' + image.image_name + '"  data-extension="' + image.image_extension + '">';
 
                                  if (image.s_image_name !== undefined) {
-                                     img += '<span style="background-image: url(/storage/temp_directory/' + image.s_image_name + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                     img += '<span style="background-image: url(/storage/' + image.s_image_path + ')"></span>' +
+                                         '<i class="js-delete-image temp fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  } else {
                                      img += '<span style="background-image: url(/storage/temp_directory/' + image.image_name + '.' + image.image_extension + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                         '<i class="js-delete-image temp fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  }
 
@@ -2001,20 +2167,21 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          localStorage.setItem('images', JSON.stringify(images));
                      } else {
 
-                         for (let key in imageObj) {
-                             if (imageObj.hasOwnProperty(key)) {
-                                 let image2 = imageObj[key];
+                         for (let key in uploadedImages) {
+                             if (uploadedImages.hasOwnProperty(key)) {
+                                 let image2 = uploadedImages[key];
+                                 console.log('image2' + image2);
 
                                  //data-extension="' + image.image_extension + '"
                                  let img = '<div class="image" data-name="' + image2.image_name + '"  data-extension="' + image2.image_extension + '">';
 
-                                 if (image2.s_image_name !== undefined) {
-                                     img += '<span style="background-image: url(/storage/temp_directory/' + image2.s_image_name + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                 if (image2.s_image_path !== undefined) {
+                                     img += '<span style="background-image: url(/storage/' + image2.s_image_path + ')"></span>' +
+                                         '<i class="js-delete-image temp fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  } else {
                                      img += '<span style="background-image: url(/storage/temp_directory/' + image2.image_name + '.' + image2.image_extension + ')"></span>' +
-                                         '<i class="js-delete-image fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
+                                         '<i class="js-delete-image temp fas fa-times-circle" data-action="/admin_panel/delete-download-file"></i>' +
                                          '</div>';
                                  }
 
@@ -2025,7 +2192,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                              }
                          }
 
-                         localStorage.setItem('images', JSON.stringify(imageObj));
+                         localStorage.setItem('images', JSON.stringify(uploadedImages));
                      }
 
                      console.log('TEST-------' + localStorage.getItem('images'));

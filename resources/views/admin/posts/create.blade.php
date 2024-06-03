@@ -98,7 +98,7 @@
 
                             </div>
 
-                            <div id="tab-film">
+                            <div id="tab-film" style="display: none;">
                                 <div class="form-group">
                                     <label for="film-genres">Жанры фильма:</label>
                                     <input type="text" class="form-control" name="film-genres" id="film-genres" placeholder="">
@@ -188,14 +188,14 @@
                     <div class="card-body-block">
                         <div>
                             <!-- TODO -->
-                            <input type="radio" id="one-post" name="one-post" value="one-post">
+                            <input type="radio" id="one-post" name="numberOfPosts" value="one-post">
                             <label for="one-post">Один пост</label><br>
-                            <input type="radio" id="two-posts" name="two-posts" value="two-posts">
+                            <input type="radio" id="two-posts" name="numberOfPosts" value="two-posts" checked>
                             <label for="two-posts">Несколько постов</label><br>
                         </div>
 
                         <div>
-                            <input type="checkbox" id="vehicle1" name="vehicle1" value="Bike">
+                            <input type="checkbox" id="group-posts" name="group-posts" value="group-posts">
                             <label for="vehicle1">Сгруппировать посты</label><br>
                             <button type="button" class="js-get-text-from-image" data-action="{{ route('get-text-from-image') }}">
                                 Считать текст с изображения

@@ -79,8 +79,67 @@
                 <div class="b-list-of-posts">
 
                     <div class="b-search-and-hashtags"><!-- section with search and hashtags -->
+                        <div class="input-field">
+                            <input id="search-term" type="text" class="validate">
+                            <label for="search-term">Поиск</label>
+                        </div>
 
+                        <div class="input-field">
+                            <input id="include-tag-input" type="text" class="validate">
+                            <label for="include-tag-input">Включить хештег</label>
+                            <a id="add-include-tag" class="btn-floating btn-small waves-effect waves-light blue"><i class="material-icons">add</i></a>
+                        </div>
+                        <div id="include-tags" class="tags-container"></div>
+
+                        <div class="input-field">
+                            <input id="exclude-tag-input" type="text" class="validate">
+                            <label for="exclude-tag-input">Исключить хештег</label>
+                            <a id="add-exclude-tag" class="btn-floating btn-small waves-effect waves-light red"><i class="material-icons">add</i></a>
+                        </div>
+                        <div id="exclude-tags" class="tags-container"></div>
+
+                        <a id="search-btn" class="btn waves-effect waves-light blue">Поиск</a>
+
+                        <ul id="tags" class="tags">
+                            <li data-id="505">#Armani<i class="js-delete-image fas fa-times-circle"></i></li>
+                        </ul>
                     </div><!-- /.b-search-and-hashtags -->
+
+
+                    <div class="tags">
+                        <span class="tag">#тест</span>
+                        <span class="tag">#модельныйтест<a href="#" class="tag-addon" onclick="removeTag('модельныйтест'); return false;">X</a></span>
+                        <span class="tag">#modelagency<a href="#" class="tag-addon" onclick="removeTag('modelagency'); return false;">X</a></span>
+                        <span class="tag">#beauty<a href="#" class="tag-addon" onclick="removeTag('beauty'); return false;">X</a></span>
+                        <span class="tag">#modeltest<a href="#" class="tag-addon" onclick="removeTag('modeltest'); return false;">X</a></span>
+                        <span class="tag">#like<a href="#" class="tag-addon" onclick="removeTag('like'); return false;">X</a></span>
+                        <span class="tag">#dnepr<a href="#" class="tag-addon" onclick="removeTag('dnepr'); return false;">X</a></span>
+                        <span class="tag">#красота<a href="#" class="tag-addon" onclick="removeTag('красота'); return false;">X</a></span>
+                        <span class="tag">#2amodels<a href="#" class="tag-addon" onclick="removeTag('2amodels'); return false;">X</a></span>
+                        <span class="tag">#интересное<a href="#" class="tag-addon" onclick="removeTag('интересное'); return false;">X</a></span>
+                        <span class="tag">#style<a href="#" class="tag-addon" onclick="removeTag('style'); return false;">X</a></span>
+                        <span class="tag">#photo<a href="#" class="tag-addon" onclick="removeTag('photo'); return false;">X</a></span>
+                        <span class="tag">#modelscout<a href="#" class="tag-addon" onclick="removeTag('modelscout'); return false;">X</a></span>
+                        <span class="tag">#followme<a href="#" class="tag-addon" onclick="removeTag('followme'); return false;">X</a></span>
+                        <span class="tag">#blackandwhite<a href="#" class="tag-addon" onclick="removeTag('blackandwhite'); return false;">X</a></span>
+                        <span class="tag">#статьмоделью<a href="#" class="tag-addon" onclick="removeTag('статьмоделью'); return false;">X</a></span>
+                        <span class="tag">#модельноеагентство<a href="#" class="tag-addon" onclick="removeTag('модельноеагентство'); return false;">X</a></span>
+                        <span class="tag">#ukraine<a href="#" class="tag-addon" onclick="removeTag('ukraine'); return false;">X</a></span>
+                        <span class="tag">#portrait<a href="#" class="tag-addon" onclick="removeTag('portrait'); return false;">X</a></span>
+                        <span class="tag">#natural<a href="#" class="tag-addon" onclick="removeTag('natural'); return false;">X</a></span>
+                        <span class="tag">#modeljob<a href="#" class="tag-addon" onclick="removeTag('modeljob'); return false;">X</a></span>
+                        <span class="tag">#model<a href="#" class="tag-addon" onclick="removeTag('model'); return false;">X</a></span>
+                        <span class="tag">#dnipro<a href="#" class="tag-addon" onclick="removeTag('dnipro'); return false;">X</a></span>
+                        <span class="tag">#опрос<a href="#" class="tag-addon" onclick="removeTag('опрос'); return false;">X</a></span>
+                        <span class="tag">#обучениебесплатно<a href="#" class="tag-addon" onclick="removeTag('обучениебесплатно'); return false;">X</a></span>
+                        <span class="tag">#моделинг<a href="#" class="tag-addon" onclick="removeTag('моделинг'); return false;">X</a></span>
+                        <span class="tag">#test<a href="#" class="tag-addon" onclick="removeTag('test'); return false;">X</a></span>
+                        <span class="tag">#photographer<a href="#" class="tag-addon" onclick="removeTag('photographer'); return false;">X</a></span>
+                        <span class="tag">#modelagent<a href="#" class="tag-addon" onclick="removeTag('modelagent'); return false;">X</a></span>
+                        <span class="tag">#моделькиев<a href="#" class="tag-addon" onclick="removeTag('моделькиев'); return false;">X</a></span>
+                    </div>
+
+
                     <div class="modal fade" id="modal-add-hashtag" tabindex="-1" role="dialog" aria-labelledby="modalAddHashtagLabel"
                          aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered" role="document">

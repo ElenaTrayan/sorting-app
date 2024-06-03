@@ -32,7 +32,8 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
     Route::resource('hashtags', \App\Http\Controllers\Admin\HashtagController::class);
     Route::post('upload', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'upload'])->name('image.upload');
     Route::post('delete-download-file', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'deleteDownloadFile']);
-    Route::post('upload-image-to-temp-directory', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'uploadImageToTempDirectory'])->name('image.upload-to-temp-directory');
+    Route::post('upload-image-to-temp-directory', [App\Http\Controllers\Admin\Packages\UploadImageController::class, 'uploadImagesToTempDirectory'])->name('image.upload-to-temp-directory');
+    Route::post('delete-post-file', [\App\Http\Controllers\Admin\PostController::class, 'deletePostFile']);
     Route::post('/search-hashtag',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchHashtag'])->name('search.hashtag');
     Route::post('/search-hashtag-by-title',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchSameHashtag'])->name('search.hashtag-by-title');
     Route::any('/search-posts-by-hashtags',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchPostsByHashtags'])->name('search.posts-by-hashtags');
