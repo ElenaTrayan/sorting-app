@@ -5720,6 +5720,30 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
          }
 
+         // --- карточка "О себе" на вкладке "Обзор": сворачивает длинный текст (факт +
+         // все цитаты) под градиентом с кнопкой "Показать полностью" ---
+         document.querySelectorAll('.js-contact-about-toggle').forEach(function (btn) {
+             let section = btn.closest('.b-contact-section');
+             let about = section ? section.querySelector('.js-contact-about') : null;
+             let label = btn.querySelector('.js-contact-about-toggle-label');
+             if (!about) {
+                 return;
+             }
+             // Кнопку показываем только если текст реально не помещается в свёрнутую
+             // высоту — иначе она осталась бы висеть без дела при коротком "О себе"
+             if (about.scrollHeight <= about.clientHeight + 4) {
+                 btn.style.display = 'none';
+                 return;
+             }
+             btn.addEventListener('click', function () {
+                 let expanded = about.classList.toggle('is-expanded');
+                 btn.classList.toggle('is-expanded', expanded);
+                 if (label) {
+                     label.textContent = expanded ? 'Свернуть' : 'Показать полностью';
+                 }
+             });
+         });
+
          // --- вкладки верхнего уровня (Обзор/Высказывания/.../Посты) — просто группируют
          // уже существующие секции, никакого AJAX: все панели уже отрендерены, переключаем видимость ---
          function activateContactTab(tab) {

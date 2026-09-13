@@ -58,14 +58,10 @@
             </div>
             @endif
 
-            @if (request()->routeIs('contacts.index'))
-                <li class="nav-item d-flex align-items-center">
-                    <ol class="breadcrumb b-navbar-breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
-                        <li class="breadcrumb-item active">База контактов</li>
-                    </ol>
-                </li>
-            @endif
+            {{-- хлебные крошки в navbar-nav-left — страница сама решает, показывать ли их,
+                 см. @push('navbar-breadcrumb') в resources/views/admin/contacts/index.blade.php
+                 и .../contacts/show.blade.php (по макету Claude Design) --}}
+            @stack('navbar-breadcrumb')
         </ul>
 {{--        b-tags-results--}}
 

@@ -238,7 +238,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 18px 16px;
+    padding: 10px 16px;
     border-bottom: 1px solid #eceef3;
     text-decoration: none;
 }
@@ -2324,12 +2324,33 @@ margin: 0 0 20px 0;
 }
 
 /* --- страница контакта --- */
+.content-wrapper > .content.content--contact-page {
+    padding: 0 0rem;
+}
+.content--contact-page .container,
+.content--contact-page .container-fluid,
+.content--contact-page .container-lg,
+.content--contact-page .container-md,
+.content--contact-page .container-sm,
+.content--contact-page .container-xl {
+    padding-right: 0;
+    padding-left: 0;
+}
+
+/* шрифт макета (Claude Design) на всю страницу контакта — тот же приём, что и для
+   .contacts-index в resources/views/admin/contacts/index.blade.php. padding-top
+   компенсирует убранный content-header (см. show.blade.php) */
+.b-contact-page {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    padding-top: 20px;
+}
+
 .b-contact-head {
     display: flex;
     flex-wrap: wrap;
     gap: 24px;
     background: #fff;
-    padding: 24px;
+    padding: 24px 33px;
 }
 .b-contact-head__main {
     display: flex;
@@ -2341,16 +2362,30 @@ margin: 0 0 20px 0;
     width: 120px;
     height: 120px;
     border-radius: 20px;
-    background-color: #f4f6f9;
+    /* штриховка-плейсхолдер, как в макете — показывается, пока не выбран инлайновый
+       background-image (реальное фото контакта), которое её перекрывает */
+    background-color: #f5f3fd;
+    background-image: repeating-linear-gradient(-45deg, #ece9fb 0, #ece9fb 2px, transparent 2px, transparent 10px);
     background-size: cover;
     background-position: center;
     flex-shrink: 0;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 2px;
     color: #c8cdd3;
     font-size: 38px;
     box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
+}
+.b-contact-head__photo-initials {
+    font-size: 30px;
+    font-weight: 700;
+    color: #7367f0;
+}
+.b-contact-head__photo-caption {
+    font-size: 10px;
+    color: #9aa1ac;
 }
 .b-contact-head__info {
     flex: 1;
@@ -2370,19 +2405,19 @@ margin: 0 0 20px 0;
     margin-bottom: 8px;
 }
 .b-contact-head__edit {
-    border: 1px solid #dee2e6;
+    border: 0;
     border-radius: 8px;
-    background: #fff;
-    color: #495057;
+    background: #7367f0;
+    color: #fff;
     font-weight: 600;
     font-size: 13px;
     padding: 8px 16px;
     white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(115,103,240,.28);
 }
 .b-contact-head__edit:hover {
-    background: #f4f6f9;
-    border-color: #c8cdd3;
-    color: #1f2430;
+    background: #5e50ee;
+    color: #fff;
 }
 .b-contact-head__actions {
     display: flex;
@@ -2485,12 +2520,12 @@ margin: 0 0 20px 0;
     margin: 0;
 }
 .b-contact-social__add-btn {
-    width: 30px;
-    height: 30px;
-    border: 1px solid #b8e2e6;
-    border-radius: 8px;
-    background: #fff;
-    color: #17a2b8;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: #e2f6f3;
+    color: #0f9b8e;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2498,13 +2533,21 @@ margin: 0 0 20px 0;
     cursor: pointer;
 }
 .b-contact-social__add-btn:hover {
-    background: #eef9fb;
-    border-color: #17a2b8;
+    background: #d2f0ea;
 }
 .b-contact-social__empty {
-    font-size: 12px;
-    color: #9aa1ac;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin: 4px 0 0;
+    padding: 12px 14px;
+    border: 1px dashed #d8dbe6;
+    border-radius: 10px;
+    font-size: 12.5px;
+    color: #9aa1ac;
+}
+.b-contact-social__empty i {
+    color: #c8cdd3;
 }
 .b-contact-social__list {
     list-style: none;
@@ -2617,9 +2660,9 @@ margin: 0 0 20px 0;
 .b-contact-tabs {
     display: flex;
     gap: 4px;
+    padding: 0 33px;
     border-bottom: 1px solid #ececf1;
-    margin: 4px 0 22px;
-    overflow-x: auto;
+    margin: 4px 0 0;
 }
 .b-contact-tabs__item {
     appearance: none;
@@ -2645,7 +2688,7 @@ margin: 0 0 20px 0;
 .b-contact-tab-panel {
     display: none;
     background: #f8f9fc;
-    padding: 20px;
+    padding: 20px 33px;
 }
 .b-contact-tab-panel.is-active {
     display: block;
@@ -2658,6 +2701,63 @@ margin: 0 0 20px 0;
     padding: 18px 22px;
     margin-bottom: 22px;
     box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 14px rgba(16,24,40,.05);
+}
+
+/* --- карточка "О себе": факт + все цитаты, свёрнуты под градиентом, пока не нажали
+   "Показать полностью" (js-contact-about-toggle в admin.js) --- */
+.b-contact-about {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 220px;
+    overflow: hidden;
+    position: relative;
+}
+.b-contact-about.is-expanded {
+    max-height: none;
+}
+.b-contact-about:not(.is-expanded)::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 56px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), #fff);
+    pointer-events: none;
+}
+.b-contact-about p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #2b2e33;
+}
+.b-contact-about__quote {
+    font-style: italic;
+    color: #6c757d;
+}
+.b-contact-about__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    border: none;
+    background: none;
+    padding: 0;
+    color: #7367f0;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+}
+.b-contact-about__toggle:hover {
+    color: #5e50ee;
+}
+.b-contact-about__toggle i {
+    font-size: 11px;
+    transition: transform .2s;
+}
+.b-contact-about__toggle.is-expanded i {
+    transform: rotate(180deg);
 }
 .b-contact-section__header {
     display: flex;
@@ -2795,10 +2895,12 @@ margin: 0 0 20px 0;
 }
 
 /* --- шапка: хэндл/род деятельности/бейджи (знак зодиака, режим, статусы) --- */
+/* хэндл теперь лежит внутри h2.b-contact-head__name, рядом с именем, как в макете */
 .b-contact-head__handle {
+    font-weight: 500;
+    font-size: 14px;
     color: #9aa1ac;
-    font-size: 13px;
-    margin-bottom: 2px;
+    margin-left: 4px;
 }
 .b-contact-head__role {
     color: #6c757d;

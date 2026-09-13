@@ -2,6 +2,22 @@
 
 @section('title', $contact->name)
 
+@push('head-styles')
+    {{-- Manrope — шрифт макета Claude Design для этой страницы (самостоятельно захостен
+         в /admin/fonts/manrope, по тому же принципу, что и nunito/source-sans-pro) --}}
+    <link rel="stylesheet" href="/admin/fonts/manrope/manrope.css">
+@endpush
+
+@push('navbar-breadcrumb')
+    <li class="nav-item d-flex align-items-center">
+        <ol class="breadcrumb b-navbar-breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('contacts.index') }}">База контактов</a></li>
+            <li class="breadcrumb-item active">{{ $contact->name }}</li>
+        </ol>
+    </li>
+@endpush
+
 @php
     /**
      * $demo — подставные значения для полей, которых нет в БД (знак зодиака,
@@ -14,24 +30,11 @@
 @endphp
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">База контактов</h1>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('contacts.index') }}">База контактов</a></li>
-                        <li class="breadcrumb-item active">{{ $contact->name }}</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <section class="content">
+    {{-- H1 и хлебные крошки для этой страницы убраны из content-header по макету Claude
+         Design: имя контакта показано в шапке карточки (.b-contact-head__name), а
+         крошки вынесены в верхний navbar-nav-left, см. @push('navbar-breadcrumb') выше
+         и resources/views/layouts/admin_layout.blade.php --}}
+    <section class="content content--contact-page">
         <div class="container-fluid">
             <div class="b-contact-page" id="contact-page"
                  data-contact-id="{{ $contact->id }}"
@@ -57,14 +60,14 @@
                     <div class="b-contact-head__main">
                         <div class="b-contact-head__photo js-contact-head-photo" @if ($contact->photo_url) style="background-image: url({{ $contact->photo_url }})" @endif>
                             @if (!$contact->photo_url)
-                                <i class="fas fa-user"></i>
+                                <span class="b-contact-head__photo-initials">{{ $contact->initials }}</span>
+                                <span class="b-contact-head__photo-caption">фото</span>
                             @endif
                         </div>
                         <div class="b-contact-head__info">
                             <div class="b-contact-head__toprow">
                                 <div>
-                                    <h2 class="b-contact-head__name js-contact-head-name">{{ $contact->name }}</h2>
-                                    <div class="b-contact-head__handle">{{ $demo['handle'] }}</div>
+                                    <h2 class="b-contact-head__name js-contact-head-name">{{ $contact->name }} <span class="b-contact-head__handle">{{ $demo['handle'] }}</span></h2>
                                     <div class="b-contact-head__role">{{ $demo['role_line'] }}</div>
                                 </div>
                                 <div class="b-contact-head__actions">
@@ -134,9 +137,9 @@
                                 </li>
                             @endforeach
                         </ul>
-                        @if ($contact->socialLinks->isEmpty())
-                            <p class="b-contact-social__empty js-contact-social-empty">Пока нет ни одной соцсети</p>
-                        @endif
+                        <div class="b-contact-social__empty js-contact-social-empty" @if ($contact->socialLinks->isNotEmpty()) style="display: none;" @endif>
+                            <i class="fas fa-link"></i> Пока нет ни одной соцсети
+                        </div>
                     </div>
                 </div>
 
@@ -159,14 +162,19 @@
                         <div class="col-md-6">
                             <div class="b-contact-section">
                                 <div class="b-contact-section__header"><h3><i class="fas fa-user"></i>О себе</h3></div>
-                                @if ($contact->facts->isNotEmpty())
-                                    <p class="mb-2">{{ $contact->facts->first()->fact }}</p>
-                                @else
-                                    <p class="mb-2">{{ $demo['role_line'] }}. Любимое свободное время: {{ \Illuminate\Support\Str::lower($demo['free_time']) }}.</p>
-                                @endif
-                                @if ($contact->quotes->isNotEmpty())
-                                    <p class="text-muted font-italic mb-0">«{{ $contact->quotes->first()->quote }}»</p>
-                                @endif
+                                <div class="b-contact-about js-contact-about">
+                                    @if ($contact->facts->isNotEmpty())
+                                        <p>{{ $contact->facts->first()->fact }}</p>
+                                    @else
+                                        <p>{{ $demo['role_line'] }}. Любимое свободное время: {{ \Illuminate\Support\Str::lower($demo['free_time']) }}.</p>
+                                    @endif
+                                    @foreach ($contact->quotes as $quote)
+                                        <p class="b-contact-about__quote">«{{ $quote->quote }}»</p>
+                                    @endforeach
+                                </div>
+                                <button type="button" class="b-contact-about__toggle js-contact-about-toggle">
+                                    <span class="js-contact-about-toggle-label">Показать полностью</span> <i class="fas fa-chevron-down"></i>
+                                </button>
                             </div>
 
                             <div class="b-contact-section">

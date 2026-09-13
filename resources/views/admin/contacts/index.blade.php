@@ -8,6 +8,15 @@
     <link rel="stylesheet" href="/admin/fonts/manrope/manrope.css">
 @endpush
 
+@push('navbar-breadcrumb')
+    <li class="nav-item d-flex align-items-center">
+        <ol class="breadcrumb b-navbar-breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+            <li class="breadcrumb-item active">База контактов</li>
+        </ol>
+    </li>
+@endpush
+
 @section('content')
     @php
         // русская плюрализация ("1 контакт" / "2 контакта" / "5 контактов") —
