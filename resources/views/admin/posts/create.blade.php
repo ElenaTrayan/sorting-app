@@ -12,8 +12,9 @@
             </div><!-- /.col -->
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
-                    <li class="breadcrumb-item"><a href="#">Home</a></li>
-                    <li class="breadcrumb-item active">Dashboard v1</li>
+                    <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('posts.index') }}">Все посты</a></li>
+                    <li class="breadcrumb-item active">Добавить пост</li>
                 </ol>
             </div><!-- /.col -->
         </div><!-- /.row -->
@@ -219,6 +220,14 @@
                                 <button type="button" class="js-close-error-block close">×</button>
                                 <i class="icon fas fa-exclamation-triangle"></i><p></p>
                             </div>
+                        </div>
+
+                        <div class="b-post-video" id="post-video-upload" data-action="{{ route('video.upload-to-temp-directory') }}">
+                            <label class="btn btn-outline-info js-post-video__add-label">
+                                <i class="fas fa-video mr-1"></i> Добавить видео
+                                <input type="file" class="js-post-video__add-input" accept="video/*" hidden>
+                            </label>
+                            <div class="js-post-video__preview" style="display: none;"></div>
                         </div>
                     </div>
                 </div>

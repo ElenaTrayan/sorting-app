@@ -34,6 +34,7 @@ class Post extends Model
         'medium_image',
         'large_image',
         'image_alt',
+        'video',
     ];
 
     /**
@@ -73,6 +74,34 @@ class Post extends Model
         $path = $request->file('avatar')->storeAs(
             'avatars', $request->user()->id
         );
+    }
+
+    /**
+     * Декодирует поле video ({name, extension, path}) в массив.
+     *
+     * @return array|null
+     */
+    public function getVideoDataAttribute(): ?array
+    {
+        if (empty($this->attributes['video'])) {
+            return null;
+        }
+
+        $decoded = json_decode($this->attributes['video'], true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * Готовый URL видео для <video src="">, либо null, если видео нет.
+     *
+     * @return string|null
+     */
+    public function getVideoUrlAttribute(): ?string
+    {
+        $data = $this->video_data;
+
+        return !empty($data['path']) ? '/storage' . $data['path'] : null;
     }
 
 }

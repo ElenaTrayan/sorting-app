@@ -27,7 +27,11 @@
         </div>
 
         <div class="b-card__content">
-            @if (!empty($post->cover_image))
+            @if ($post->video_url)
+                <div class="b-card__content__image b-card__content__video">
+                    <video src="{{ $post->video_url }}" controls preload="metadata"></video>
+                </div>
+            @elseif (!empty($post->cover_image))
                 <div class="b-card__content__image scale">
                     <img src="/storage{{ $post->cover_image }}" alt="Content img">
                 </div>
@@ -45,15 +49,15 @@
             @endif
         </div><!-- /.b-card__content -->
 
-        @if (!empty($post->hashtags) && is_array($post->hashtags))
+        @if (!empty($post->hashtags) && $post->hashtags->isNotEmpty())
             <div class="b-card__footer">
-                @foreach($post->hashtags as $hashtag)
-                    <ul class="tags">
+                <ul class="tags">
+                    @foreach($post->hashtags as $hashtag)
                         <li data-id="{{ $hashtag->id }}" data-title="{{ $hashtag->title }}">
                             <a rel="tag" href="#">#{{ $hashtag->title }}</a>
                         </li>
-                    </ul>
-                @endforeach
+                    @endforeach
+                </ul>
             </div><!-- /.card-footer -->
         @endif
 

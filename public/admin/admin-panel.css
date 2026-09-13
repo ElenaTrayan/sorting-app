@@ -143,7 +143,7 @@
     cursor: pointer;
     position: relative;
     margin-left: 7px;
-    top: -2px;
+    top: -1px;
     opacity: 0.6;
     font-size: 0.625rem;
 }
@@ -217,6 +217,266 @@
 
 .content-wrapper {
     background: #ffffff !important;
+}
+/* страница "База контактов" — фон под макет (Claude Design), см. .content-wrapper--contacts
+   в resources/views/layouts/admin_layout.blade.php */
+.content-wrapper.content-wrapper--contacts {
+    background: #f6f6f9 !important;
+}
+.content-wrapper > .content {
+    padding: 0 .7rem;
+}
+
+/* ==================== левое меню (светлая перевёрстка) ==================== */
+.b-sidebar {
+    background: #fff;
+    box-shadow: none;
+    border-right: 1px solid #eceef3;
+    font-family: 'Nunito', 'Source Sans Pro', sans-serif;
+}
+.b-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 16px;
+    border-bottom: 1px solid #eceef3;
+    text-decoration: none;
+}
+.b-sidebar-brand:hover {
+    text-decoration: none;
+}
+.b-sidebar-brand__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #4b3bf5;
+    color: #fff;
+    font-weight: 800;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.b-sidebar-brand__text {
+    font-weight: 800;
+    font-size: 18px;
+    color: #1f2430;
+    white-space: nowrap;
+}
+.b-sidebar__body {
+    padding: 0 12px;
+}
+.b-sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 4px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #eceef3;
+}
+.b-sidebar-user__photo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.b-sidebar-user__name {
+    font-weight: 800;
+    font-size: 15px;
+    color: #1f2430;
+    line-height: 1.3;
+}
+.b-sidebar-user__role {
+    font-size: 13px;
+    font-weight: 600;
+    color: #9099b8;
+}
+.b-sidebar-search {
+    margin-bottom: 14px;
+}
+.b-sidebar-search__btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: #f4f6f9;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #1f2430;
+}
+.b-sidebar-search__btn:hover {
+    background: #eceef3;
+}
+.b-sidebar-search__icon {
+    display: block;
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    color: #4b3bf5;
+}
+.b-sidebar-search__chevron {
+    display: block;
+    width: 15px;
+    height: 15px;
+    margin-left: auto;
+    flex-shrink: 0;
+    color: #c8cdd3;
+}
+.b-sidebar-nav {
+    padding: 0;
+    margin: 0;
+}
+.b-sidebar-nav .nav-item {
+    height: 45px;
+}
+.b-sidebar-nav__link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: none;
+    border-radius: 10px;
+    padding: 10px 10px;
+    margin-bottom: 2px;
+    box-sizing: border-box;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2430;
+    text-align: left;
+    text-decoration: none;
+}
+.b-sidebar-nav__link:hover {
+    background: #f4f6f9;
+    color: #1f2430;
+    text-decoration: none;
+}
+.b-sidebar-nav__link.is-active {
+    background: #eee9fe;
+    color: #4b3bf5;
+    font-weight: 800;
+}
+.b-sidebar-nav__link.is-active::before {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: #4b3bf5;
+}
+.b-sidebar-nav__link.is-active .b-sidebar-nav__icon {
+    color: #4b3bf5;
+}
+.b-sidebar-nav__icon {
+    display: block;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: #6b7099;
+}
+.b-sidebar-nav__badge {
+    margin-left: auto;
+    background: #06aec4;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 2px 9px;
+    border-radius: 10px;
+}
+.b-sidebar-divider {
+    height: 1px;
+    background: #eceef3;
+    margin: 8px 4px 10px;
+}
+.b-sidebar-nav__link--danger {
+    color: #dc3545;
+}
+.b-sidebar-nav__link--danger:hover {
+    background: #fdeeee;
+    color: #dc3545;
+}
+.b-sidebar-nav__link--danger .b-sidebar-nav__icon {
+    color: #dc3545;
+}
+
+/* --- свёрнутое меню (AdminLTE sidebar-mini/sidebar-collapse) — ширина .main-sidebar и
+   разворот по hover уже работают "из коробки" (класс .main-sidebar не трогали), но сама
+   логика "прятать подписи, оставлять только иконки" у AdminLTE завязана на его исходные
+   классы (.nav-link p, .brand-text, .user-panel .info) — у нас разметка своя (.b-sidebar-*),
+   поэтому повторяем то же самое поведение под свои классы --- */
+@media (min-width: 992px) {
+    .sidebar-mini.sidebar-collapse .b-sidebar-brand__text,
+    .sidebar-mini.sidebar-collapse .b-sidebar-user__info,
+    .sidebar-mini.sidebar-collapse .b-sidebar-search span,
+    .sidebar-mini.sidebar-collapse .b-sidebar-search__chevron,
+    .sidebar-mini.sidebar-collapse .b-sidebar-nav__link span {
+        margin-left: -10px;
+        visibility: hidden;
+        animation: fadeOut .3s both;
+    }
+    .sidebar-mini.sidebar-collapse .b-sidebar-nav__link span,
+    .sidebar-mini.sidebar-collapse .b-sidebar-brand__text,
+    .sidebar-mini.sidebar-collapse .b-sidebar-user__info {
+        width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    .sidebar-mini.sidebar-collapse .b-sidebar-nav__badge {
+        padding: 0;
+    }
+    .sidebar-mini.sidebar-collapse .b-sidebar-brand,
+    .sidebar-mini.sidebar-collapse .b-sidebar-user,
+    .sidebar-mini.sidebar-collapse .b-sidebar-search__btn,
+    .sidebar-mini.sidebar-collapse .b-sidebar-nav__link {
+        justify-content: center;
+    }
+    .sidebar-mini.sidebar-collapse .b-sidebar-nav__link.is-active::before {
+        left: 0;
+    }
+
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-brand__text,
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-user__info,
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-search span,
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-search__chevron,
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-nav__link span,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-brand__text,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-user__info,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-search span,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-search__chevron,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-nav__link span {
+        display: inline-block;
+        width: auto;
+        margin-left: 0;
+        visibility: visible;
+        animation: fadeIn .3s both;
+    }
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-nav__badge,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-nav__badge {
+        padding: 2px 9px;
+    }
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-brand,
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-user,
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-search__btn,
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-nav__link,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-brand,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-user,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-search__btn,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-nav__link {
+        justify-content: flex-start;
+    }
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-nav__link.is-active::before,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-nav__link.is-active::before {
+        left: -12px;
+    }
 }
 
 .b-parse-info {
@@ -591,15 +851,22 @@ margin: 0 0 20px 0;
 }
 
 .b-card__content__image {
-cursor: pointer;
+    cursor: pointer;
 }
 .b-card__content__image img{
-width: 100%;
+    width: 100%;
+    min-height: 100px;
 }
 
 .scale {
-display: inline-block; /* Строчно-блочный элемент */
+    display: inline-block; /* Строчно-блочный элемент */
     overflow: hidden; /* Скрываем всё за контуром */
+}
+
+.b-card__content__video video {
+    width: 100%;
+    display: block;
+    cursor: default;
 }
 .scale img {
     transition: 1s; /* Время эффекта */
@@ -627,7 +894,7 @@ display: inline-block; /* Строчно-блочный элемент */
 }
 
 .b-card__footer {
-    margin: 0 15px 0;
+    margin: 10px 15px 0;
 }
 
 .b-card__footer .btn {
@@ -669,6 +936,4033 @@ display: inline-block; /* Строчно-блочный элемент */
     background: #ffffff;
     border-radius: 50%;
 }
+
+
+
+/* Блок для табов */
+.b-tabs {
+    width: 100%;
+    margin: 0 auto;
+}
+
+.b-tabs__header {
+    display: flex;
+}
+.b-tabs__button {
+    background: none;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px 5px 0px;
+    margin-right: 1px;
+    margin-bottom: 5px;
+    font-size: 13px;
+    line-height: 0.9rem;
+    cursor: pointer;
+    font-weight: 600 !important;
+    color: rgba(0, 0, 0, .5);
+}
+.b-tabs__button:hover {
+    color: rgba(0, 0, 0, .8);
+}
+.b-tabs__button--active {
+    color: rgba(0, 0, 0, .8);
+}
+
+.b-tabs__content {
+    border-radius: 5px;
+    background-color: #fff;
+}
+
+.b-tabs__panel {
+    display: none;
+}
+
+.b-search-by-hashtags__field {
+    user-select: none;
+    width: calc(100% - 40px);
+    position: relative;
+}
+
+/* Кнопка-крестик очистки всех выбранных хэштегов в b-tags */
+.b-tags__clear {
+    border: 2px solid #8762c2;
+    background: none;
+    width: 40px;
+    line-height: 39px;
+    color: #8762c2;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.b-search-by-hashtags__popular-tags {
+    display: flex;
+}
+.b-search-by-hashtags__popular-title {
+    font-size: 13px;
+    margin: 0 5px 0;
+    padding: 3px 0 0;
+}
+.b-search-by-hashtags__tag {
+    list-style: none;
+    line-height: 13px;
+    padding: 4px 6px;
+    /*background: rgb(141 107 203 / 71%);*/
+    background: #9374a9;
+    color: rgba(255, 255, 255, .8);
+    margin: 0 4px 0 0;
+    height: 23px;
+    border: 0.07rem solid rgb(141 107 203 / 71%);
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.b-search {
+    display: flex;
+    flex-direction: column;
+}
+
+.b-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    border-radius: 0px 5px 5px 0px;
+    padding: 5px;
+    min-height: 42px;
+    position: relative;
+    background-color: #f5f5f5;
+    box-shadow: inset 1px 1px 2px rgb(0 0 0 / 8%);
+    border: none;
+    user-select: none;
+}
+
+/* display: contents убирает .b-tags__container из потока флекс-разметки,
+   благодаря чему теги и поле ввода b-tags__input переносятся строками вместе,
+   а не как два отдельных блока */
+.b-tags__container {
+    display: contents;
+}
+
+.b-tags__item {
+    float: left;
+    background: #1269d3;
+    display: inline-flex;
+    align-items: center;
+    color: #fff;
+    margin: 0;
+    padding: 6px 10px 3px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    position: relative;
+    height: 34px;
+}
+.b-tags__item .close {
+    color: #fff;
+    display: inline;
+    float: none;
+    cursor: pointer;
+    position: relative;
+    margin-left: 7px;
+    top: -1px;
+    opacity: 0.6;
+    font-size: 0.625rem;
+}
+
+.b-tags__input {
+    flex: 1 1 120px;
+    width: auto;
+    background-color: transparent;
+    border: none;
+    padding: 5px 3px;
+    min-width: 120px;
+}
+
+.b-tags__input:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.b-search-by-hashtags__toggle {
+    color: #1f2d3d;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px dashed;
+    margin: 0 10px 0 0;
+    padding: 2px 0 0 0;
+    height: 21px;
+}
+
+.b-search-by-hashtags__exclude {
+    width: 100%;
+    position: relative;
+}
+
+.b-search-by-hashtags__exclude-container {
+    display: none;
+    flex-flow: row wrap;
+    align-items: flex-start;
+    gap: 5px;
+    margin: 5px 0 10px;
+}
+
+.b-search-by-hashtags__exclude-group {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.b-search-by-hashtags__exclude-close {
+    background: none;
+    border: 2px solid #8762c2;
+    width: 40px;
+    line-height: 39px;
+    color: #8762c2;
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.b-search-by-hashtags__button {
+    padding: 10px 20px;
+    width: auto;
+    /*background-color: #007bff;*/
+    /*background-color: #8762c2;*/
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    background-color: #8762c2; /* Исходный цвет */
+    /*transition: background-color 1s ease, color 1s ease; !* Плавный переход цвета *!*/
+    /*transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out;*/
+}
+.b-search-by-hashtags__button:hover {
+    background-color: #1269d3; /* Конечный цвет */
+}
+
+.b-search-text__input,
+.b-search-image__input {
+    width: 100%;
+    background-color: #f5f5f5;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.b-search-text__button,
+.b-search-image__button {
+    padding: 10px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.b-tags__dropdown {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 0 0 5px 5px;
+    margin-top: 2px;
+    list-style: none;
+    padding: 0;
+    max-height: 150px;
+    overflow-y: auto;
+    width: 100%;
+    z-index: 10;
+    top: 100%;
+    left: 0;
+    display: none; /* Скрыто по умолчанию */
+}
+
+.b-tags__dropdown-item {
+    padding: 5px 10px;
+    cursor: pointer;
+}
+.b-tags__dropdown-item:hover,
+.b-tags__dropdown-item:active {
+    background: #8762c20d;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .b-tabs {
+        padding: 10px;
+    }
+
+    .b-tabs__button {
+        padding: 5px 10px;
+        font-size: 0.9rem;
+    }
+
+    .b-search-by-hashtags__button {
+        padding: 8px;
+        font-size: 0.9rem;
+    }
+}
+
+/* --- новые элементы виджета поиска (иконки/подзаголовки вкладок, шапка "Хештеги",
+   кнопка "Сбросить") — по умолчанию скрыты, чтобы виджет в шапке "Все посты" остался
+   как был; показываются и стилизуются только внутри поп-апа, см. блок ниже --- */
+.b-tabs__button-icon,
+.b-tabs__button-subtitle,
+.b-hashtags-section-head,
+.js-b-search-reset {
+    display: none;
+}
+
+/* ==================== поп-ап "Поиск" (#modal-search-global) ==================== */
+.b-search-modal__header {
+    align-items: flex-start;
+    border-bottom: 1px solid #eceef3;
+}
+.b-search-modal__heading {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+.b-search-modal__heading > i {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: #eef0fe;
+    color: #7367f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.b-search-modal__heading .modal-title {
+    font-weight: 700;
+    font-size: 20px;
+    color: #1f2430;
+}
+.b-search-modal__subtitle {
+    font-size: 13px;
+    color: #9aa1ac;
+    margin-top: 2px;
+}
+
+/* --- вкладки: карточки с иконкой и подзаголовком вместо мелких текстовых кнопок --- */
+#modal-search-global .b-tabs__header {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+#modal-search-global .b-tabs__button {
+    flex: 1 1 180px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 0;
+    text-align: left;
+}
+#modal-search-global .b-tabs__button:hover {
+    border-color: #c8cdd3;
+}
+#modal-search-global .b-tabs__button--active {
+    border-color: #7367f0;
+    background: #f5f4ff;
+}
+#modal-search-global .b-tabs__button-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: #f4f6f9;
+    color: #6c757d;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+#modal-search-global .b-tabs__button--active .b-tabs__button-icon {
+    background: #7367f0;
+    color: #fff;
+}
+#modal-search-global .b-tabs__button-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+#modal-search-global .b-tabs__button-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1f2430;
+}
+#modal-search-global .b-tabs__button--active .b-tabs__button-title {
+    color: #7367f0;
+}
+#modal-search-global .b-tabs__button-subtitle {
+    display: block;
+    font-size: 11.5px;
+    color: #9aa1ac;
+    font-weight: 400;
+}
+
+/* --- шапка секции "Хештеги" --- */
+#modal-search-global .b-hashtags-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+#modal-search-global .b-hashtags-section-head__title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #1f2430;
+}
+#modal-search-global .b-hashtags-section-head__title i {
+    color: #c8cdd3;
+    font-size: 12px;
+    margin-left: 4px;
+    cursor: help;
+}
+#modal-search-global .b-hashtags-section-head__clear {
+    border: none;
+    background: none;
+    color: #7367f0;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+#modal-search-global .b-hashtags-section-head__clear:hover {
+    text-decoration: underline;
+}
+
+/* --- поле хэштегов: карточка с рамкой вместо голой строки --- */
+#modal-search-global .b-search-by-hashtags {
+    flex-direction: column;
+}
+#modal-search-global .b-search-by-hashtags__fields {
+    border: 1px solid #eceef3;
+    border-radius: 12px;
+    padding: 14px;
+}
+#modal-search-global .b-search-by-hashtags__group {
+    flex-direction: row-reverse;
+    gap: 10px;
+}
+#modal-search-global .b-tags__clear,
+#modal-search-global .b-search-by-hashtags__exclude-close {
+    border-radius: 8px;
+}
+#modal-search-global .b-tags {
+    background: #fff;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    min-height: auto;
+}
+#modal-search-global .b-tags__item {
+    background: #eef0fe;
+    color: #4c3fc7;
+    height: auto;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+}
+#modal-search-global .b-tags__item .close {
+    color: #4c3fc7;
+    opacity: 0.6;
+}
+
+/* --- "исключить хэштеги из поиска" оформлен как чекбокс (просто вид — переключает
+   тот же существующий блок исключений, что и раньше, см. admin.js) --- */
+#modal-search-global .b-search-by-hashtags__toggle-group {
+    justify-content: space-between;
+}
+#modal-search-global .b-search-by-hashtags__toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: none;
+    height: auto;
+    padding: 0;
+}
+#modal-search-global .b-search-by-hashtags__toggle::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid #c8cdd3;
+    background: #fff;
+    flex-shrink: 0;
+}
+#modal-search-global .b-search-by-hashtags__toggle.is-checked::before {
+    background: #7367f0;
+    border-color: #7367f0;
+    box-shadow: inset 0 0 0 3px #fff;
+}
+#modal-search-global .b-search-by-hashtags__tag {
+    background: #eef0fe;
+    color: #7367f0;
+    border-color: #eef0fe;
+}
+
+/* --- блок исключений — тоже карточка с рамкой --- */
+#modal-search-global .b-search-by-hashtags__exclude-container {
+    border: 1px solid #eceef3;
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 10px;
+}
+
+/* --- футер: "Сбросить" + "Найти" --- */
+#modal-search-global .b-hashtags-section-foot {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+#modal-search-global .js-b-search-reset {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #fff;
+    color: #495057;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 18px;
+    white-space: nowrap;
+}
+#modal-search-global .js-b-search-reset:hover {
+    background: #f4f6f9;
+}
+#modal-search-global .b-search-by-hashtags__button {
+    flex: 1;
+    border-radius: 8px;
+    font-weight: 600;
+    background-color: #7367f0;
+    border-color: #7367f0;
+}
+#modal-search-global .b-search-by-hashtags__button:hover {
+    background-color: #5e50e0;
+    border-color: #5e50e0;
+}
+
+/* Страница /admin_panel/hashtags — список хештегов по алфавиту */
+.b-hashtags-index {
+    padding: 20px 25px 40px;
+}
+
+.b-hashtags-index__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 20px;
+}
+
+.b-hashtags-index__count {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.b-hashtags-index__empty {
+    padding: 40px 0;
+    text-align: center;
+    color: #6c757d;
+    font-size: 15px;
+}
+
+/* Алфавитная навигация: буквы-якоря, только те, на которые реально есть хештеги */
+.b-hashtags-index__alphabet {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #fff;
+    padding: 12px 0;
+    margin: 0 0 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.b-hashtags-index__alphabet-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: #f5f5f5;
+    color: #8762c2;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    transition: .15s;
+}
+.b-hashtags-index__alphabet-link:hover {
+    background: #8762c2;
+    color: #fff;
+    text-decoration: none;
+}
+
+.b-hashtags-index__groups {
+    display: flex;
+    flex-flow: column;
+    gap: 30px;
+}
+
+.b-hashtags-index__group {
+    scroll-margin-top: 70px; /* чтобы sticky-навигация не перекрывала заголовок при переходе по якорю */
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.b-hashtags-index__letter {
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #8762c2;
+    color: #fff;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.b-hashtags-index__list {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    list-style: none;
+    margin: 0;
+    padding: 10px 0 0;
+}
+
+.b-hashtags-index__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 8px 8px 14px;
+    border-radius: 20px;
+    background: #f5f5f5;
+    transition: background-color .15s;
+}
+.b-hashtags-index__item:hover {
+    background: #eee9f4;
+}
+
+.b-hashtags-index__title {
+    color: #1f2d3d;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.b-hashtags-index__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.b-hashtags-index__item:hover .b-hashtags-index__actions {
+    opacity: 1;
+}
+
+.b-hashtags-index__action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: #fff;
+    color: #8762c2;
+    font-size: 11px;
+    cursor: pointer;
+}
+.b-hashtags-index__action:hover {
+    background: #8762c2;
+    color: #fff;
+}
+.b-hashtags-index__action--delete:hover {
+    background: #dc3545;
+    color: #fff;
+}
+
+@media (max-width: 575px) {
+    .b-hashtags-index__group {
+        flex-flow: column;
+        gap: 8px;
+    }
+    .b-hashtags-index__letter {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+}
+
+/* Виджет "Связанные хештеги" на странице /admin_panel/hashtags/{id}/edit */
+.b-hashtags-edit__related-field {
+    position: relative;
+    max-width: 500px;
+}
+
+/* Панель "Изображения поста" на странице /admin_panel/posts/{id}/edit */
+.b-post-images__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin: 10px 0 15px;
+}
+
+.b-post-images__item {
+    width: 200px;
+    border: 1px solid #e2e2e2;
+    border-radius: 4px;
+    padding: 8px;
+    background: #fff;
+}
+
+.b-post-images__thumb {
+    display: block;
+    width: 100%;
+    height: 130px;
+    background-size: cover;
+    background-position: center;
+    background-color: #f5f5f5;
+    border-radius: 3px;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+
+.b-post-images__rename {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+.b-post-images__rename .form-control {
+    height: 30px;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+.b-post-images__buttons {
+    display: flex;
+    gap: 4px;
+}
+.b-post-images__buttons .btn {
+    flex: 1;
+    padding: 3px 6px;
+    font-size: 12px;
+}
+.b-post-images__buttons label.btn {
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+.js-post-images__add-label {
+    cursor: pointer;
+}
+
+/* Видео поста — простой аплоадер на странице создания/панель на странице редактирования */
+.b-post-video, .b-post-images__video-panel {
+    margin-top: 10px;
+}
+.js-post-video__preview, .js-post-images__video-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #f4f6f9;
+    border: 1px solid #e2e2e2;
+    border-radius: 4px;
+    font-size: 13px;
+    max-width: 320px;
+}
+.js-post-video__preview-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+.b-post-images__video video {
+    max-width: 100%;
+    border-radius: 4px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* ============ База контактов ============ */
+
+/* шрифт макета (Claude Design) — только на этой странице, см. .contacts-index в
+   resources/views/admin/contacts/index.blade.php и /admin/fonts/manrope/manrope.css */
+.contacts-index {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+}
+
+/* хлебные крошки в верхнем navbar (navbar-nav-left) — только на странице "База
+   контактов", см. resources/views/layouts/admin_layout.blade.php. По макету это
+   простой текст рядом с кнопкой меню, а не серая "таблетка" из AdminLTE. */
+.b-navbar-breadcrumb {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    background: transparent;
+    margin: 0;
+    padding: 0;
+}
+.b-navbar-breadcrumb .breadcrumb-item a {
+    color: #8b8b99;
+}
+.b-navbar-breadcrumb .breadcrumb-item a:hover {
+    color: #6c757d;
+    text-decoration: none;
+}
+.b-navbar-breadcrumb .breadcrumb-item.active {
+    color: #1f2430;
+    font-weight: 500;
+}
+.b-navbar-breadcrumb .breadcrumb-item + .breadcrumb-item::before {
+    color: #c8cdd3;
+}
+
+.content-header.content-header--contacts {
+    padding: 20px 30px 0px;
+}
+
+/* заголовок страницы ("База контактов") — как в макете; h1 лежит в content-header,
+   вне .contacts-index, поэтому шрифт и остальные стили дублируем сюда отдельно */
+.content-header.content-header--contacts h1 {
+    margin: 0;
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.b-contacts-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+.b-contacts-empty__icon {
+    font-size: 48px;
+    color: #c8cdd3;
+    margin-bottom: 15px;
+    display: block;
+}
+.b-contacts-empty--search {
+    background: #fff;
+    border: 1px dashed #e0e0ea;
+    border-radius: 14px;
+    margin: 0 15px;
+}
+
+/* --- счётчик "N из M контактов" — подпись под заголовком в шапке страницы --- */
+.b-contacts-toolbar__count {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #8b8b99;
+    font-weight: 500;
+}
+.b-contacts-toolbar__create {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: #7367f0;
+    color: #fff;
+    font: 600 13.5px Manrope, sans-serif;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(115, 103, 240, .28);
+    transition: background-color .15s;
+}
+.b-contacts-toolbar__create:hover {
+    background: #5e50ee;
+    color: #fff;
+}
+
+/* --- панель поиска/фильтров/сортировки --- */
+.b-contacts-filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 0 15px 20px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #ececf1;
+    border-radius: 12px;
+}
+.b-contacts-filterbar__search {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex: 1 1 260px;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid #e6e6ee;
+    border-radius: 9px;
+    background: #fafafc;
+    /* это <label> — у Bootstrap/AdminLTE база задаёт label { margin-bottom: .5rem } */
+    margin-bottom: 0;
+}
+.b-contacts-filterbar__search i {
+    color: #8b8b99;
+    font-size: 13px;
+}
+.b-contacts-filterbar__search input {
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 500;
+    width: 100%;
+    color: #1c1c22;
+}
+.b-contacts-filterbar__btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 13px;
+    border: 1px solid #e6e6ee;
+    border-radius: 9px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a4a56;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.b-contacts-filterbar__btn:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+}
+
+.b-contacts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 0 15px 15px;
+}
+.b-contact-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #ececf1;
+    border-radius: 14px;
+    padding: 22px 16px 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.b-contact-card:hover {
+    box-shadow: 0 6px 16px rgba(28, 28, 34, .07);
+    border-color: #cfc4ff;
+    transform: translateY(-2px);
+    color: inherit;
+    text-decoration: none;
+}
+.b-contact-card__photo {
+    width: 76px;
+    height: 76px;
+    flex: none;
+    border-radius: 50%;
+    background-color: #efeaff;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 1px #ececf1;
+}
+.b-contact-card__initials {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    color: #5c3af0;
+}
+/* цветовая ротация аватаров-заглушек (когда у контакта нет фото) */
+.b-contact-card:nth-of-type(4n+1) .b-contact-card__photo:not([style*="background-image"]) { background-color: #efeaff; }
+.b-contact-card:nth-of-type(4n+1) .b-contact-card__initials { color: #5c3af0; }
+.b-contact-card:nth-of-type(4n+2) .b-contact-card__photo:not([style*="background-image"]) { background-color: #e2f6f3; }
+.b-contact-card:nth-of-type(4n+2) .b-contact-card__initials { color: #0f9b8e; }
+.b-contact-card:nth-of-type(4n+3) .b-contact-card__photo:not([style*="background-image"]) { background-color: #f2f2f7; }
+.b-contact-card:nth-of-type(4n+3) .b-contact-card__initials { color: #5a5a68; }
+.b-contact-card:nth-of-type(4n+4) .b-contact-card__photo:not([style*="background-image"]) { background-color: #fdf0e6; }
+.b-contact-card:nth-of-type(4n+4) .b-contact-card__initials { color: #b96b1e; }
+.b-contact-card__name {
+    margin-top: 14px;
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -.01em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 38px;
+}
+.b-contact-card__meta {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: #9a9aa6;
+    font-weight: 500;
+}
+.b-contact-card__tags {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f2f2f6;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: flex-start;
+    gap: 6px;
+    min-height: 30px;
+}
+.b-contact-card__tag {
+    font-size: 11.5px;
+    font-weight: 500;
+    background: #f4f4f8;
+    border-radius: 6px;
+    padding: 3px 8px;
+    color: #5a5a68;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.b-contact-card__tag--more {
+    font-weight: 600;
+    color: #0f9b8e;
+    background: #e2f6f3;
+}
+
+/* --- панель "Фильтры" справа (filters_panel.blade.php) — по-настоящему фильтрует
+   список только раздел "Хештеги" (см. admin.js); остальные поля ниже — разметка под
+   макет, визуальные заглушки без логики за ними --- */
+.b-contacts-filters-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 28, 34, .35);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .2s ease;
+    z-index: 1040;
+}
+.b-contacts-filters-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+.b-contacts-filters {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 420px;
+    max-width: 92vw;
+    background: #fff;
+    box-shadow: -8px 0 24px rgba(28, 28, 34, .12);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .25s ease-out;
+    z-index: 1041;
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+}
+.b-contacts-filters.is-open {
+    transform: translateX(0);
+}
+.b-contacts-filters__header {
+    flex: none;
+    padding: 20px 20px 14px;
+    border-bottom: 1px solid #ececf1;
+}
+.b-contacts-filters__header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.b-contacts-filters__title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    color: #1c1c22;
+}
+.b-contacts-filters__close {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border: 0;
+    background: transparent;
+    border-radius: 8px;
+    color: #8b8b99;
+    font-size: 15px;
+    cursor: pointer;
+}
+.b-contacts-filters__close:hover {
+    background: #f4f4f8;
+    color: #1c1c22;
+}
+.b-contacts-filters__reset-all {
+    display: block;
+    margin: 8px 0 0 auto;
+    border: 0;
+    background: transparent;
+    color: #7367f0;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+.b-contacts-filters__reset-all:hover {
+    text-decoration: underline;
+}
+.b-contacts-filters__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 20px 8px;
+}
+.b-contacts-filters__section {
+    margin-bottom: 22px;
+}
+.b-contacts-filters__label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1c1c22;
+    margin-bottom: 9px;
+}
+.b-contacts-filters__search {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 12px;
+    border: 1px solid #e6e6ee;
+    border-radius: 9px;
+    background: #fafafc;
+}
+.b-contacts-filters__search i {
+    color: #8b8b99;
+    font-size: 13px;
+}
+.b-contacts-filters__search input {
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: 500 13px 'Manrope', sans-serif;
+    width: 100%;
+    color: #1c1c22;
+}
+.b-contacts-filters__text-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid #e6e6ee;
+    border-radius: 9px;
+    background: #fafafc;
+    font: 500 13px 'Manrope', sans-serif;
+    color: #1c1c22;
+}
+.b-contacts-filters__range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.b-contacts-filters__range input {
+    width: 100%;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid #e6e6ee;
+    border-radius: 9px;
+    background: #fafafc;
+    font: 500 13px 'Manrope', sans-serif;
+    color: #1c1c22;
+}
+.b-contacts-filters__range span {
+    color: #9a9aa6;
+    flex: none;
+}
+.b-contacts-filters__radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+.b-contacts-filters__radio,
+.b-contacts-filters__checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #4a4a56;
+    cursor: pointer;
+}
+.b-contacts-filters__radio input,
+.b-contacts-filters__checkbox input {
+    accent-color: #7367f0;
+    width: 15px;
+    height: 15px;
+    flex: none;
+    margin: 0;
+}
+.b-contacts-filters__checkbox i {
+    font-size: 13px;
+    color: #8b8b99;
+}
+.b-contacts-filters__checkbox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 10px;
+}
+/* колонки соцсетей у́же подписаны — иконка+название длиннее чекбоксов "Тип связи" */
+.b-contacts-filters__checkbox-grid--social .b-contacts-filters__checkbox {
+    gap: 7px;
+}
+
+/* --- "исключить хэштег из поиска" (как в общем поиске по хэштегам) --- */
+.b-contacts-filters__exclude-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #4a4a56;
+    cursor: pointer;
+}
+.b-contacts-filters__exclude-toggle input {
+    accent-color: #7367f0;
+    width: 15px;
+    height: 15px;
+    flex: none;
+    margin: 0;
+}
+.b-contacts-filters__exclude {
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid #e6e6ee;
+    border-radius: 9px;
+    background: #fafafc;
+}
+
+/* --- сворачивающиеся секции (Личные данные / География / Есть данные / Нет данных /
+   Дополнительные фильтры) --- */
+.b-contacts-filters__collapse {
+    border-top: 1px solid #ececf1;
+    padding: 14px 0;
+}
+.b-contacts-filters__collapse-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1c1c22;
+    cursor: pointer;
+}
+.b-contacts-filters__collapse-toggle i {
+    color: #9a9aa6;
+    font-size: 12px;
+    transition: transform .15s ease;
+}
+.b-contacts-filters__collapse.is-open .b-contacts-filters__collapse-toggle i {
+    transform: rotate(180deg);
+}
+.b-contacts-filters__collapse-body {
+    margin-top: 14px;
+}
+
+.b-contacts-filters__footer {
+    flex: none;
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid #ececf1;
+}
+.b-contacts-filters__cancel {
+    flex: 1;
+    padding: 11px 16px;
+    border: 1px solid #e6e6ee;
+    border-radius: 9px;
+    background: #fff;
+    color: #4a4a56;
+    font: 600 13.5px 'Manrope', sans-serif;
+    cursor: pointer;
+}
+.b-contacts-filters__cancel:hover {
+    background: #f4f4f8;
+}
+.b-contacts-filters__apply {
+    flex: 1;
+    padding: 11px 16px;
+    border: 0;
+    border-radius: 9px;
+    background: #7367f0;
+    color: #fff;
+    font: 600 13.5px 'Manrope', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(115, 103, 240, .28);
+}
+.b-contacts-filters__apply:hover {
+    background: #5e50e0;
+}
+
+/* --- форма создания/редактирования контакта --- */
+.b-contact-form__photo-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border: 1px dashed transparent;
+    border-radius: 8px;
+    transition: border-color .15s, background-color .15s;
+}
+.b-contact-form__photo-row.is-dragover {
+    border-color: #7367f0;
+    background: #f8f8ff;
+}
+.b-contact-form__photo-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: #f4f6f9;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    border: 1px solid #e2e2e2;
+}
+
+.b-contact-tag-picker {
+    position: relative;
+}
+.b-contact-tag-picker__results {
+    position: absolute;
+    z-index: 5;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    max-height: 200px;
+    overflow-y: auto;
+    list-style: none;
+    margin: 2px 0 0;
+    padding: 4px 0;
+    display: none;
+}
+.b-contact-tag-picker__results--open {
+    display: block;
+}
+.b-contact-tag-picker__results li {
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+}
+.b-contact-tag-picker__results li:hover {
+    background: #f4f6f9;
+}
+.js-contact-tag-picker__create {
+    color: #7367f0;
+    font-weight: 600;
+    border-top: 1px solid #f0f1f3;
+}
+.js-contact-tag-picker__create:hover {
+    background: #eef0fe;
+}
+.js-contact-tag-picker__create.is-loading {
+    opacity: .6;
+    pointer-events: none;
+}
+.b-contact-tag-picker__selected {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+.b-contact-tag-picker__tag {
+    background: #eef0fe;
+    color: #7367f0;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.b-contact-tag-picker__tag i {
+    cursor: pointer;
+}
+
+/* --- страница контакта --- */
+.b-contact-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    background: #fff;
+    padding: 24px;
+}
+.b-contact-head__main {
+    display: flex;
+    gap: 20px;
+    flex: 1 1 380px;
+    min-width: 260px;
+}
+.b-contact-head__photo {
+    width: 120px;
+    height: 120px;
+    border-radius: 20px;
+    background-color: #f4f6f9;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 38px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
+}
+.b-contact-head__info {
+    flex: 1;
+    min-width: 0;
+}
+.b-contact-head__toprow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.b-contact-head__name {
+    font-weight: 700;
+    font-size: 22px;
+    color: #1f2430;
+    margin-bottom: 8px;
+}
+.b-contact-head__edit {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #fff;
+    color: #495057;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 16px;
+    white-space: nowrap;
+}
+.b-contact-head__edit:hover {
+    background: #f4f6f9;
+    border-color: #c8cdd3;
+    color: #1f2430;
+}
+.b-contact-head__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.b-contact-head__menu {
+    position: relative;
+}
+.b-contact-head__menu-toggle {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #fff;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.b-contact-head__menu-toggle:hover {
+    background: #f4f6f9;
+    color: #495057;
+}
+.b-contact-head__menu-list {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    min-width: 190px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.15);
+    padding: 6px;
+    z-index: 6;
+}
+.b-contact-head__menu-list.is-open {
+    display: block;
+}
+.b-contact-head__menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #2b2e33;
+    text-align: left;
+    cursor: pointer;
+}
+.b-contact-head__menu-item:hover {
+    background: #f4f6f9;
+}
+.b-contact-head__menu-item--danger {
+    color: #dc3545;
+}
+.b-contact-head__menu-item--danger:hover {
+    background: #fdeeee;
+}
+.b-contact-head__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    color: #6c757d;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+.b-contact-head__meta span i {
+    color: #9aa1ac;
+}
+.b-contact-head__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* --- панель соцсетей в шапке контакта --- */
+.b-contact-social {
+    flex: 0 0 300px;
+    max-width: 320px;
+    width: 100%;
+    background: #f8f9fc;
+    border-radius: 14px;
+    padding: 16px 18px;
+}
+.b-contact-social__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.b-contact-social__header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1f2430;
+    margin: 0;
+}
+.b-contact-social__add-btn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #b8e2e6;
+    border-radius: 8px;
+    background: #fff;
+    color: #17a2b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+}
+.b-contact-social__add-btn:hover {
+    background: #eef9fb;
+    border-color: #17a2b8;
+}
+.b-contact-social__empty {
+    font-size: 12px;
+    color: #9aa1ac;
+    margin: 4px 0 0;
+}
+.b-contact-social__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.b-contact-social-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #eceef3;
+}
+.b-contact-social-row:last-child {
+    border-bottom: none;
+}
+.b-contact-social-row__icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 13px;
+}
+.b-contact-social-row__value {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: #333;
+    overflow-wrap: anywhere;
+}
+.b-contact-social-row__link {
+    color: #9aa1ac;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.b-contact-social-row__link:hover {
+    color: #7367f0;
+}
+
+/* --- поп-ап "Добавить социальную сеть" (social_add_modal.blade.php) --- */
+.b-social-hint {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f4f6f9;
+    color: #6c757d;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+.b-social-hint i {
+    color: #9aa1ac;
+    margin-top: 2px;
+}
+.b-social-hint a {
+    color: #17a2b8;
+    font-weight: 600;
+    text-decoration: none;
+}
+.b-social-hint a:hover {
+    text-decoration: underline;
+}
+.b-social-input-icon {
+    position: relative;
+}
+.b-social-input-icon > i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9aa1ac;
+    font-size: 13px;
+    pointer-events: none;
+}
+.b-social-input-icon input {
+    padding-left: 34px;
+}
+.b-social-hint-box {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #eef6fb;
+    font-size: 12.5px;
+    color: #495057;
+    line-height: 1.5;
+}
+.b-social-hint-box__title {
+    font-weight: 700;
+    color: #17a2b8;
+    margin-bottom: 6px;
+}
+.b-social-hint-box ul {
+    margin: 0;
+    padding-left: 18px;
+}
+.b-social-hint-box li {
+    margin-bottom: 3px;
+}
+.b-social-hint-box li:last-child {
+    margin-bottom: 0;
+}
+
+/* --- вкладки на странице контакта (чисто визуальная группировка секций) --- */
+.b-contact-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #ececf1;
+    margin: 4px 0 22px;
+    overflow-x: auto;
+}
+.b-contact-tabs__item {
+    appearance: none;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #8a8f98;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+}
+.b-contact-tabs__item:hover {
+    color: #495057;
+}
+.b-contact-tabs__item.is-active {
+    color: #7367f0;
+    border-bottom-color: #7367f0;
+}
+.b-contact-tab-panel {
+    display: none;
+    background: #f8f9fc;
+    padding: 20px;
+}
+.b-contact-tab-panel.is-active {
+    display: block;
+}
+
+.b-contact-section {
+    background: #fff;
+    border: 1px solid #ececf1;
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 14px rgba(16,24,40,.05);
+}
+.b-contact-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.b-contact-section__header h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2430;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.b-contact-section__header h3 i {
+    color: #7367f0;
+    font-size: 14px;
+}
+.b-contact-section__form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+.b-contact-section__form .btn {
+    align-self: flex-end;
+}
+
+.b-contact-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.b-contact-list li {
+    padding: 10px 26px 10px 16px;
+    border-bottom: 1px solid #f1f2f5;
+    font-size: 13.5px;
+    line-height: 1.5;
+    position: relative;
+}
+.b-contact-list li:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 17px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #c7cad1;
+}
+.b-contact-list li:last-child {
+    border-bottom: none;
+}
+.b-contact-list--quotes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.b-contact-list--quotes li {
+    font-style: italic;
+    color: #4b5160;
+    border-left: 3px solid #7367f0;
+    background: #faf9ff;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 26px 10px 16px;
+    border-bottom: none;
+}
+.b-contact-list--quotes li:before {
+    display: none;
+}
+.js-contact-list-remove {
+    position: absolute;
+    right: 6px;
+    top: 12px;
+    color: #c8cdd3;
+    cursor: pointer;
+}
+.js-contact-list-remove:hover {
+    color: #dc3545;
+}
+
+.b-contact-photos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 14px;
+}
+.b-contact-photo {
+    position: relative;
+}
+.b-contact-photo__thumb {
+    display: block;
+    height: 130px;
+    border-radius: 12px;
+    background-color: #f4f6f9;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 1px 2px rgba(16,24,40,.08);
+    transition: transform .18s ease;
+}
+.b-contact-photo:hover .b-contact-photo__thumb {
+    transform: scale(1.03);
+}
+.b-contact-photo__remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(20,20,25,.55);
+    color: #fff;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity .15s, background-color .15s;
+}
+.b-contact-photo:hover .b-contact-photo__remove {
+    opacity: 1;
+}
+.b-contact-photo__remove:hover {
+    background: #dc3545;
+}
+.b-contact-photo__caption {
+    font-size: 11px;
+    color: #6c757d;
+    margin-top: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* --- шапка: хэндл/род деятельности/бейджи (знак зодиака, режим, статусы) --- */
+.b-contact-head__handle {
+    color: #9aa1ac;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+.b-contact-head__role {
+    color: #6c757d;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+.b-contact-head__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.b-contact-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #f4f6f9;
+    color: #495057;
+    border-radius: 14px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.b-contact-badge--status-0 { background: #e6f7f1; color: #12866f; }
+.b-contact-badge--status-1 { background: #e7f1ff; color: #2563eb; }
+
+/* --- ссылки "Все связи -> " / "Все места ->" из вкладки "Обзор" в соответствующую вкладку --- */
+.b-contact-section__link {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-contact-section__link:hover {
+    color: #5a4fd6;
+    text-decoration: none;
+}
+
+/* --- "Личная информация" / "Здоровье" --- */
+.b-contact-info-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.b-contact-info-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f2f5;
+    font-size: 13px;
+}
+.b-contact-info-list li:last-child {
+    border-bottom: none;
+}
+.b-contact-info-list__label {
+    color: #6c757d;
+}
+.b-contact-info-list__label i {
+    color: #9aa1ac;
+    width: 14px;
+}
+
+/* --- "Предпочтения" (нравится/раздражает) --- */
+.b-contact-pref-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.b-contact-pref-columns__title {
+    font-size: 12.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.b-contact-pref-columns__title--likes { color: #2f9e44; }
+.b-contact-pref-columns__title--dislikes { color: #d6336c; }
+.b-contact-pref-columns__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-contact-pref-tag {
+    font-size: 11.5px;
+    border-radius: 12px;
+    padding: 4px 10px;
+}
+.b-contact-pref-tag--like { background: #eafbe9; color: #2f9e44; }
+.b-contact-pref-tag--dislike { background: #fdeaef; color: #d6336c; }
+
+/* --- "Связи" / "Бывшие" --- */
+.b-contact-relation-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.b-contact-relation-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f2f5;
+}
+.b-contact-relation-list li:last-child {
+    border-bottom: none;
+}
+.b-contact-relation-list__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #eef0fe;
+    color: #7367f0;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.b-contact-relation-list__name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1f2430;
+}
+
+/* --- подвкладки внутри вкладки "Связи" (Родственники/Друзья/Враги) --- */
+.b-contact-subtabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #ececf1;
+    margin-bottom: 14px;
+}
+.b-contact-subtabs__item {
+    appearance: none;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 4px;
+    margin-right: 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #8a8f98;
+    cursor: pointer;
+}
+.b-contact-subtabs__item.is-active {
+    color: #7367f0;
+    border-bottom-color: #7367f0;
+}
+.b-contact-subtab-panel {
+    display: none;
+}
+.b-contact-subtab-panel.is-active {
+    display: block;
+}
+
+/* --- "Места" (карточки "любит отдыхать" + список "обычно посещает") --- */
+.b-contact-place-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+.b-contact-place-card {
+    border: 1px solid #ececf1;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.b-contact-place-card__photo {
+    height: 90px;
+    background-size: cover;
+    background-position: center;
+}
+.b-contact-place-card__photo--0 { background: linear-gradient(135deg, #74c0fc, #4dabf7); }
+.b-contact-place-card__photo--1 { background: linear-gradient(135deg, #ffa94d, #ff8787); }
+.b-contact-place-card__photo--2 { background: linear-gradient(135deg, #63e6be, #38d9a9); }
+.b-contact-place-card__photo--3 { background: linear-gradient(135deg, #b197fc, #9775fa); }
+.b-contact-place-card__body {
+    padding: 10px 12px;
+}
+.b-contact-place-card__name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1f2430;
+}
+.b-contact-place-card__address {
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+.b-contact-place-card__body a,
+.b-contact-place-list a {
+    font-size: 12px;
+    color: #7367f0;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.b-contact-place-card__body a:hover,
+.b-contact-place-list a:hover {
+    text-decoration: underline;
+}
+.b-contact-place-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.b-contact-place-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f2f5;
+}
+.b-contact-place-list li:last-child {
+    border-bottom: none;
+}
+.b-contact-place-list__icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: #f4f6f9;
+    color: #7367f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* --- "Работа и образование" (вертикальный таймлайн) --- */
+.b-contact-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 18px;
+    border-left: 2px solid #eceef3;
+}
+.b-contact-timeline li {
+    position: relative;
+    padding-bottom: 18px;
+}
+.b-contact-timeline li:last-child {
+    padding-bottom: 0;
+}
+.b-contact-timeline__dot {
+    position: absolute;
+    left: -23px;
+    top: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #7367f0;
+    box-shadow: 0 0 0 3px #eef0fe;
+}
+.b-contact-timeline__period {
+    font-size: 12px;
+    color: #9aa1ac;
+    font-weight: 600;
+}
+.b-contact-timeline__place {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1f2430;
+}
+.b-contact-timeline__current {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    background: #e6f7f1;
+    color: #12866f;
+    border-radius: 10px;
+    padding: 1px 8px;
+    vertical-align: middle;
+}
+
+/* --- "История" --- */
+.b-contact-history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.b-contact-history-list li {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f2f5;
+}
+.b-contact-history-list li:last-child {
+    border-bottom: none;
+}
+.b-contact-history-list__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #eef0fe;
+    color: #7367f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+/* --- дополнения к b-filter-panel (см. wishlist filter_panel.blade.php) для вкладки
+   "Высказывания" — поиск и счётчик в опции, которых нет в исходном компоненте Wishlist --- */
+.b-filter-panel__search {
+    position: relative;
+    margin: 8px 0 4px;
+}
+.b-filter-panel__search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9aa1ac;
+    font-size: 12px;
+}
+.b-filter-panel__search input {
+    padding-left: 32px;
+}
+.b-filter-panel__count {
+    margin-left: auto;
+    color: #9aa1ac;
+    font-size: 12px;
+}
+.b-filter-panel__option {
+    justify-content: space-between;
+}
+.b-filter-panel__date-row {
+    display: flex;
+    gap: 10px;
+}
+.b-filter-panel__date-row label {
+    flex: 1;
+    font-size: 12px;
+    color: #6c757d;
+    margin: 0;
+}
+.b-filter-panel__date-row input {
+    margin-top: 4px;
+}
+
+/* --- вкладка "Высказывания": тулбар (сортировка/фильтр/добавить) --- */
+.b-quotes-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.b-quotes-toolbar__title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2430;
+    margin: 0 0 2px;
+}
+.b-quotes-toolbar__count {
+    color: #9aa1ac;
+    font-size: 13px;
+}
+.b-quotes-toolbar__right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* --- карточки-высказывания (сетка/masonry в 3 колонки — см. quotes_tab.blade.php) --- */
+.b-quotes-feed {
+    column-count: 3;
+    column-gap: 16px;
+}
+@media (max-width: 992px) {
+    .b-quotes-feed {
+        column-count: 2;
+    }
+}
+@media (max-width: 620px) {
+    .b-quotes-feed {
+        column-count: 1;
+    }
+}
+.b-quotes-card {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    vertical-align: top;
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin-bottom: 16px;
+    background: #fff;
+    border: 2px solid #f3f3f3;
+    border-radius: 5px;
+    padding: 10px;
+}
+.b-quotes-card.is-filtered-out {
+    display: none;
+}
+.b-quotes-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.b-quotes-card__platform-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.b-quotes-card__platform-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: #1f2430;
+}
+.b-quotes-card__date {
+    margin-left: auto;
+    font-size: 11.5px;
+    color: #9aa1ac;
+    white-space: nowrap;
+}
+.b-quotes-card__menu {
+    position: relative;
+    margin-left: 6px;
+    flex-shrink: 0;
+}
+.b-quotes-card__menu-toggle {
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    color: #9aa1ac;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.b-quotes-card__menu-toggle:hover {
+    background: #f4f6f9;
+    color: #495057;
+}
+.b-quotes-card__menu-list {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    min-width: 170px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.15);
+    padding: 6px;
+    z-index: 6;
+}
+.b-quotes-card__menu-list.is-open {
+    display: block;
+}
+.b-quotes-card__menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #2b2e33;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+.b-quotes-card__menu-item:hover {
+    background: #f4f6f9;
+    color: #2b2e33;
+}
+.b-quotes-card__menu-item--danger {
+    color: #dc3545;
+}
+.b-quotes-card__menu-item--danger:hover {
+    background: #fdeeee;
+    color: #dc3545;
+}
+.b-quotes-card__text {
+    font-size: 13.5px;
+    color: #2b2e33;
+    margin: 0 0 10px;
+}
+.b-quotes-card__banner {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+.b-quotes-card__banner-link {
+    position: relative;
+    display: block;
+    cursor: zoom-in;
+}
+.b-quotes-card__banner-image {
+    display: block;
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+}
+.b-quotes-card__banner-expand {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.5);
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-quotes-card__banner--mock {
+    min-height: 130px;
+    background: #14161a;
+    color: #fff;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-quotes-card__banner--video {
+    min-height: 150px;
+    color: #fff;
+    font-size: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-quotes-card__media-duration {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    font-size: 11px;
+    background: rgba(0,0,0,.55);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+.b-quotes-card__real-image-more {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    background: rgba(0,0,0,.6);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+}
+.b-quotes-card__real-image-extra {
+    display: none;
+}
+.b-quotes-card__comment {
+    font-size: 12.5px;
+    color: #6c757d;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+}
+.b-quotes-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.b-quotes-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.b-quotes-card__reactions {
+    display: flex;
+    gap: 12px;
+    color: #9aa1ac;
+    font-size: 12.5px;
+}
+.b-quotes-card__bookmark {
+    border: none;
+    background: none;
+    color: #c8cdd3;
+    font-size: 14px;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+.b-quotes-card__bookmark:hover {
+    color: #495057;
+}
+.b-quotes-card__bookmark.is-active {
+    color: #7367f0;
+}
+
+/* --- поп-ап "Добавить высказывание" (quote_add_modal.blade.php) --- */
+.b-quote-dropzone {
+    border: 2px dashed #dee2e6;
+    border-radius: 12px;
+    padding: 24px 16px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color .15s, background-color .15s;
+}
+.b-quote-dropzone:hover,
+.b-quote-dropzone.is-dragover {
+    border-color: #7367f0;
+    background: #f8f8ff;
+}
+.b-quote-dropzone__icon {
+    display: block;
+    font-size: 26px;
+    color: #c8cdd3;
+    margin-bottom: 8px;
+}
+.b-quote-dropzone__browse {
+    color: #7367f0;
+    font-weight: 600;
+}
+.b-quote-images-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+.b-quote-images-preview:empty {
+    margin-top: 0;
+}
+.b-quote-image-thumb {
+    position: relative;
+    width: 84px;
+    height: 84px;
+    border-radius: 8px;
+    background-size: cover;
+    background-position: center;
+    background-color: #f4f6f9;
+    border: 1px solid #e2e2e2;
+}
+.b-quote-image-thumb__remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: none;
+    background: #dc3545;
+    color: #fff;
+    font-size: 10px;
+    line-height: 1;
+    box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.b-quote-source-select {
+    position: relative;
+}
+.b-quote-source-select select {
+    padding-left: 34px;
+}
+.b-quote-source-select__icon {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: #6c757d;
+    color: #fff;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* --- баннер распознавания текста со скриншота (Google Cloud Vision), quote_add_modal --- */
+.b-quote-recognize {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    background: #f4f6f9;
+    color: #6c757d;
+}
+.b-quote-recognize.is-success {
+    background: #eafbe9;
+    color: #2f9e44;
+}
+.b-quote-recognize.is-error {
+    background: #fdeaea;
+    color: #dc3545;
+}
+.b-quote-recognize__status i {
+    margin-right: 2px;
+}
+
+/* --- вкладка "Факты" --- */
+.b-facts-search {
+    position: relative;
+}
+.b-facts-search i {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9aa1ac;
+    font-size: 12px;
+}
+.b-facts-search input {
+    padding-left: 28px;
+    width: 220px;
+}
+.js-facts-no-match {
+    margin-top: -6px;
+}
+
+.b-facts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+@media (max-width: 991px) {
+    .b-facts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.b-facts-col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.b-facts-card {
+    background: #fff;
+    border: 1px solid #ececf1;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 14px rgba(16,24,40,.05);
+}
+.b-facts-card.is-hidden-by-filter {
+    display: none;
+}
+.b-facts-card__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+}
+.b-facts-card__icon {
+    width: 30px;
+    height: 30px;
+    background: rgba(255,255,255,.65);
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.b-facts-card__header h3 {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #1f2430;
+    margin: 0;
+}
+.b-facts-card__body {
+    padding: 6px 18px 14px;
+}
+
+.b-facts-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f2f5;
+}
+.b-facts-row:last-child {
+    border-bottom: none;
+}
+.b-facts-row.is-filtered-out {
+    display: none;
+}
+.b-facts-row__icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: #f4f6f9;
+    color: #7367f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.b-facts-row__main {
+    flex: 1;
+    min-width: 0;
+}
+.b-facts-row__label {
+    font-size: 12px;
+    color: #9aa1ac;
+    margin-bottom: 2px;
+}
+.b-facts-row__value {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1f2430;
+}
+.b-facts-row__source {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #6c757d;
+    text-align: left;
+    white-space: nowrap;
+}
+.b-facts-row__source-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.b-facts-row__remove {
+    flex-shrink: 0;
+    color: #c8cdd3;
+    cursor: pointer;
+    margin-top: 4px;
+}
+.b-facts-row__remove:hover {
+    color: #dc3545;
+}
+
+.b-facts-row--tags {
+    flex-direction: row;
+}
+.b-facts-pref-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+/* --- вкладка "Связи" --- */
+.b-relations-grid {
+    column-count: 3;
+    column-gap: 20px;
+}
+@media (max-width: 1199px) {
+    .b-relations-grid {
+        column-count: 2;
+    }
+}
+@media (max-width: 767px) {
+    .b-relations-grid {
+        column-count: 1;
+    }
+}
+.b-relations-card,
+.b-relations-map-card {
+    break-inside: avoid;
+    margin-bottom: 20px;
+}
+.b-relations-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f2f5;
+}
+.b-relations-row:last-child {
+    border-bottom: none;
+}
+.b-relations-row.is-filtered-out {
+    display: none;
+}
+.b-relations-row__main {
+    min-width: 0;
+}
+.b-relations-row__name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1f2430;
+}
+
+.b-relations-map {
+    position: relative;
+    width: 100%;
+    padding-top: 100%;
+}
+.b-relations-map__lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.b-relations-map__center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background-color: #f4f6f9;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 22px;
+    box-shadow: 0 0 0 4px #fff, 0 2px 10px rgba(0,0,0,.12);
+    z-index: 2;
+}
+.b-relations-map__node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 90px;
+    text-align: center;
+    z-index: 1;
+}
+.b-relations-map__node-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 3px #fff;
+}
+.b-relations-map__node-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #495057;
+    background: #fff;
+    padding: 1px 6px;
+    border-radius: 8px;
+    line-height: 1.3;
+}
+
+/* --- вкладка "Места" --- */
+.b-places-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+.b-places-main {
+    flex: 1;
+    min-width: 0;
+}
+.b-places-sidebar {
+    flex: 0 0 300px;
+    max-width: 320px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+@media (max-width: 991px) {
+    .b-places-layout {
+        flex-direction: column;
+    }
+    .b-places-sidebar {
+        flex-basis: auto;
+        max-width: none;
+    }
+}
+.b-facts-section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2430;
+    margin: 18px 0 12px;
+}
+
+/* декоративная карта — не интерактивна, под места нет координат в БД */
+.b-places-map {
+    position: relative;
+    height: 260px;
+    border-radius: 14px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    background:
+        linear-gradient(#e2e6ec 1px, transparent 1px) 0 0 / 32px 32px,
+        linear-gradient(90deg, #e2e6ec 1px, transparent 1px) 0 0 / 32px 32px,
+        #eef1f5;
+}
+.b-places-map__label {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    background: #fff;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1f2430;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    z-index: 2;
+}
+.b-places-map__pin {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg) translate(-50%, -50%);
+    transform-origin: 0 0;
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+.b-places-map__pin i {
+    transform: rotate(45deg);
+}
+.b-places-map__popup {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.12);
+    max-width: 260px;
+    z-index: 2;
+}
+.b-places-map__popup-photo {
+    width: 48px;
+    height: 48px;
+    border-radius: 9px;
+    flex-shrink: 0;
+}
+
+.b-places-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+}
+.b-places-card {
+    border: 1px solid #ececf1;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(16,24,40,.04);
+}
+.b-places-card.is-filtered-out {
+    display: none;
+}
+.b-places-card__photo {
+    position: relative;
+    height: 90px;
+}
+.b-places-card__type-icon {
+    position: absolute;
+    right: 10px;
+    bottom: -14px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+.b-places-card__body {
+    padding: 20px 14px 14px;
+}
+.b-places-card__link {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-places-card__link:hover {
+    text-decoration: underline;
+}
+
+.b-places-categories {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.b-places-category-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #2b2e33;
+    text-align: left;
+}
+.b-places-category-item:hover {
+    background: #f4f6f9;
+}
+.b-places-category-item.is-active {
+    background: #eef0fe;
+    color: #7367f0;
+    font-weight: 600;
+}
+
+.b-places-recent-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f2f5;
+}
+.b-places-recent-row:last-child {
+    border-bottom: none;
+}
+.b-places-recent-row__photo {
+    width: 42px;
+    height: 42px;
+    border-radius: 9px;
+    flex-shrink: 0;
+}
+
+/* ============ Мой список подарков (My Gift List) ============ */
+
+.b-wishlists-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+.b-wishlists-empty__icon {
+    font-size: 48px;
+    color: #c8cdd3;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.b-wishlists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 0 15px 15px;
+}
+
+.b-wishlist-card {
+    display: block;
+    background: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow .15s, border-color .15s;
+}
+.b-wishlist-card:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    border-color: #7367f0;
+    color: inherit;
+    text-decoration: none;
+}
+.b-wishlist-card__icon {
+    font-size: 26px;
+    color: #7367f0;
+    margin-bottom: 10px;
+}
+.b-wishlist-card__title {
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.b-wishlist-card__occasion {
+    font-size: 13px;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+.b-wishlist-card__meta {
+    font-size: 12px;
+    color: #a3a8ad;
+}
+
+/* пилюли выбора повода — переиспользуются и в попапе создания, и в настройках вишлиста */
+.b-occasion-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+.b-occasion-picker__item {
+    background: #f4f6f9;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #495057;
+}
+.b-occasion-picker__item:hover {
+    background: #e9ecef;
+}
+.b-occasion-picker__item--active {
+    background: #7367f0;
+    border-color: #7367f0;
+    color: #fff;
+}
+
+/* --- страница одного вишлиста --- */
+/* здесь content-header содержит только хлебные крошки (без h1) — уменьшаем отступ снизу */
+.content-header.content-header--wishlist {
+    padding: 10px 0.5rem 5px;
+}
+.b-wishlist-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 20px 15px;
+    flex-wrap: wrap;
+}
+.b-wishlist-head__title {
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+.b-wishlist-head__description {
+    color: #8a8f98;
+    margin: 0;
+}
+.b-wishlist-head__actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+/* --- панель "повод + статистика" --- */
+.b-wishlist-occasion-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin: 0 15px 20px;
+    padding: 14px 20px;
+}
+.b-wishlist-occasion-bar__badge {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.b-wishlist-occasion-bar__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #eef0fe;
+    color: #7367f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.b-wishlist-occasion-bar__title {
+    font-weight: 700;
+}
+.b-wishlist-occasion-bar__edit {
+    margin-left: 6px;
+    cursor: pointer;
+    color: #a3a8ad;
+    font-size: 12px;
+    font-weight: 400;
+}
+.b-wishlist-occasion-bar__add {
+    background: none;
+    border: 1px dashed #c8cdd3;
+    border-radius: 8px;
+    padding: 10px 16px;
+    color: #7367f0;
+    font-size: 13px;
+}
+.b-wishlist-occasion-bar__stats {
+    display: flex;
+    gap: 24px;
+    font-weight: 600;
+    color: #495057;
+    font-size: 14px;
+}
+
+/* --- панель вкладок/фильтра/сортировки над списком желаний --- */
+.b-wishlist-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 0 15px 15px;
+}
+.b-wishlist-toolbar__tabs {
+    display: flex;
+    gap: 8px;
+}
+.b-wishlist-toolbar__tab {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #495057;
+}
+.b-wishlist-toolbar__tab:hover {
+    background: #f4f6f9;
+}
+.b-wishlist-toolbar__tab--active {
+    background: #eef0fe;
+    border-color: #7367f0;
+    color: #7367f0;
+    font-weight: 600;
+}
+.b-wishlist-toolbar__right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.b-wishlist-toolbar__divider {
+    width: 1px;
+    height: 20px;
+    background: #dee2e6;
+}
+.b-wishlist-toolbar__count {
+    color: #a3a8ad;
+    font-size: 13px;
+}
+.b-wishlist-toolbar__dropdown {
+    position: relative;
+}
+.b-wishlist-toolbar__btn {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 13px;
+    color: #495057;
+}
+.b-wishlist-toolbar__btn:hover {
+    background: #f4f6f9;
+}
+.b-wishlist-toolbar__menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    width: 220px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.15);
+    padding: 6px;
+    z-index: 6;
+    max-height: 260px;
+    overflow-y: auto;
+}
+.b-wishlist-toolbar__menu--open {
+    display: block;
+}
+.b-wishlist-toolbar__menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #2b2e33;
+}
+.b-wishlist-toolbar__menu-item:hover {
+    background: #f4f6f9;
+}
+.b-wishlist-toolbar__menu-item--active {
+    background: #eef0fe;
+    color: #7367f0;
+    font-weight: 600;
+}
+
+/* Плитки раскладывает Masonry (JS, см. admin.js) — как в примере (wishpicks.com):
+   карточки идут не строками фиксированной высоты, а колонками, и каждая следующая
+   попадает в самую короткую на тот момент колонку. Ширина колонки задаётся здесь
+   через width у .b-wishlist-item (в процентах — masonryOptions.percentPosition:true),
+   отступ между колонками и карточками — через masonryOptions.gutter (16px, то же
+   значение, что и в calc() ниже) */
+.b-wishlist-items-wrap {
+    padding: 15px;
+}
+.b-wishlist-items {
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.b-wishlist-item {
+    width: calc((100% - 4 * 16px) / 5);
+    margin-bottom: 16px;
+    background: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    /* без overflow:hidden — иначе выпадающее меню "..." обрезалось бы по границе карточки;
+       скруглённые углы картинки обеспечивает overflow:hidden на самом .b-wishlist-item__thumb */
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+@media (max-width: 1600px) {
+    .b-wishlist-item { width: calc((100% - 3 * 16px) / 4); }
+}
+@media (max-width: 1200px) {
+    .b-wishlist-item { width: calc((100% - 2 * 16px) / 3); }
+}
+@media (max-width: 900px) {
+    .b-wishlist-item { width: calc((100% - 1 * 16px) / 2); }
+}
+@media (max-width: 560px) {
+    .b-wishlist-item { width: 100%; }
+}
+.b-wishlist-item__thumb {
+    overflow: hidden;
+    border-radius: 8px 8px 0 0;
+    background-color: #f4f6f9;
+    position: relative;
+}
+/* высота картинки — естественная, по её реальным пропорциям (в примере у карточек
+   разная высота именно поэтому); только ширина подгоняется под колонку */
+.b-wishlist-item__thumb img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.b-wishlist-item__thumb-placeholder {
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 32px;
+}
+.b-wishlist-item__reserved-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(40, 167, 69, .92);
+    color: #fff;
+    font-size: 11px;
+    padding: 4px 8px;
+    text-align: center;
+}
+.b-wishlist-item__body {
+    padding: 10px 12px;
+    flex: 1;
+}
+.b-wishlist-item__title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.b-wishlist-item__title a {
+    color: inherit;
+}
+.b-wishlist-item__meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+}
+.b-wishlist-item__domain {
+    color: #a3a8ad;
+}
+.b-wishlist-item__price {
+    color: #7367f0;
+    font-weight: 600;
+}
+
+/* hover-оверлей поверх картинки — кнопки-действия появляются при наведении на карточку */
+.b-wishlist-item__hover-top {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    justify-content: space-between;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.b-wishlist-item__hover-top > :last-child {
+    margin-left: auto;
+}
+.b-wishlist-item:hover .b-wishlist-item__hover-top,
+.b-wishlist-item:hover .b-wishlist-item__hover-bottom {
+    opacity: 1;
+}
+.b-wishlist-item__hover-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,.9);
+    color: #495057;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    margin-right: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+.b-wishlist-item__hover-btn:last-child {
+    margin-right: 0;
+}
+.b-wishlist-item__hover-btn--accent {
+    background: #7367f0;
+    color: #fff;
+}
+
+/* выпадающее меню "..." на карточке желания — позиционируется от .b-wishlist-item
+   (не от .b-wishlist-item__thumb, у которого overflow:hidden обрезал бы меню) */
+.b-wishlist-item__more-menu {
+    display: none;
+    position: absolute;
+    top: 44px;
+    left: 8px;
+    width: 190px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.18);
+    padding: 6px;
+    z-index: 5;
+}
+.b-wishlist-item__more-menu--open {
+    display: block;
+}
+.b-wishlist-item__more-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: none;
+    background: none;
+    text-align: left;
+    padding: 9px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #2b2e33;
+}
+.b-wishlist-item__more-menu-item i {
+    width: 14px;
+    text-align: center;
+    color: #8a8f98;
+}
+.b-wishlist-item__more-menu-item:hover {
+    background: #f4f6f9;
+}
+.b-wishlist-item__more-menu-item--danger {
+    color: #dc3545;
+}
+.b-wishlist-item__more-menu-item--danger i {
+    color: #dc3545;
+}
+.b-wishlist-item__more-menu-divider {
+    border-top: 1px solid #e9ecef;
+    margin: 6px 4px;
+}
+
+.b-wishlist-item__hover-bottom {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.b-wishlist-item__fulfill-pill {
+    width: 100%;
+    border: none;
+    border-radius: 20px;
+    background: rgba(255,255,255,.92);
+    color: #495057;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+.b-wishlist-item__fulfill-pill:hover {
+    background: #fff;
+}
+/* когда уже стоит бейдж "выполнено"/"забронировано", пилюля сдвигается выше, чтобы не перекрываться */
+.b-wishlist-item--reserved .b-wishlist-item__hover-bottom,
+.b-wishlist-item--fulfilled .b-wishlist-item__hover-bottom {
+    bottom: 30px;
+}
+/* "исполнено" (ставит владелец) — отдельный цвет от "забронировано" (ставит гость),
+   это разные, независимые статусы */
+.b-wishlist-item__reserved-badge--fulfilled {
+    background: rgba(115, 103, 240, .92);
+}
+
+/* --- попап "Поделиться вишлистом" (см. share_wishlist_modal.blade.php) --- */
+.b-share-link {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+.b-share-link input {
+    flex: 1;
+    background: #f4f6f9;
+}
+.b-share-link__btn {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    background: #f4f6f9;
+    color: #495057;
+}
+.b-share-link__btn:hover {
+    background: #e9ecef;
+}
+
+.b-share-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: #a3a8ad;
+    font-size: 11px;
+    letter-spacing: .05em;
+    margin: 20px 0 16px;
+}
+.b-share-divider::before,
+.b-share-divider::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid #e9ecef;
+}
+.b-share-divider span {
+    padding: 0 12px;
+}
+
+.b-share-socials {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+}
+.b-share-socials__item {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 18px;
+}
+.b-share-socials__item:hover {
+    opacity: .85;
+    color: #fff;
+}
+.b-share-socials__item--telegram { background: #29a9eb; }
+.b-share-socials__item--viber { background: #7360f2; }
+.b-share-socials__item--whatsapp { background: #25d366; }
+.b-share-socials__item--pinterest { background: #e60023; }
+.b-share-socials__item--facebook { background: #1877f2; }
+.b-share-socials__item--twitter { background: #1da1f2; }
+
+/* --- панель фильтров вишлиста, выезжает справа (см. filter_panel.blade.php) --- */
+.b-filter-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1060;
+}
+.b-filter-panel--open {
+    display: block;
+}
+.b-filter-panel__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+}
+.b-filter-panel__drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 360px;
+    max-width: 90vw;
+    background: #fff;
+    box-shadow: -4px 0 24px rgba(0,0,0,.2);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .25s ease;
+}
+.b-filter-panel--open .b-filter-panel__drawer {
+    transform: translateX(0);
+}
+.b-filter-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid #e9ecef;
+    flex-shrink: 0;
+}
+.b-filter-panel__title {
+    font-size: 18px;
+    font-weight: 700;
+}
+.b-filter-panel__close {
+    border: none;
+    background: none;
+    color: #8a8f98;
+    font-size: 18px;
+}
+.b-filter-panel__close:hover {
+    color: #495057;
+}
+.b-filter-panel__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 20px;
+}
+.b-filter-panel__group {
+    border-bottom: 1px solid #e9ecef;
+    padding: 16px 0;
+}
+.b-filter-panel__group:last-child {
+    border-bottom: none;
+}
+.b-filter-panel__group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    border: none;
+    background: none;
+    padding: 0;
+    font-weight: 700;
+    font-size: 14px;
+}
+.b-filter-panel__group-head i {
+    color: #8a8f98;
+    font-size: 12px;
+    transition: transform .2s ease;
+}
+.b-filter-panel__group--collapsed .b-filter-panel__group-head i {
+    transform: rotate(180deg);
+}
+.b-filter-panel__group-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+}
+.b-filter-panel__group--collapsed .b-filter-panel__group-body {
+    display: none;
+}
+.b-filter-panel__option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: #2b2e33;
+    margin: 0;
+    cursor: pointer;
+}
+.b-filter-panel__option input {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: #7367f0;
+    cursor: pointer;
+}
+.b-filter-panel__footer {
+    padding: 14px 20px;
+    border-top: 1px solid #e9ecef;
+    flex-shrink: 0;
+}
+
+/* --- попап "Подробнее о желании" (см. item_detail_modal.blade.php) --- */
+.b-item-detail-modal__close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 2;
+}
+.b-item-detail-modal__body {
+    padding: 24px;
+}
+.b-item-detail {
+    display: flex;
+    gap: 24px;
+}
+.b-item-detail__thumb {
+    /* теперь это <a> (клик открывает увеличенную картинку через fancybox) — а ссылки по
+       умолчанию inline и игнорируют width/height, поэтому явно делаем блочным */
+    display: block;
+    width: 260px;
+    height: 260px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    /* contain, а не cover — на детальном просмотре картинка не должна обрезаться вообще,
+       даже если пропорции фото не совпадают с квадратом (тогда просто останутся поля) */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #f4f6f9;
+}
+.b-item-detail__info {
+    flex: 1;
+    min-width: 0;
+}
+.b-item-detail__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+.b-item-detail__title {
+    font-size: 20px;
+    font-weight: 700;
+}
+.b-item-detail__subtitle {
+    color: #a3a8ad;
+    font-size: 13px;
+    margin-top: 4px;
+}
+.b-item-detail__price {
+    font-size: 24px;
+    font-weight: 700;
+    margin-top: 12px;
+}
+.b-item-detail__details {
+    margin-top: 18px;
+}
+.b-item-detail__details-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+.b-item-detail__description {
+    color: #6c757d;
+    font-size: 14px;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-line;
+}
+.b-item-detail__description--expanded {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+}
+.b-item-detail__description-toggle {
+    border: none;
+    background: none;
+    padding: 0;
+    margin-top: 4px;
+    color: #7367f0;
+    font-size: 13px;
+    font-weight: 600;
+}
+.b-item-detail__fulfill-box {
+    margin-top: 18px;
+    background: #f4f6f9;
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+.b-item-detail__fulfill-question {
+    font-size: 13px;
+    color: #495057;
+    margin-bottom: 4px;
+}
+.b-item-detail__fulfill-link {
+    border: none;
+    background: none;
+    padding: 0;
+    color: #7367f0;
+    font-size: 13px;
+    font-weight: 600;
+}
+.b-item-detail__more {
+    position: relative;
+    flex-shrink: 0;
+}
+.b-item-detail__more-btn {
+    border: none;
+    background: none;
+    color: #8a8f98;
+    font-size: 16px;
+    padding: 4px 8px;
+}
+.b-item-detail__more-btn:hover {
+    color: #495057;
+}
+.b-item-detail__more-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 190px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.18);
+    padding: 6px;
+    z-index: 5;
+}
+.b-item-detail__more-menu--open {
+    display: block;
+}
+.b-item-detail__more-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: none;
+    background: none;
+    text-align: left;
+    padding: 9px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+.b-item-detail__more-menu-item i {
+    width: 14px;
+    text-align: center;
+    color: #8a8f98;
+}
+.b-item-detail__more-menu-item:hover {
+    background: #f4f6f9;
+}
+.b-item-detail__buy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-item-detail-modal__footer {
+    flex-direction: column;
+    align-items: stretch;
+}
+.b-item-detail-modal__footer > * {
+    margin: 0;
+}
+.b-item-detail-modal__footer > * + * {
+    margin-top: 8px;
+}
+
+@media (max-width: 575.98px) {
+    .b-item-detail {
+        flex-direction: column;
+    }
+    .b-item-detail__thumb {
+        width: 100%;
+        height: 220px;
+    }
+}
+
+/* --- попап подтверждения "Желание исполнено?" (см. fulfill_confirm_modal.blade.php) --- */
+.b-fulfill-confirm__icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto;
+    border-radius: 50%;
+    background: #eef0fe;
+    color: #7367f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.b-wishlist-empty-hint {
+    text-align: center;
+    padding: 20px 15px 50px;
+    color: #6c757d;
+}
+.b-wishlist-empty-hint__chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+.b-wishlist-empty-hint__chip {
+    background: #f4f6f9;
+    border: 1px solid #dee2e6;
+    border-radius: 16px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #495057;
+}
+
+/* пилюли выбора категории в попапе "Добавить желание" */
+.b-wishlist-filters__categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.b-wishlist-filters__category {
+    background: #f4f6f9;
+    border: 1px solid #dee2e6;
+    border-radius: 16px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #495057;
+}
+.b-wishlist-filters__category:hover {
+    background: #eef0fe;
+}
+.b-wishlist-filters__category--active {
+    background: #eef0fe;
+    border-color: #7367f0;
+    color: #7367f0;
+    font-weight: 600;
+}
+
+/* превью товара, найденного по ссылке, в попапе "Добавить желание" */
+.b-wishlist-item-preview {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: #f4f6f9;
+    border-radius: 6px;
+    padding: 8px;
+    margin: 10px 0;
+}
+.b-wishlist-item-preview__thumb {
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    /* contain, а не cover — превью при парсинге не должно обрезать картинку (у магазинов
+       часто широкие "баннерные" фото товара, cover в квадрате их криво обрезал) */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #e9ecef;
+    flex-shrink: 0;
+}
+.b-wishlist-item-preview__title {
+    font-size: 13px;
+    font-weight: 600;
+}
+.b-wishlist-item-preview__price {
+    font-size: 12px;
+    color: #7367f0;
+}
+
+/* Поп-ап выбора имени архива при экспорте изображений (см. #modal-export-images
+   на странице /admin_panel/posts) */
+.js-export-images__suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.b-export-images__suggestion {
+    background: #f4f6f9;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #495057;
+}
+
+.b-export-images__suggestion:hover {
+    background: #e9ecef;
+}
+
+/* Поп-ап выбора при найденном дубликате изображения меньшего размера в другом посте
+   (см. #modal-duplicate-image-choice на странице /admin_panel/posts/{id}/edit) */
+.b-duplicate-choice__compare {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+}
+
+.b-duplicate-choice__option {
+    flex: 1;
+    text-align: center;
+}
+
+.b-duplicate-choice__label {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.b-duplicate-choice__thumb {
+    max-width: 100%;
+    max-height: 260px;
+    border: 1px solid #e2e2e2;
+    border-radius: 4px;
+    background-color: #f5f5f5;
+}
+
+/* Прелоадер подгрузки следующих постов при скролле (см. loadMoreData() в admin.js) */
+.ajax-load {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 25px 0;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.ajax-load__spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid #eee0f7;
+    border-top-color: #8762c2;
+    border-radius: 50%;
+    animation: ajax-load-spin 0.7s linear infinite;
+}
+
+@keyframes ajax-load-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 
 
 
@@ -761,7 +5055,11 @@ display: inline-block; /* Строчно-блочный элемент */
     color: #777;
 }
 
-/* reveal grid after images loaded */
+/* reveal grid after images loaded — сначала грид скрыт, чтобы не было видно,
+   как карточки выстраиваются по одной, а потом перестраиваются при полной загрузке */
+.grid {
+    transition: opacity 0.25s ease;
+}
 .grid.are-images-unloaded {
     opacity: 0;
 }
@@ -954,49 +5252,164 @@ display: inline-block; /* Строчно-блочный элемент */
     width: auto;
 }
 
-.tags > .tag:not(:last-child) {
-    margin-right: .5rem;
-}
-.tags > .tag {
-    margin-bottom: .5rem;
-}
-.tag {
-    font-size: 0.75rem;
-    color: #6e7687;
-    background-color: #e9ecef;
-    border-radius: 3px;
-    padding: 0 .5rem;
-    line-height: 2em;
-    display: -ms-inline-flexbox;
-    display: inline-flex;
-    cursor: default;
-    font-weight: 400;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-}
-.tag-addon:last-child {
-    border-top-right-radius: 3px;
-    border-bottom-right-radius: 3px;
-}
+.b-choose-search-type {
 
-a.tag-addon {
-    text-decoration: none;
+}
+.b-choose-search-type input {
+    position: absolute;
+    opacity: 0;
+    z-index: -1;
+}
+.b-choose-search-type label {
+    color: rgba(0, 0, 0, .5);
+    /*border: 0.07rem solid #17a2b8;*/
+    /*border-radius: 4px;*/
+    padding: 0.26rem 0.2rem;
+    margin-right: 1px;
+    margin-bottom: 5px;
+    font-size: 13px;
+    line-height: 0.9rem;
     cursor: pointer;
-    transition: .3s color, .3s background;
+    font-weight: 600 !important;
 }
-a.tag-addon:hover {
-    background: rgba(0, 0, 0, 0.16);
-    color: inherit;
+.b-choose-search-type label:hover,
+.b-choose-search-type label:active {
+    /*background-color: #17a2b8;*/
+    font-weight: 600;
+    color: rgba(0, 0, 0, .8);
 }
-.tag-addon {
-    display: inline-block;
-    padding: 0 .5rem;
-    color: inherit;
-    text-decoration: none;
-    background: rgba(0, 0, 0, 0.06);
-    margin: 0 -.5rem 0 .5rem;
-    text-align: center;
-    min-width: 1.5rem;
+.b-choose-search-type input:checked + label {
+    /*background-color: #17a2b8;*/
+    font-weight: 600;
+    color: rgba(0, 0, 0, .8);
 }
+/*.tags > .tag:not(:last-child) {*/
+/*    margin-right: .5rem;*/
+/*}*/
+/*.tags > .tag {*/
+/*    margin-bottom: .5rem;*/
+/*}*/
+/*.tag {*/
+/*    font-size: 0.75rem;*/
+/*    color: #6e7687;*/
+/*    background-color: #e9ecef;*/
+/*    border-radius: 3px;*/
+/*    padding: 0 .5rem;*/
+/*    line-height: 2em;*/
+/*    display: -ms-inline-flexbox;*/
+/*    display: inline-flex;*/
+/*    cursor: default;*/
+/*    font-weight: 400;*/
+/*    -webkit-user-select: none;*/
+/*    -moz-user-select: none;*/
+/*    -ms-user-select: none;*/
+/*    user-select: none;*/
+/*}*/
+/*.tag-addon:last-child {*/
+/*    border-top-right-radius: 3px;*/
+/*    border-bottom-right-radius: 3px;*/
+/*}*/
+
+/*a.tag-addon {*/
+/*    text-decoration: none;*/
+/*    cursor: pointer;*/
+/*    transition: .3s color, .3s background;*/
+/*}*/
+/*a.tag-addon:hover {*/
+/*    background: rgba(0, 0, 0, 0.16);*/
+/*    color: inherit;*/
+/*}*/
+/*.tag-addon {*/
+/*    display: inline-block;*/
+/*    padding: 0 .5rem;*/
+/*    color: inherit;*/
+/*    text-decoration: none;*/
+/*    background: rgba(0, 0, 0, 0.06);*/
+/*    margin: 0 -.5rem 0 .5rem;*/
+/*    text-align: center;*/
+/*    min-width: 1.5rem;*/
+/*}*/
+
+/*.wrapper :where(.title, li, li i, .details) {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*}*/
+/*.custom-tooltip-content {*/
+/*    background-color: #546e7a;*/
+/*    border-radius: 3px;*/
+/*    box-shadow: 0 5px 10px #24323833;*/
+/*    color: #fff;*/
+/*    display: inline-block;*/
+/*    font-size: 14px;*/
+/*    left: 0;*/
+/*    line-height: 21px;*/
+/*    margin-top: 10px;*/
+/*    max-width: 100%;*/
+/*    padding: 20px;*/
+/*    !*position: absolute;*!*/
+/*    top: 100%;*/
+/*    white-space: normal;*/
+/*    width: auto;*/
+/*    z-index: 100;*/
+/*}*/
+
+/*.content p{*/
+/*    font-size: 15px;*/
+/*}*/
+/*.content ul{*/
+/*    display: flex;*/
+/*    flex-wrap: wrap;*/
+/*    padding: 7px;*/
+/*    margin: 12px 0;*/
+/*    border-radius: 5px;*/
+/*    border: 1px solid #a6a6a6;*/
+/*}*/
+/*.content ul  li{*/
+/*    color: #333;*/
+/*    margin: 4px 3px;*/
+/*    list-style: none;*/
+/*    border-radius: 5px;*/
+/*    background: #F2F2F2;*/
+/*    padding: 5px 8px 5px 10px;*/
+/*    border: 1px solid #e3e1e1;*/
+/*}*/
+/*.content ul li i{*/
+/*    height: 20px;*/
+/*    width: 20px;*/
+/*    color: #808080;*/
+/*    margin-left: 8px;*/
+/*    font-size: 12px;*/
+/*    cursor: pointer;*/
+/*    border-radius: 50%;*/
+/*    background: #dfdfdf;*/
+/*    justify-content: center;*/
+/*}*/
+/*.content ul li i:before {*/
+/*    display: block;*/
+/*    content: "\f057";*/
+/*}*/
+/*.content ul input{*/
+/*    flex: 1;*/
+/*    padding: 5px;*/
+/*    border: none;*/
+/*    outline: none;*/
+/*    font-size: 16px;*/
+/*}*/
+/*.wrapper .details{*/
+/*    justify-content: space-between;*/
+/*}*/
+/*.details button{*/
+/*    border: none;*/
+/*    outline: none;*/
+/*    color: #fff;*/
+/*    font-size: 14px;*/
+/*    cursor: pointer;*/
+/*    padding: 9px 15px;*/
+/*    border-radius: 5px;*/
+/*    background: #5372F0;*/
+/*    transition: background 0.3s ease;*/
+/*}*/
+/*.details button:hover{*/
+/*    background: #2c52ed;*/
+/*}*/
+

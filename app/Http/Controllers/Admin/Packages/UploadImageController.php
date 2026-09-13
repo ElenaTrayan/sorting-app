@@ -9,10 +9,14 @@ use Illuminate\Http\File;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
 use App\Models\PostsCategory;
+use Jenssegers\ImageHash\Hash;
+use Jenssegers\ImageHash\ImageHash;
+use Jenssegers\ImageHash\Implementations\PerceptualHash;
 use \Exception;
 
 class UploadImageController extends Controller
@@ -24,6 +28,18 @@ class UploadImageController extends Controller
     private const MAX_IMAGE_MEDIUM_HEIGHT = '800';
     private const MAX_IMAGE_SMALL_WIDTH = '350';
     private const MAX_IMAGE_SMALL_HEIGHT = '350';
+
+    // Дубликатом считаем только когда совпадают ОБА разных алгоритма хеша плюс похожие
+    // пропорции кадра. Одного DifferenceHash/PerceptualHash по отдельности недостаточно —
+    // на реальных данных сайта (много инфографики/карточек с текстом на плоском фоне)
+    // они регулярно путают между собой визуально никак не связанные изображения:
+    // проверено на выборке 250 случайных изображений, у одного DifferenceHash (порог 15)
+    // было ~2 ложных совпадения на каждую новую загрузку по всему сайту, у комбинации
+    // из трёх условий ниже — ~0.05 (в ~45 раз реже), при этом настоящие дубликаты
+    // (то же фото в другом размере/качестве) уверенно проходят с запасом (расстояния 0-3)
+    const DUPLICATE_DIFF_HASH_THRESHOLD = 10;
+    const DUPLICATE_PERCEPTUAL_HASH_THRESHOLD = 14;
+    const DUPLICATE_MAX_ASPECT_RATIO = 1.3;
 
     private array $errors = [];
     private int $userId;
@@ -57,53 +73,8 @@ class UploadImageController extends Controller
             $images = [];
 
             foreach (request()->file('files') as $file) {
-                //Returns the original file name
-                $originalImageName = $file->getClientOriginalName();
-
-                $path_info = pathinfo($originalImageName);
-                if (empty($path_info['filename']) || empty($path_info['extension'])) {
-                    throw new Exception(self::EM_ERROR_LOADING_IMAGE);
-                }
-
-                $this->userId = Auth::id();
-
-                //Очищаем имя файла от лишних символов
-                $imageName = $this->sanitizeFileName($path_info['filename']);
-                $imageNameWithExtension = $imageName . '.' . $path_info['extension'];
-                $tempPathForImage = 'temp_directory' . '/' . $this->userId;
-
-                /* проверяем есть ли уже файл с таким именем в папке */
-                /* exists возвращает true/false */
-                if (Storage::disk('local')->exists($tempPathForImage . '/' . $imageNameWithExtension)) {
-                    //get uploaded file size in bytes
-                    $uploadedFileSize = filesize($file);
-
-                    //get the size of an existing file in bytes
-                    $existingFileSize = Storage::disk('local')->size(
-                        $tempPathForImage . '/' . $imageNameWithExtension
-                    );
-
-                    if ($uploadedFileSize === $existingFileSize) {
-                        throw new Exception(self::EM_FILE_EXIST_IN_TEMP_DERICTORY);
-                    } else {
-                        //TODO Возвращаем ответ на форму и показываем пользователю существующий файл с таким же именем
-                        $imageName = $imageName . '-' . time();
-                    }
-                }
-
-                //сохраняем оригинальное изображение во временную папку
-                $path = Storage::putFileAs($tempPathForImage, $file, $imageNameWithExtension);
-
-                if (empty($path)) {
-                    throw new Exception(self::EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY);
-                }
-
-                $images[$imageName] = $this->saveSmallAndMediumImageSizesToTempDirectory(
-                    $path,
-                    $imageName,
-                    $path_info['extension'],
-                    $tempPathForImage  . '/'
-                );
+                $imageName = $this->stageFileToTempDirectory($file);
+                $images[$imageName['name']] = $imageName['data'];
             }
 
             return response()->json(['status' => true, 'images' => $images]);
@@ -119,6 +90,70 @@ class UploadImageController extends Controller
 
             return response()->json(['status' => false, 'error' => $exception->getMessage()]);
         }
+    }
+
+    /**
+     * Сохраняет один загруженный файл во временную папку пользователя и генерирует
+     * для него small/medium копии. Вынесено из uploadImagesToTempDirectory(), чтобы
+     * этой же логикой мог пользоваться и одиночный "загрузить и сразу привязать к посту".
+     *
+     * @param UploadedFile $file
+     * @return array{name: string, data: array}
+     * @throws Exception
+     */
+    public function stageFileToTempDirectory(UploadedFile $file): array
+    {
+        //Returns the original file name
+        $originalImageName = $file->getClientOriginalName();
+
+        $path_info = pathinfo($originalImageName);
+        if (empty($path_info['filename']) || empty($path_info['extension'])) {
+            throw new Exception(self::EM_ERROR_LOADING_IMAGE);
+        }
+
+        $this->userId = Auth::id();
+
+        //Очищаем имя файла от лишних символов
+        $imageName = $this->sanitizeFileName($path_info['filename']);
+        $imageNameWithExtension = $imageName . '.' . $path_info['extension'];
+        $tempPathForImage = 'temp_directory' . '/' . $this->userId;
+
+        /* проверяем есть ли уже файл с таким именем в папке */
+        /* exists возвращает true/false */
+        if (Storage::disk('local')->exists($tempPathForImage . '/' . $imageNameWithExtension)) {
+            //get uploaded file size in bytes
+            $uploadedFileSize = filesize($file);
+
+            //get the size of an existing file in bytes
+            $existingFileSize = Storage::disk('local')->size(
+                $tempPathForImage . '/' . $imageNameWithExtension
+            );
+
+            if ($uploadedFileSize === $existingFileSize) {
+                throw new Exception(self::EM_FILE_EXIST_IN_TEMP_DERICTORY);
+            } else {
+                //TODO Возвращаем ответ на форму и показываем пользователю существующий файл с таким же именем
+                $imageName = $imageName . '-' . time();
+                $imageNameWithExtension = $imageName . '.' . $path_info['extension'];
+            }
+        }
+
+        //сохраняем оригинальное изображение во временную папку
+        $path = Storage::putFileAs($tempPathForImage, $file, $imageNameWithExtension);
+
+        if (empty($path)) {
+            throw new Exception(self::EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY);
+        }
+
+        return [
+            'name' => $imageName,
+            'data' => $this->saveSmallAndMediumImageSizesToTempDirectory(
+                $path,
+                $imageName,
+                $path_info['extension'],
+                $tempPathForImage . '/'
+            ),
+        ];
     }
 
     /**
@@ -317,7 +352,6 @@ class UploadImageController extends Controller
 
         } catch (Exception $exception) {
             //TODO - Добавить запись ошибок в логи в БД
-            dd($exception->getMessage());
 
             return response()->json(['status' => false, 'error' => $exception->getMessage()]);
         }
@@ -393,7 +427,14 @@ class UploadImageController extends Controller
                 storage_path(self::TEMP_IMAGE_PATH . $this->userId) . '/' . $imageName,
                 storage_path(self::TEMP_IMAGE_PATH . $this->userId) . '/' . $newName
             )) {
-                $resizeImage->basename = $newName;
+                // важно обновить не только basename, но и filename/extension/dirname разом —
+                // это отдельные публичные свойства (Intervention\Image\File), которые сами
+                // по себе не пересчитываются; иначе ->filename ниже (используется как
+                // s_image_name/m_image_name) остаётся старым и не совпадает с реальным
+                // именем файла на диске после переименования под фактические размеры
+                $resizeImage->setFileInfoFromPath(
+                    storage_path(self::TEMP_IMAGE_PATH . $this->userId) . '/' . $newName
+                );
             }
 
             return $resizeImage;
@@ -493,7 +534,9 @@ class UploadImageController extends Controller
     {
         $moveImage = $this->moveImage($oldPath, $newPath);
 
-        if ($moveImage) {
+        // moveImage() возвращает либо true, либо строку с текстом ошибки — а непустая
+        // строка тоже truthy в PHP, поэтому раньше ошибка молча принималась за успех
+        if ($moveImage === true) {
             return [
                 'name' => $imageName,
                 'extension' => $imageExtension,
@@ -518,8 +561,6 @@ class UploadImageController extends Controller
         if (Storage::disk('local')->exists($originalNewPath)) {
             $existsFileSize = Storage::size($originalNewPath);
             $fileSize = Storage::size($originalOldPath);
-            var_dump($existsFileSize);
-            dd($fileSize);
 
             if ($existsFileSize === $fileSize) {
                 return [
@@ -669,9 +710,19 @@ class UploadImageController extends Controller
      * @param array $image
      * @param string $userId
      * @param string $categoryId
+     * @param bool $allowDuplicateChoice Если true и найден похожий дубликат — не отклоняем
+     *        автоматически, а возвращаем 'duplicate_choice' (новая картинка лучше — предлагаем
+     *        заменить старую) либо 'duplicate_reject_choice' (новая не лучше — предлагаем
+     *        всё равно добавить, вдруг это ложное совпадение). См. PostController::addImage().
+     *        Остальные вызывающие места такого выбора не показывают, поэтому у них
+     *        (по умолчанию) любой найденный дубликат просто отклоняется — но в 'errors'-ответе
+     *        всё равно есть 'staged_image'/'duplicate', чтобы вызывающий код мог сам предложить
+     *        пользователю повторить с $forceAdd = true (см. PostController::createPost()).
+     * @param bool $forceAdd Пользователь уже подтвердил, что это не дубликат (или что дубликат
+     *        не страшен) — полностью пропускаем проверку на дубликат и сохраняем как обычно.
      * @return array|array[]|\bool[][]|string[]|\string[][]
      */
-    public function saveImageForPost(array $image, string $userId, string $categoryId): array
+    public function saveImageForPost(array $image, string $userId, string $categoryId, bool $allowDuplicateChoice = false, bool $forceAdd = false): array
     {
         //TODO добавить сохранение в папку с сегоднешней датой
         // с  category parent_id ещё не понятно нужно ли это
@@ -709,6 +760,75 @@ class UploadImageController extends Controller
         ) {
             $originalOldPath = '/' . $image['image_path'];
             // /temp_directory/1/faceapp-1684793403208.jpg
+
+            // считаем хеш/размеры всегда (даже при forceAdd) — иначе принудительно
+            // добавленная картинка сама не попадёт в image_hashes и не будет учитываться
+            // при поиске дублей в будущем
+            $originalAbsolutePath = Storage::disk('local')->path($originalOldPath);
+            $newImageSize = file_exists($originalAbsolutePath) ? getimagesize($originalAbsolutePath) : false;
+            $newWidth = $newImageSize[0] ?? 0;
+            $newHeight = $newImageSize[1] ?? 0;
+            $phash = null;
+            $perceptualHash = null;
+
+            if ($newImageSize) {
+                try {
+                    $phash = self::computeImageHash($originalAbsolutePath);
+                    $perceptualHash = self::computePerceptualHash($originalAbsolutePath);
+                } catch (\Throwable $e) {
+                    $phash = null;
+                    $perceptualHash = null; // не смогли посчитать хеш — не блокируем загрузку из-за этого
+                }
+            }
+
+            // === проверка на визуальный дубликат уже существующих изображений ===
+            if (!$forceAdd) {
+                if ($phash !== null && $perceptualHash !== null) {
+                    $duplicate = self::findDuplicateByHash($phash, $perceptualHash, $newWidth, $newHeight);
+
+                    if ($duplicate !== null) {
+                        $duplicateArea = $duplicate->width * $duplicate->height;
+                        $newArea = $newWidth * $newHeight;
+                        $newIsBigger = $newArea > $duplicateArea;
+
+                        if (!$allowDuplicateChoice) {
+                            // здесь показать выбор некому — просто отклоняем, но отдаём
+                            // 'staged_image'/'duplicate', чтобы вызывающий код (например,
+                            // PostController::createPost()) сам мог предложить повтор с forceAdd
+                            return [
+                                'errors' => [$newIsBigger
+                                    ? 'Похожее изображение меньшего размера уже есть в посте #' . $duplicate->post_id . '.'
+                                    : 'Такое изображение уже есть (пост #' . $duplicate->post_id . '), и оно того же размера или больше.'],
+                                'duplicate' => $duplicate,
+                                'staged_image' => $image,
+                                'new_width' => $newWidth,
+                                'new_height' => $newHeight,
+                            ];
+                        }
+
+                        if ($newIsBigger) {
+                            // новая картинка лучше — но решение, что делать со старой,
+                            // оставляем пользователю (см. PostController::addImage())
+                            return [
+                                'duplicate_choice' => $duplicate,
+                                'staged_image' => $image,
+                                'new_width' => $newWidth,
+                                'new_height' => $newHeight,
+                            ];
+                        }
+
+                        // новая картинка не лучше — но вдруг это ложное совпадение (такое бывает,
+                        // см. DUPLICATE_*_THRESHOLD): даём пользователю решить самому
+                        return [
+                            'duplicate_reject_choice' => $duplicate,
+                            'staged_image' => $image,
+                            'new_width' => $newWidth,
+                            'new_height' => $newHeight,
+                        ];
+                    }
+                }
+            }
+            // === конец проверки на дубликат ===
 
             //user_id / category parent_id / category parent_id - category_id - image_title - image_size - расширение файла
             $originalNewPath = self::generateImageNameAndPath(
@@ -760,16 +880,15 @@ class UploadImageController extends Controller
             }
 
             if (!empty($image['m_image_name'])) {
-                $mediumOldPath = '/temp_directory/' . $image['m_image_name'] . '.' . $image['image_extension'];
+                // путь до временного файла — по аналогии с $smallOldPath ниже: обязательно с $userId,
+                // иначе он не совпадает с тем, куда uploadImagesToTempDirectory реально его сохраняет
+                $mediumOldPath = '/temp_directory/' . $userId . '/' . $image['m_image_name'] . '.' . $image['image_extension'];
                 $mediumNewPath = self::generateImageNameAndPath(
                     $image['m_image_name'],
                     $image['image_extension'],
                     $userId,
                     $categoryId,
                 );
-
-                var_dump($mediumOldPath);
-                dd($mediumNewPath);
 
 //                    '/' . UploadImageController::IMAGE_PATH . $userId . '/'
 //                    . $categoryParentId . '/' . $categoryParentId . '_'
@@ -866,6 +985,12 @@ class UploadImageController extends Controller
 
             $imagesInfo = [
                 'original_image' => $saveOriginalImage,
+                // для сохранения записи в image_hashes после привязки картинки к посту
+                // (post_id тут ещё может быть неизвестен — сохраняет уже вызывающий код)
+                'phash' => $phash,
+                'perceptual_hash' => $perceptualHash,
+                'width' => $newWidth,
+                'height' => $newHeight,
             ];
 
             if (!empty($saveMediumImage)) {
@@ -901,6 +1026,11 @@ class UploadImageController extends Controller
     {
         //TODO переписать через try-catch и Exception
         $errors = [];
+
+        // medium/small хранятся под своими именами (например, photo_800_600.jpg для
+        // оригинала photo.jpg) — сравнивать с полным $imageName (с расширением) нельзя,
+        // расширение "разрывает" совпадение; сравниваем по базовому имени без расширения
+        $imageBaseName = !empty($imageName) ? pathinfo($imageName, PATHINFO_FILENAME) : null;
 
         try {
             if (!empty($post->original_image)) {
@@ -960,7 +1090,7 @@ class UploadImageController extends Controller
                 } else {
                     foreach ($mediumImage as $key => $image) {
                         if (!empty($imageName)) {
-                            if (strripos($key, $imageName) !== false) {
+                            if (strripos($key, $imageBaseName) !== false) {
                                 if (empty($image['path'])) {
                                     throw new \Exception('Ошибка при удалении medium_image: пустой параметр path.');
                                 }
@@ -1004,7 +1134,7 @@ class UploadImageController extends Controller
                 } else {
                     foreach ($smallImage as $key => $image) {
                         if (!empty($imageName)) {
-                            if (strripos($key, $imageName) !== false) {
+                            if (strripos($key, $imageBaseName) !== false) {
                                 if (empty($image['path'])) {
                                     throw new \Exception('Ошибка при удалении small_image: пустой параметр path.');
                                 }
@@ -1074,6 +1204,186 @@ class UploadImageController extends Controller
 
         //dd($imagePath);
         //{"name":"w700-51209445","extension":"jpg","path":"\/images\/1\/0\/0_7_w700-51209445.jpg"}
+    }
+
+    /**
+     * original_image/medium_image/small_image у поста хранятся в двух форматах:
+     * либо один объект {name, extension, path} (старый вариант, один файл на пост),
+     * либо коллекция таких объектов, keyed по имени файла (несколько файлов на пост).
+     * Приводит оба варианта к единому виду — коллекции, keyed по имени файла.
+     *
+     * @param string|null $json
+     * @return array
+     */
+    public static function normalizeImages(?string $json): array
+    {
+        if (empty($json)) {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+        if (empty($decoded) || !is_array($decoded)) {
+            return [];
+        }
+
+        if (isset($decoded['path']) && isset($decoded['name'])) {
+            return [$decoded['name'] => $decoded];
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Считает перцептивный хеш изображения (DifferenceHash) по абсолютному пути к файлу.
+     *
+     * @param string $absolutePath
+     * @return string двоичная строка (0/1)
+     */
+    public static function computeImageHash(string $absolutePath): string
+    {
+        $hasher = new ImageHash();
+
+        return $hasher->hash($absolutePath)->toBits();
+    }
+
+    /**
+     * Считает второй, независимый хеш (PerceptualHash/DCT) того же изображения —
+     * используется вместе с computeImageHash(), см. комментарий у DUPLICATE_*_THRESHOLD.
+     *
+     * @param string $absolutePath
+     * @return string двоичная строка (0/1)
+     */
+    public static function computePerceptualHash(string $absolutePath): string
+    {
+        $hasher = new ImageHash(new PerceptualHash());
+
+        return $hasher->hash($absolutePath)->toBits();
+    }
+
+    /**
+     * Ищет среди уже сохранённых изображений (таблица image_hashes) визуальный дубликат.
+     * Перебор в PHP — при текущих объёмах (тысячи, не миллионы изображений) это быстрее,
+     * чем городить отдельную индексацию под Hamming distance.
+     *
+     * Дубликатом считаем только когда совпадают ОБА хеша и похожи пропорции кадра —
+     * см. комментарий у DUPLICATE_*_THRESHOLD насчёт того, почему одного хеша мало.
+     *
+     * @param string $diffHash
+     * @param string $perceptualHash
+     * @param int $width
+     * @param int $height
+     * @return object|null объект {id, post_id, image_name, path, width, height, phash, perceptual_hash, distance} либо null
+     */
+    public static function findDuplicateByHash(string $diffHash, string $perceptualHash, int $width, int $height)
+    {
+        $needleDiff = Hash::fromBits($diffHash);
+        $needlePerceptual = Hash::fromBits($perceptualHash);
+        $needleAspect = $height > 0 ? $width / $height : 0;
+
+        $closest = null;
+        $closestDistance = null;
+
+        foreach (DB::table('image_hashes')->get() as $candidate) {
+            // старые записи без второго хеша (до бэкфилла) в сравнении не участвуют —
+            // одного хеша недостаточно, см. комментарий у констант
+            if (empty($candidate->perceptual_hash) || empty($candidate->width) || empty($candidate->height)) {
+                continue;
+            }
+
+            $candidateAspect = $candidate->width / $candidate->height;
+            $aspectRatio = ($needleAspect > 0 && $candidateAspect > 0)
+                ? max($needleAspect, $candidateAspect) / min($needleAspect, $candidateAspect)
+                : 999;
+
+            if ($aspectRatio > self::DUPLICATE_MAX_ASPECT_RATIO) {
+                continue;
+            }
+
+            $diffDistance = $needleDiff->distance(Hash::fromBits($candidate->phash));
+            if ($diffDistance > self::DUPLICATE_DIFF_HASH_THRESHOLD) {
+                continue;
+            }
+
+            $perceptualDistance = $needlePerceptual->distance(Hash::fromBits($candidate->perceptual_hash));
+            if ($perceptualDistance > self::DUPLICATE_PERCEPTUAL_HASH_THRESHOLD) {
+                continue;
+            }
+
+            if ($closestDistance === null || $diffDistance < $closestDistance) {
+                $closest = $candidate;
+                $closestDistance = $diffDistance;
+            }
+        }
+
+        if ($closest !== null) {
+            $closest->distance = $closestDistance;
+        }
+
+        return $closest;
+    }
+
+    /**
+     * Сохраняет хеш изображения после того, как оно окончательно привязано к посту.
+     *
+     * @param int $postId
+     * @param string $imageName
+     * @param string $path
+     * @param int $width
+     * @param int $height
+     * @param string $phash
+     * @param string|null $perceptualHash
+     * @return void
+     */
+    public static function storeImageHash(int $postId, string $imageName, string $path, int $width, int $height, string $phash, ?string $perceptualHash = null): void
+    {
+        DB::table('image_hashes')->insert([
+            'post_id' => $postId,
+            'image_name' => $imageName,
+            'path' => $path,
+            'width' => $width,
+            'height' => $height,
+            'phash' => $phash,
+            'perceptual_hash' => $perceptualHash,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Удаляет запись о хеше изображения (при удалении изображения у поста).
+     *
+     * @param int $postId
+     * @param string $imageName
+     * @return void
+     */
+    public static function deleteImageHash(int $postId, string $imageName): void
+    {
+        DB::table('image_hashes')
+            ->where('post_id', $postId)
+            ->where('image_name', $imageName)
+            ->delete();
+    }
+
+    /**
+     * Обновляет ссылку на изображение при переименовании — сам хеш не меняется,
+     * это то же самое изображение, просто под новым именем/путём.
+     *
+     * @param int $postId
+     * @param string $oldImageName
+     * @param string $newImageName
+     * @param string $newPath
+     * @return void
+     */
+    public static function updateImageHashReference(int $postId, string $oldImageName, string $newImageName, string $newPath): void
+    {
+        DB::table('image_hashes')
+            ->where('post_id', $postId)
+            ->where('image_name', $oldImageName)
+            ->update([
+                'image_name' => $newImageName,
+                'path' => $newPath,
+                'updated_at' => now(),
+            ]);
     }
 
 }

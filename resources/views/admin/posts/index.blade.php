@@ -12,8 +12,8 @@
                 </div><!-- /.col -->
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active">Dashboard v1</li>
+                        <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+                        <li class="breadcrumb-item active">Все посты</li>
                     </ol>
                 </div><!-- /.col -->
             </div><!-- /.row -->
@@ -42,7 +42,12 @@
                 @include('admin.includes.modal_delete_item')
 
                 <div class="card-header" style="display: flex; justify-content: end;">
-                    <a href="{{ route('media-parser') }}" class="btn btn-outline-info" style="width: 200px;">Импорт изображений</a>
+                    @if (!empty($withoutHashtags))
+                        <a href="{{ route('posts.index') }}" class="btn btn-outline-secondary" style="width: 200px;">Сбросить фильтр</a>
+                    @else
+                        <a href="{{ route('posts.index', ['without_hashtags' => 1]) }}" class="btn btn-outline-info" style="width: 200px;">Посты без хештегов</a>
+                    @endif
+                    <button type="button" id="js-export-images-btn" class="btn btn-outline-info" style="width: 200px;" data-action="{{ route('search.export-images-by-hashtags') }}">Экспорт изображений</button>
                     <a href="{{ route('posts.create') }}" class="btn btn-block btn-outline-info" style="width: 160px;">Добавить пост</a>
                 </div>
 
@@ -77,68 +82,6 @@
 {{--            </form>--}}
 
                 <div class="b-list-of-posts">
-
-                    <div class="b-search-and-hashtags"><!-- section with search and hashtags -->
-                        <div class="input-field">
-                            <input id="search-term" type="text" class="validate">
-                            <label for="search-term">Поиск</label>
-                        </div>
-
-                        <div class="input-field">
-                            <input id="include-tag-input" type="text" class="validate">
-                            <label for="include-tag-input">Включить хештег</label>
-                            <a id="add-include-tag" class="btn-floating btn-small waves-effect waves-light blue"><i class="material-icons">add</i></a>
-                        </div>
-                        <div id="include-tags" class="tags-container"></div>
-
-                        <div class="input-field">
-                            <input id="exclude-tag-input" type="text" class="validate">
-                            <label for="exclude-tag-input">Исключить хештег</label>
-                            <a id="add-exclude-tag" class="btn-floating btn-small waves-effect waves-light red"><i class="material-icons">add</i></a>
-                        </div>
-                        <div id="exclude-tags" class="tags-container"></div>
-
-                        <a id="search-btn" class="btn waves-effect waves-light blue">Поиск</a>
-
-                        <ul id="tags" class="tags">
-                            <li data-id="505">#Armani<i class="js-delete-image fas fa-times-circle"></i></li>
-                        </ul>
-                    </div><!-- /.b-search-and-hashtags -->
-
-
-                    <div class="tags">
-                        <span class="tag">#тест</span>
-                        <span class="tag">#модельныйтест<a href="#" class="tag-addon" onclick="removeTag('модельныйтест'); return false;">X</a></span>
-                        <span class="tag">#modelagency<a href="#" class="tag-addon" onclick="removeTag('modelagency'); return false;">X</a></span>
-                        <span class="tag">#beauty<a href="#" class="tag-addon" onclick="removeTag('beauty'); return false;">X</a></span>
-                        <span class="tag">#modeltest<a href="#" class="tag-addon" onclick="removeTag('modeltest'); return false;">X</a></span>
-                        <span class="tag">#like<a href="#" class="tag-addon" onclick="removeTag('like'); return false;">X</a></span>
-                        <span class="tag">#dnepr<a href="#" class="tag-addon" onclick="removeTag('dnepr'); return false;">X</a></span>
-                        <span class="tag">#красота<a href="#" class="tag-addon" onclick="removeTag('красота'); return false;">X</a></span>
-                        <span class="tag">#2amodels<a href="#" class="tag-addon" onclick="removeTag('2amodels'); return false;">X</a></span>
-                        <span class="tag">#интересное<a href="#" class="tag-addon" onclick="removeTag('интересное'); return false;">X</a></span>
-                        <span class="tag">#style<a href="#" class="tag-addon" onclick="removeTag('style'); return false;">X</a></span>
-                        <span class="tag">#photo<a href="#" class="tag-addon" onclick="removeTag('photo'); return false;">X</a></span>
-                        <span class="tag">#modelscout<a href="#" class="tag-addon" onclick="removeTag('modelscout'); return false;">X</a></span>
-                        <span class="tag">#followme<a href="#" class="tag-addon" onclick="removeTag('followme'); return false;">X</a></span>
-                        <span class="tag">#blackandwhite<a href="#" class="tag-addon" onclick="removeTag('blackandwhite'); return false;">X</a></span>
-                        <span class="tag">#статьмоделью<a href="#" class="tag-addon" onclick="removeTag('статьмоделью'); return false;">X</a></span>
-                        <span class="tag">#модельноеагентство<a href="#" class="tag-addon" onclick="removeTag('модельноеагентство'); return false;">X</a></span>
-                        <span class="tag">#ukraine<a href="#" class="tag-addon" onclick="removeTag('ukraine'); return false;">X</a></span>
-                        <span class="tag">#portrait<a href="#" class="tag-addon" onclick="removeTag('portrait'); return false;">X</a></span>
-                        <span class="tag">#natural<a href="#" class="tag-addon" onclick="removeTag('natural'); return false;">X</a></span>
-                        <span class="tag">#modeljob<a href="#" class="tag-addon" onclick="removeTag('modeljob'); return false;">X</a></span>
-                        <span class="tag">#model<a href="#" class="tag-addon" onclick="removeTag('model'); return false;">X</a></span>
-                        <span class="tag">#dnipro<a href="#" class="tag-addon" onclick="removeTag('dnipro'); return false;">X</a></span>
-                        <span class="tag">#опрос<a href="#" class="tag-addon" onclick="removeTag('опрос'); return false;">X</a></span>
-                        <span class="tag">#обучениебесплатно<a href="#" class="tag-addon" onclick="removeTag('обучениебесплатно'); return false;">X</a></span>
-                        <span class="tag">#моделинг<a href="#" class="tag-addon" onclick="removeTag('моделинг'); return false;">X</a></span>
-                        <span class="tag">#test<a href="#" class="tag-addon" onclick="removeTag('test'); return false;">X</a></span>
-                        <span class="tag">#photographer<a href="#" class="tag-addon" onclick="removeTag('photographer'); return false;">X</a></span>
-                        <span class="tag">#modelagent<a href="#" class="tag-addon" onclick="removeTag('modelagent'); return false;">X</a></span>
-                        <span class="tag">#моделькиев<a href="#" class="tag-addon" onclick="removeTag('моделькиев'); return false;">X</a></span>
-                    </div>
-
 
                     <div class="modal fade" id="modal-add-hashtag" tabindex="-1" role="dialog" aria-labelledby="modalAddHashtagLabel"
                          aria-hidden="true">
@@ -175,16 +118,37 @@
 
                     </div><!-- /.b-search-and-hashtags -->
 
+                    <div class="modal fade" id="modal-export-images" tabindex="-1" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Экспорт изображений</h5>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Будет создан zip-архив с изображениями из текущих результатов поиска по хештегам.</p>
+                                    <label for="export-images-filename">Имя архива</label>
+                                    <input type="text" id="export-images-filename" class="form-control" maxlength="150">
+                                    <div class="js-export-images__suggestions mt-2"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary js-export-images__confirm">Скачать</button>
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="b-cards">
-                        <div class="grid">
+                        <div class="grid are-images-unloaded">
                             @include('admin.posts.parts.post_items')
                         </div>
                     </div><!-- /.b-cards -->
 
                     <div class="posts-pagination">
 {{--                        <a id="load-more" href="">Показать ещё</a>--}}
-                        <div class="ajax-load text-center" style="display:none">
-                            <p><img src="/images/loading-slow-internet.gif">Loading More post</p>
+                        <div class="ajax-load" style="display:none">
+                            <span class="ajax-load__spinner"></span>
+                            <span class="ajax-load__text">Загрузка постов…</span>
                         </div>
                         <div class="page-load-status">
                             <div class="loader-ellips infinite-scroll-request">

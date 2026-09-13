@@ -11,21 +11,43 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class HashtagController extends Controller
 {
     /**
      * Display a listing of the resource.
      *
+     * @param Request $request
      * @return ApplicationAlias|FactoryAlias|View
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
 
         $hashtags = Hashtag::where('user_id', $user->id)->orderBy('title', 'asc')->get();
 
-        return view('admin.hashtags.index', ['hashtags' => $hashtags]);
+        // группируем по первой букве названия (регистронезависимо);
+        // т.к. $hashtags уже отсортирован по title, порядок букв внутри группировки
+        // остаётся алфавитным сам по себе
+        $groupedHashtags = $hashtags->groupBy(function ($hashtag) {
+            $firstChar = mb_substr(trim($hashtag->title), 0, 1);
+            return mb_strtoupper($firstChar, 'UTF-8');
+        });
+
+        $viewData = [
+            'hashtags' => $hashtags,
+            'groupedHashtags' => $groupedHashtags,
+        ];
+
+        // при AJAX-запросе отдаём только тело списка — так после удаления
+        // хештега можно перезапросить и обновить блок целиком (пропадут
+        // опустевшие буквы, обновится счётчик), не перезагружая страницу
+        if ($request->ajax()) {
+            return view('admin.hashtags.parts.hashtags_list', $viewData);
+        }
+
+        return view('admin.hashtags.index', $viewData);
     }
 
     /**
@@ -74,6 +96,14 @@ class HashtagController extends Controller
         $newHashtagSave = $newHashtag->save();
 
         if ($newHashtagSave === true) {
+            // связанные хештеги, выбранные прямо на форме создания — привязываем сразу,
+            // одним действием вместе с созданием самого хештега
+            if (!empty($request->related_hashtag_ids) && is_array($request->related_hashtag_ids)) {
+                foreach ($request->related_hashtag_ids as $relatedHashtagId) {
+                    $newHashtag->attachRelated((int)$relatedHashtagId);
+                }
+            }
+
             //return redirect()->route('hashtags.index')->withSuccess('Хештег был успешно создан');
             return response()->json(['status' => true,
                 'message' => 'Хештег был успешно добавлен',
@@ -129,19 +159,12 @@ class HashtagController extends Controller
             ])
             ->get();
 
-        if (!empty($hashtag->associated_hashtags)) {
-            $associatedHashtags = explode(',', $hashtag->associated_hashtags);
-
-            $associated_hashtags = Hashtag::where('user_id', $user->id)
-                ->whereIn('id', $associatedHashtags)
-                ->orderBy('title', 'asc')
-                ->get();
-        }
+        $relatedHashtags = $hashtag->relatedHashtags()->orderBy('title', 'asc')->get();
 
         return view('admin.hashtags.edit', [
             'hashtag' => $hashtag,
             'hashtags' => $hashtags,
-            'associated_hashtags' => $associated_hashtags ?? [],
+            'relatedHashtags' => $relatedHashtags,
         ]);
     }
 
@@ -156,7 +179,6 @@ class HashtagController extends Controller
     {
         $hashtag->title = $request->title;
         $hashtag->parent_id = $request->parent_id == '-' ? 0 : $request->parent_id;
-        //$hashtag->associated_hashtags = $request->associated_hashtags;
         $hashtagSave = $hashtag->save();
 
         if ($hashtagSave === true) {
@@ -174,6 +196,12 @@ class HashtagController extends Controller
      */
     public function destroy($id)
     {
+        // чистим связи "связанные хештеги" в обе стороны — FK-каскада на этой таблице нет
+        DB::table('hashtag_relations')
+            ->where('hashtag_id', $id)
+            ->orWhere('related_hashtag_id', $id)
+            ->delete();
+
         $post = Hashtag::where('id', $id)->delete();
         if ($post === 1) {
             return response()->json([
@@ -186,5 +214,84 @@ class HashtagController extends Controller
             'status' => false,
             'error' => 'Ошибка при удалении хештега',
         ]);
+    }
+
+    /**
+     * Добавить связанный хэштег (записывается симметрично, в обе стороны).
+     *
+     * @param Request $request
+     * @param Hashtag $hashtag
+     * @return JsonResponse
+     */
+    public function attachRelated(Request $request, Hashtag $hashtag)
+    {
+        $relatedHashtagId = (int)$request->input('related_hashtag_id');
+
+        $relatedHashtag = Hashtag::where('user_id', $hashtag->user_id)
+            ->where('id', $relatedHashtagId)
+            ->first();
+
+        if (empty($relatedHashtag) || $relatedHashtag->id === $hashtag->id) {
+            return response()->json(['status' => false, 'message' => 'Хештег не найден']);
+        }
+
+        $hashtag->attachRelated($relatedHashtag->id);
+
+        return response()->json([
+            'status' => true,
+            'hashtag' => [
+                'id' => $relatedHashtag->id,
+                'title' => $relatedHashtag->title,
+            ],
+        ]);
+    }
+
+    /**
+     * Убрать связанный хэштег (удаляется симметрично, в обе стороны).
+     *
+     * @param Hashtag $hashtag
+     * @param Hashtag $relatedHashtag
+     * @return JsonResponse
+     */
+    public function detachRelated(Hashtag $hashtag, Hashtag $relatedHashtag)
+    {
+        $hashtag->detachRelated($relatedHashtag->id);
+
+        return response()->json(['status' => true]);
+    }
+
+    /**
+     * Связанные хэштеги для набора выбранных хэштегов (используется в блоке
+     * "Связанные" при поиске постов по хэштегам — показывает объединение
+     * связанных хэштегов всех хэштегов, выбранных в данный момент).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function relatedFor(Request $request)
+    {
+        $user = auth()->user();
+
+        $selectedIds = array_keys($request->hashtags ?? []);
+
+        if (empty($selectedIds)) {
+            return response()->json(['status' => true, 'hashtags' => []]);
+        }
+
+        // связи в hashtag_relations хранятся симметрично (см. Hashtag::attachRelated()) —
+        // для каждой пары A↔B есть обе строки (A,B) и (B,A), поэтому достаточно
+        // одного whereIn по hashtag_id, чтобы получить связанные в любом направлении
+        $relatedIds = DB::table('hashtag_relations')
+            ->whereIn('hashtag_id', $selectedIds)
+            ->pluck('related_hashtag_id')
+            ->unique();
+
+        $related = Hashtag::where('user_id', $user->id)
+            ->whereIn('id', $relatedIds)
+            ->whereNotIn('id', $selectedIds)
+            ->orderBy('title', 'asc')
+            ->get(['id', 'title']);
+
+        return response()->json(['status' => true, 'hashtags' => $related]);
     }
 }

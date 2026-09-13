@@ -12,8 +12,9 @@
             </div><!-- /.col -->
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
-                    <li class="breadcrumb-item"><a href="#">Home</a></li>
-                    <li class="breadcrumb-item active">Dashboard v1</li>
+                    <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('hashtags.index') }}">Все хештеги</a></li>
+                    <li class="breadcrumb-item active">Добавить хештег</li>
                 </ol>
             </div><!-- /.col -->
         </div><!-- /.row -->
@@ -44,6 +45,19 @@
                                     <option value="{{ $hashtag->id }}">{{ $hashtag->title }}</option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="related-hashtags-input">Связанные хэштеги</label>
+                            <div class="b-hashtags-edit__related-field js-hashtag-related-picker"
+                                 data-search-action="{{ route('search.hashtag') }}">
+                                <div class="b-tags">
+                                    <div class="b-tags__container" id="related-hashtags-container"></div>
+                                    <input type="text" class="b-tags__input" id="related-hashtags-input" placeholder="Введите название хештега...">
+                                </div>
+                                <ul class="b-tags__dropdown" id="related-hashtags-dropdown"></ul>
+                            </div>
+                            <small class="form-text text-muted">Связь двусторонняя — добавленный хештег тоже будет ссылаться на этот. Сохранится вместе с хештегом по кнопке «Добавить».</small>
                         </div>
                     </div>
                     <div class="card-body-block">

@@ -12,8 +12,9 @@
             </div><!-- /.col -->
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
-                    <li class="breadcrumb-item"><a href="#">Home</a></li>
-                    <li class="breadcrumb-item active">Dashboard v1</li>
+                    <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('posts.index') }}">Все посты</a></li>
+                    <li class="breadcrumb-item active">Редактировать пост</li>
                 </ol>
             </div><!-- /.col -->
         </div><!-- /.row -->
@@ -43,6 +44,7 @@
                         <div class="form-group">
                             <label for="category_id">Выберете категорию</label>
                             <select class="form-control" name="category_id" id="category_id">
+                                <option value="" {{ empty($post->category_id) ? 'selected' : '' }}>-</option>
                                 @foreach($categories as $category)
 
                                     <option style="font-weight: 600;" value="{{ $category->id }}" {{ $post->category_id === $category->id ? 'selected' : '' }}>{{ $category->title }}</option>
@@ -72,100 +74,108 @@
     {{--                            <li>--}}
                                 @if (!empty($post->hashtags))
                                     @foreach($post->hashtags as $hashtag)
-                                        <span class="tag" data-id="{{ $hashtag->id }}" data-name="{{ $hashtag->title }}">#{{ $hashtag->title }}<span class="icon font-icon fas close"></span></span>
+                                        <span class="tag" data-id="{{ $hashtag->id }}" data-name="{{ $hashtag->title }}">#{{ $hashtag->title }}<span class="icon font-icon fas close"></span></span>
                                     @endforeach
                                 @endif
     {{--                            </li>--}}
                             </ul>
                         </div>
 
-                        @if (!empty($originalImage))
-                            @if (isset($originalImage['path']))
-                                <div class="form-group">
-                                    <label for="image-name">Изменить имя файла</label>
-                                    <input type="text" class="form-control" name="image-name" id="image-name" value="{{ $originalImage['name'] ?? '' }}" placeholder="Введите имя для файла" required>
-                                    <p>{{ $originalImage['name'] ?? '' . '.' . $originalImage['extension'] ?? '' }}</p>
-                                    <p>{{ $mediumImage['name'] ?? '' }}</p>
-                                    <p>{{ $smallImage['name'] ?? '' }}</p>
-                                </div>
-                            @else
-                                @foreach($originalImage as $image)
-                                    <div class="form-group">
-                                        <label for="image-name">Изменить имя файла</label>
-                                        <input type="text" class="form-control" name="image-name" id="image-name"
-                                               value="{{ $image['name'] ?? '' }}"
-                                               placeholder="Введите имя для файла" required>
-                                        <p>{{ $image['name'] ?? '' . '.' . $image['extension'] ?? '' }}</p>
-{{--                                        <p>{{ $mediumImage['name'] ?? '' }}</p>--}}
-{{--                                        <p>{{ $smallImage['name'] ?? '' }}</p>--}}
-                                    </div>
-                                @endforeach
-                            @endif
-                        @endif
-
                     </div>
 
                     <div class="card-body-block">
 
-                        <div class="upload-image-section">
-                            <section class="js-upload-image-section" data-action="{{ route('image.upload-to-temp-directory') }}">
-                                <div class="js-images images">
-                                    @if (!empty($originalImage))
-                                        @foreach($originalImage as $image)
-                                            <div class="image saved"
-                                                 data-name="{{ $image['name'] }}"
-                                                 data-extension="{{ $image['extension'] }}"
-                                                 data-path="{{ $image['path'] }}"
-                                            >
-                                                <span style="background-image: url(/storage/{{ $image['path'] }})"></span>
-                                                <i class="js-delete-image saved fas fa-times-circle" data-action="/admin_panel/delete-post-file"></i>
+                        <div class="b-post-images" id="post-images"
+                             data-post-id="{{ $post->id }}"
+                             data-add-action="{{ route('posts.images.add', $post->id) }}"
+                             data-rename-action="{{ route('posts.images.rename', $post->id) }}"
+                             data-delete-action="{{ route('posts.images.delete') }}"
+                             data-confirm-replace-action="{{ route('posts.images.confirm-replace-duplicate', $post->id) }}"
+                             data-confirm-add-action="{{ route('posts.images.confirm-add-duplicate', $post->id) }}">
+                            <label>Изображения поста</label>
+
+                            <div class="b-post-images__list js-post-images__list">
+                                @foreach ($postImages as $name => $image)
+                                    <div class="b-post-images__item" data-name="{{ $name }}" data-extension="{{ $image['extension'] }}" data-path="{{ $image['path'] }}">
+                                        <a class="b-post-images__thumb" data-fancybox="post-images" data-src="/storage{{ $image['path'] }}" style="background-image: url(/storage{{ $image['path'] }})"></a>
+                                        <div class="b-post-images__controls">
+                                            <div class="b-post-images__rename">
+                                                <input type="text" class="form-control form-control-sm js-post-images__name-input" value="{{ $name }}">
+                                                <button type="button" class="btn btn-sm btn-outline-info js-post-images__rename" title="Переименовать">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
                                             </div>
-                                        @endforeach
-                                    @endif
-                                </div>
-                                @if (empty($originalImage))
-                                    <div class="title">
-                                        <figure></figure>
-                                        <p>Перетащите сюда фото или видео</p>
+                                            <div class="b-post-images__buttons">
+                                                <button type="button" class="btn btn-sm btn-outline-danger js-post-images__delete" title="Удалить">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
+                                @endforeach
+                            </div>
+
+                            <label class="btn btn-outline-info js-post-images__add-label">
+                                <i class="fas fa-plus mr-1"></i> Добавить изображение
+                                <input type="file" class="js-post-images__add-input" accept="image/*" hidden>
+                            </label>
+
+                            <div class="js-post-images__error text-danger" style="display: none;"></div>
+                        </div>
+
+                        <div class="b-post-images__video" id="post-video"
+                             data-add-action="{{ route('posts.video.add', $post->id) }}"
+                             data-delete-action="{{ route('posts.video.delete', $post->id) }}">
+                            <label>Видео поста</label>
+
+                            <div class="js-post-video__player">
+                                @if ($post->video_url)
+                                    <video src="{{ $post->video_url }}" controls preload="metadata"></video>
                                 @endif
-                                <input type="file" name="files[]" multiple="multiple" accept="image/x-png,image/jpeg">
-                            </section>
-                            <div class="progress">
-                                <div class="progress-bar"></div>
-                                <div class="progress-value">0 %</div>
                             </div>
-                            <div class="js-error-block error-block alert alert-warning alert-dismissible">
-                                <button type="button" class="js-close-error-block close">×</button>
-                                <i class="icon fas fa-exclamation-triangle"></i><p></p>
-                            </div>
+
+                            <label class="btn btn-outline-info js-post-video__add-label">
+                                <i class="fas fa-video mr-1"></i>
+                                <span class="js-post-video__add-label-text">{{ $post->video_url ? 'Заменить видео' : 'Добавить видео' }}</span>
+                                <input type="file" class="js-post-video__add-input" accept="video/*" hidden>
+                            </label>
+                            <button type="button" class="btn btn-outline-danger js-post-video__delete" style="{{ $post->video_url ? '' : 'display: none;' }}">
+                                <i class="fas fa-trash mr-1"></i> Удалить видео
+                            </button>
+
+                            <div class="js-post-video__error text-danger" style="display: none;"></div>
                         </div>
 
-                        <div class="post-update-image">
-{{--                            <div class="mb-3">--}}
-{{--                                <label for="imagefile">Default file input</label>--}}
-{{--                                <input type="file" id="imagefile" name="files[]" class="form-control" accept="image/png, image/jpeg">--}}
-{{--                            </div>--}}
-
-                            <div class="form-group">
-                                <label for="exampleInputFile">File input</label>
-                                <div class="input-group">
-                                    <div class="custom-file">
-                                        <input type="file" class="custom-file-input" id="exampleInputFile" data-action="{{ route('image.upload-to-temp-directory') }}" multiple="multiple">
-                                        <label class="custom-file-label" for="exampleInputFile"></label>
+                        <div class="modal fade" id="modal-duplicate-image-choice" tabindex="-1" role="dialog" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Похожее изображение уже есть в другом посте</h5>
                                     </div>
-                                    <div class="input-group-append">
-                                        <button type="button" class="btn btn-block btn-default" id="">Upload</button>
+                                    <div class="modal-body">
+                                        <p class="js-duplicate-choice__message"></p>
+                                        <div class="b-duplicate-choice__compare">
+                                            <div class="b-duplicate-choice__option">
+                                                <div class="b-duplicate-choice__label">Новое</div>
+                                                <img class="js-duplicate-choice__new-thumb b-duplicate-choice__thumb" src="" alt="">
+                                                <div class="js-duplicate-choice__new-size text-muted"></div>
+                                            </div>
+                                            <div class="b-duplicate-choice__option">
+                                                <div class="b-duplicate-choice__label">Уже есть в посте #<span class="js-duplicate-choice__post-id"></span></div>
+                                                <img class="js-duplicate-choice__old-thumb b-duplicate-choice__thumb" src="" alt="">
+                                                <div class="js-duplicate-choice__old-size text-muted"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-primary js-duplicate-choice__confirm-replace">Заменить: перенести сюда, удалить из поста #<span class="js-duplicate-choice__post-id-2"></span></button>
+                                        <button type="button" class="btn btn-primary js-duplicate-choice__confirm-add">Это разные картинки — всё равно добавить</button>
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена, не добавлять</button>
                                     </div>
                                 </div>
                             </div>
-
-                            @if (!empty($originalImage['path']))
-                                <a class="post-image" id="js-post-image" data-fancybox="gallery" data-src="/storage{{ $originalImage['path'] }}">
-                                    <img src="/storage{{ $mediumImage['path'] ?? $originalImage['path'] }}" />
-                                </a>
-                            @endif
                         </div>
+
                     </div>
 
                 </div>
@@ -185,4 +195,16 @@
     </div><!-- /.container-fluid -->
 </section>
 <!-- /.content -->
+
+@push('footer-scripts')
+    <script>
+        // просмотр изображений поста в полном размере (в том числе добавленных динамически) —
+        // Fancybox подключается в самом низу layout'а, поэтому инициализация идёт через
+        // стек footer-scripts, а не инлайн-скриптом прямо в теле страницы
+        Fancybox.bind('[data-fancybox="post-images"]', {
+            infinite: false
+        });
+    </script>
+@endpush
+
 @endsection

@@ -30,4 +30,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // распознавание текста со скриншотов в поп-апе "Добавить высказывание"
+    // (см. App\Components\ImageReader) — бесплатный ключ: https://ocr.space/ocrapi/freekey
+    'ocr_space' => [
+        'key' => env('OCR_SPACE_API_KEY'),
+    ],
+
 ];

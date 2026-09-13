@@ -37,7 +37,7 @@ class PostController extends Controller
         //$posts = Post::orderBy('title', 'asc')->get();
 
         $posts = Post::selectRaw('posts.id, posts.title, posts.alias, posts.user_id, posts.category_id,
-        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image')
+        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image, posts.video')
             ->with([
                 'category' => function($q) {
                     $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
@@ -49,10 +49,13 @@ class PostController extends Controller
                     $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
                 },
                 'hashtags' => function($q) {
-                    $q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
+                    $q->select(['id', 'title', 'parent_id', 'user_id']);
                 },
             ])
             ->where('posts.user_id', 1)
+            ->when($request->boolean('without_hashtags'), function($q) {
+                $q->whereDoesntHave('hashtags');
+            })
             ->latest()
             ->paginate(50);
 
@@ -84,6 +87,7 @@ class PostController extends Controller
 
         return view('admin.posts.index', [
             'posts' => $posts,
+            'withoutHashtags' => $request->boolean('without_hashtags'),
         ]);
     }
 
@@ -146,11 +150,13 @@ class PostController extends Controller
                     if ($newPost !== true) {
                         return response()->json([
                             'errors' => $newPost['errors'],
+                            'duplicate_infos' => $newPost['duplicate_infos'] ?? null,
                         ]);
                     }
                 } else {
                     $count = 0;
                     $errors = [];
+                    $duplicateInfos = [];
                     foreach ($images as $key => $image) {
                         $count++;
 
@@ -158,12 +164,16 @@ class PostController extends Controller
 
                         if ($newPost !== true) {
                             $errors[] = $newPost['errors'];
+                            if (!empty($newPost['duplicate_infos'])) {
+                                $duplicateInfos = array_merge($duplicateInfos, $newPost['duplicate_infos']);
+                            }
                         }
                     }
 
                     if (!empty($errors)) {
                         return response()->json([
                             'errors' => $errors,
+                            'duplicate_infos' => $duplicateInfos,
                         ]);
                     }
 
@@ -190,6 +200,7 @@ class PostController extends Controller
 
             return response()->json([
                 'errors' => $newPost['errors'],
+                'duplicate_infos' => $newPost['duplicate_infos'] ?? null,
             ]);
         }
 
@@ -204,6 +215,78 @@ class PostController extends Controller
         return response()->json([
             'errors' => $newPost['errors'],
         ]);
+    }
+
+    /**
+     * Загружает видео во временную папку пользователя (аналог upload-image-to-temp-directory,
+     * но без ресайза/хеширования — видео не пережимаем). Возвращает данные для отправки
+     * вместе с формой создания поста (см. submitCreationForm() в admin.js).
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function uploadVideoToTempDirectory(Request $request)
+    {
+        try {
+            $request->validate([
+                'video' => 'required|mimes:mp4,mov,webm,avi,mkv,m4v|max:512000',
+            ]);
+
+            $file = $request->file('video');
+            $userId = auth()->id();
+            $extension = strtolower($file->getClientOriginalExtension()) ?: 'mp4';
+            $name = \Illuminate\Support\Str::random(20);
+            $tempDir = 'temp_directory/' . $userId;
+
+            Storage::disk('local')->makeDirectory($tempDir);
+            $file->storeAs($tempDir, $name . '.' . $extension, 'local');
+
+            return response()->json([
+                'status' => true,
+                'video' => [
+                    'video_name' => $name,
+                    'video_extension' => $extension,
+                    'video_path' => $tempDir . '/' . $name . '.' . $extension,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Переносит видео из временной папки в постоянное хранилище поста.
+     *
+     * @param array $videoData {video_name, video_extension, video_path} — см. uploadVideoToTempDirectory()
+     * @param string $userId
+     * @return array{name: string, extension: string, path: string}|null
+     */
+    private function saveVideoForPost(array $videoData, string $userId): ?array
+    {
+        if (empty($videoData['video_path']) || empty($videoData['video_name']) || empty($videoData['video_extension'])) {
+            return null;
+        }
+
+        $oldPath = $videoData['video_path'];
+        if (!Storage::disk('local')->exists($oldPath)) {
+            return null;
+        }
+
+        $newDir = 'videos/' . $userId . '/' . now()->format('Y-m-d');
+        $newName = $videoData['video_name'] . '.' . $videoData['video_extension'];
+        $newPath = $newDir . '/' . $newName;
+
+        Storage::disk('local')->makeDirectory($newDir);
+
+        if (Storage::move($oldPath, $newPath) !== true) {
+            return null;
+        }
+
+        return [
+            'name' => $videoData['video_name'],
+            'extension' => $videoData['video_extension'],
+            'path' => '/' . $newPath,
+        ];
     }
 
     /**
@@ -225,7 +308,7 @@ class PostController extends Controller
                 $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
             },
             'hashtags' => function($q) {
-                $q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
+                $q->select(['id', 'title', 'parent_id', 'user_id']);
             },
         ])->firstOrFail();
 
@@ -254,29 +337,19 @@ class PostController extends Controller
             ->where('posts.user_id', 1)
             ->with([
                 'hashtags' => function($q) {
-                    $q->select(['id', 'title', 'parent_id', 'user_id', 'associated_hashtags']);
+                    $q->select(['id', 'title', 'parent_id', 'user_id']);
                 },
             ])->first();
 
         $categories = PostsCategory::orderBy('title', 'DESC')->get();
 
+        // приводим original_image к единому виду — коллекции {name: {name, extension, path}},
+        // независимо от того, один это файл (старый формат) или несколько
         $returnArray = [
             'categories' => $categories,
             'post' => $post,
+            'postImages' => UploadImageController::normalizeImages($post->original_image),
         ];
-
-        if (!empty($post->original_image)) {
-            $returnArray['originalImage'] = json_decode($post->original_image, true);
-        }
-
-        if (!empty($post->medium_image)) {
-            $returnArray['mediumImage'] = json_decode($post->medium_image, true);
-        }
-
-        if (!empty($post->small_image)) {
-            $returnArray['smallImage'] = json_decode($post->small_image, true);
-        }
-        //dd($returnArray);
 
         return view('admin.posts.edit', $returnArray);
     }
@@ -332,11 +405,11 @@ class PostController extends Controller
             $post->title = $request->title;
         }
 
-        if (!empty($request->category_id)) {
-            $post->category_id = $request->category_id;
+        if ($request->has('category_id')) {
+            // "" (категория не выбрана) — сохраняем как 0, а не пропускаем, как было раньше
+            // (иначе выбор "-" на форме не давал реально снять категорию)
+            $post->category_id = $request->category_id ?: 0;
         }
-
-        $categoryId = $post->category_id;
 
         if (!empty($request->alias)) {
             $post->alias = $request->alias;
@@ -346,130 +419,9 @@ class PostController extends Controller
             $post->content = $request->content;
         }
 
-        if (!empty($request->images)) {
-            $images = json_decode($request->images, true);
-            $image = array_shift($images);
-
-            $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $user->id, $post->category_id);
-            if (!empty($saveImageForPost['errors'])) {
-                //return $saveImageForPost['errors'];
-            } else {
-                if (!empty($post->original_image)) {
-                    $deleteImageByPath = (new UploadImageController)->deleteImageByPath($post->original_image, $user->id, $categoryId);
-                    if ($deleteImageByPath !== true) {
-                        return response()->json([
-                            'status' => false,
-                            'message' => 'Ошибка при удалении original_image',
-                        ]);
-                    }
-                }
-                $post->original_image = json_encode($saveImageForPost['original_image']);
-
-                if (!empty($post->medium_image)) {
-                    $deleteImageByPath = (new UploadImageController)->deleteImageByPath($post->medium_image, $user->id, $categoryId);
-                    if ($deleteImageByPath !== true) {
-                        return response()->json([
-                            'status' => false,
-                            'message' => 'Ошибка при удалении medium_image',
-                        ]);
-                    }
-                }
-
-                if (!empty($saveImageForPost['medium_image'])) {
-                    $post->medium_image = json_encode($saveImageForPost['medium_image']);
-                } else {
-                    $post->medium_image = '';
-                }
-
-                if (!empty($post->small_image)) {
-                    $deleteImageByPath = (new UploadImageController)->deleteImageByPath($post->small_image, $user->id, $categoryId);
-                    if ($deleteImageByPath !== true) {
-                        return response()->json([
-                            'status' => false,
-                            'message' => 'Ошибка при удалении small_image',
-                        ]);
-                    }
-                }
-
-                if (!empty($saveImageForPost['small_image'])) {
-                    $post->small_image = json_encode($saveImageForPost['small_image']);
-                } else {
-                    $post->medium_image = '';
-                }
-
-            }
-        }
-
-        //TODO - Пока не придумала как сделать ((
-        //изменить название изображения поста
-        if (!empty($request['image-name'])) {
-            //$categoryParentId . '_' . $categoryId . '_'
-            if (!empty($post->original_image)) {
-                $originalImage = json_decode($post->original_image, true);
-                $oldName = $originalImage['name'];
-                $oldPath = $originalImage['path'];
-
-                $generateImagePath = UploadImageController::generateImageNameAndPath(
-                    $request['image-name'],
-                    $originalImage['extension'],
-                    $user->id,
-                    $categoryId,
-                );
-
-                $newName = $generateImagePath['image_name'];
-                $newPath = $generateImagePath['image_path'];
-
-                $moveImage = (new UploadImageController())->moveImage($oldPath, $newPath);
-
-                if ($moveImage) {
-                   //обновляем названия и пути в БД
-
-                    $post->original_image = json_encode([
-                        'name' => $newName,
-                        'extension' => $originalImage['extension'],
-                        'path' => $newPath,
-                    ]);
-
-//                    "mediumImage" => array:3
-//                    [▼
-//                        "name" => "a17ac3f0262325f5c3bc30cb34fb9350_800_1337.jpg"
-//                        "extension" => "jpg"
-//                        "path" => "/images/1/7/7_6_a17ac3f0262325f5c3bc30cb34fb9350_800_1337.jpg"
-//                    ]
-
-                    if (!empty($post->medium_image)) {
-
-                        $mediumImage = json_decode($post->medium_image, true);
-
-                        $generateImageMediumPath = UploadImageController::generateImageNameAndPath(
-                            $request['image-name'],
-                            $mediumImage['extension'],
-                            $user->id,
-                            $categoryId,
-                            false,
-                            $mediumImage['path'],
-                        );
-
-                        $post->medium_image = json_encode([
-                            'name' => $generateImageMediumPath['image_name'],
-                            'extension' => $mediumImage['extension'],
-                            'path' => $generateImageMediumPath['image_path'],
-                        ]);
-                    }
-
-                    if (!empty($post->small_image)) {
-
-                    }
-
-                } elseif (is_string($moveImage)) {
-                    //'error' => $moveImage
-                }
-
-
-            }
-
-            //dd($post); //TODO
-        }
+        // Добавление/замена/переименование/удаление изображений поста больше не идёт через
+        // этот общий save — теперь это отдельные немедленные AJAX-действия панели
+        // "Изображения поста" (см. PostController::addImage(), ::renameImage(), ::deletePostFile()).
 
         $postSave = $post->save();
 
@@ -552,6 +504,13 @@ class PostController extends Controller
         //dd($request->hashtags);
 
         $title = '';
+        // хеши сохранённых изображений — записываем в image_hashes уже после того,
+        // как известен id поста (после $new_post->save())
+        $imageHashesToStore = [];
+        // ключи (image_name) изображений, для которых пользователь уже подтвердил
+        // "это не дубликат, добавить всё равно" при повторной отправке формы
+        // (см. PostController::store() и JS-обработчик #creationform)
+        $forceDuplicateKeys = json_decode($request->force_duplicate_keys ?? '[]', true) ?: [];
 
         $categoryId = $request->category_id ?? 0;
         $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId);
@@ -564,9 +523,21 @@ class PostController extends Controller
             $new_post->content = $request->text;
         }
 
+        // видео поста — независимо от картинок, см. saveVideoForPost()
+        if (!empty($request->video)) {
+            $videoData = json_decode($request->video, true);
+            if (is_array($videoData)) {
+                $savedVideo = $this->saveVideoForPost($videoData, $userId);
+                if ($savedVideo) {
+                    $new_post->video = json_encode($savedVideo);
+                }
+            }
+        }
+
         if (!empty($image) && !isset($image['image_path']) && !empty($request->numberOfPosts) && $request->numberOfPosts === 'one-post') {
             //dd('ssss');
             $errors = [];
+            $duplicateInfos = [];
             $originalImages = [];
             $mediumImages = [];
             $smallImages = [];
@@ -587,13 +558,19 @@ class PostController extends Controller
                 //  "m_image_path" => "temp_directory/243283257-579176736665198-7143984547937799899-n_800_994.jpg"
                 //]
 
-                $saveImageForPost = (new UploadImageController)->saveImageForPost($img, $userId, $categoryId);
+                $forceThisImage = !empty($img['image_name']) && in_array($img['image_name'], $forceDuplicateKeys, true);
+                $saveImageForPost = (new UploadImageController)->saveImageForPost($img, $userId, $categoryId, false, $forceThisImage);
 
                 $lastImage = $saveImageForPost;
                 //dd($saveImageForPost);
 
                 if (!empty($saveImageForPost['errors'])) {
                     $errors[] = $saveImageForPost['errors'];
+                    $duplicateInfos[] = [
+                        'image_key' => $img['image_name'] ?? null,
+                        'duplicate' => $this->formatDuplicateForFrontend($saveImageForPost['duplicate'] ?? null),
+                        'staged_image' => $saveImageForPost['staged_image'] ?? $img,
+                    ];
                 } elseif (!empty($saveImageForPost)) {
                     $originalImages[$saveImageForPost['original_image']['name']] = $saveImageForPost['original_image'];
                     if (!empty($saveImageForPost['medium_image'])) {
@@ -601,6 +578,16 @@ class PostController extends Controller
                     }
                     if (!empty($saveImageForPost['small_image'])) {
                         $smallImages[$saveImageForPost['small_image']['name']] = $saveImageForPost['small_image'];
+                    }
+                    if (!empty($saveImageForPost['phash'])) {
+                        $imageHashesToStore[] = [
+                            'name' => $saveImageForPost['original_image']['name'],
+                            'path' => $saveImageForPost['original_image']['path'],
+                            'width' => $saveImageForPost['width'],
+                            'height' => $saveImageForPost['height'],
+                            'phash' => $saveImageForPost['phash'],
+                            'perceptual_hash' => $saveImageForPost['perceptual_hash'] ?? null,
+                        ];
                     }
                 }
 
@@ -622,7 +609,7 @@ class PostController extends Controller
             //]
 
             if (!empty($errors)) {
-                return $errors;
+                return ['errors' => $errors, 'duplicate_infos' => $duplicateInfos];
             } else {
                 $new_post->original_image = json_encode($originalImages);
                 $new_post->medium_image = json_encode($mediumImages);
@@ -651,10 +638,18 @@ class PostController extends Controller
         } else {
             //dd('tttt');
             if (!empty($image)) {
-                $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $userId, $categoryId);
+                $forceThisImage = !empty($image['image_name']) && in_array($image['image_name'], $forceDuplicateKeys, true);
+                $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $userId, $categoryId, false, $forceThisImage);
                 //dd($saveImageForPost);
                 if (!empty($saveImageForPost['errors'])) {
-                    return $saveImageForPost['errors'];
+                    return [
+                        'errors' => $saveImageForPost['errors'],
+                        'duplicate_infos' => [[
+                            'image_key' => $image['image_name'] ?? null,
+                            'duplicate' => $this->formatDuplicateForFrontend($saveImageForPost['duplicate'] ?? null),
+                            'staged_image' => $saveImageForPost['staged_image'] ?? $image,
+                        ]],
+                    ];
                 } else {
                     $new_post->original_image = json_encode($saveImageForPost['original_image']);
                     if (!empty($saveImageForPost['medium_image'])) {
@@ -662,6 +657,16 @@ class PostController extends Controller
                     }
                     if (!empty($saveImageForPost['small_image'])) {
                         $new_post->small_image = json_encode($saveImageForPost['small_image']);
+                    }
+                    if (!empty($saveImageForPost['phash'])) {
+                        $imageHashesToStore[] = [
+                            'name' => $saveImageForPost['original_image']['name'],
+                            'path' => $saveImageForPost['original_image']['path'],
+                            'width' => $saveImageForPost['width'],
+                            'height' => $saveImageForPost['height'],
+                            'phash' => $saveImageForPost['phash'],
+                            'perceptual_hash' => $saveImageForPost['perceptual_hash'] ?? null,
+                        ];
                     }
                 }
             }
@@ -692,6 +697,18 @@ class PostController extends Controller
             if ($request->hashtags) {
                 $requestHashtags = json_decode($request->hashtags, true);
                 $this->addHashtagsToPost($new_post->getAttribute('id'), array_keys($requestHashtags));
+            }
+
+            foreach ($imageHashesToStore as $imageHash) {
+                UploadImageController::storeImageHash(
+                    $new_post->id,
+                    $imageHash['name'],
+                    $imageHash['path'],
+                    $imageHash['width'],
+                    $imageHash['height'],
+                    $imageHash['phash'],
+                    $imageHash['perceptual_hash']
+                );
             }
 
             return true;
@@ -812,6 +829,8 @@ class PostController extends Controller
                     throw new \Exception($errorMessage);
                 }
 
+                UploadImageController::deleteImageHash($post->id, $request->name);
+
                 return response()->json([
                     'status' => true,
                     'message' => 'Изображение ' . $request->name . ' успешно удалено',
@@ -821,6 +840,465 @@ class PostController extends Controller
         } catch (\Exception $e) {
             return response()->json(['status' => false, 'msg' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Добавить/заменить видео поста (страница редактирования, панель "Видео поста").
+     * У поста только одно видео — если уже есть, старый файл удаляется.
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function addVideo(Request $request, Post $post)
+    {
+        try {
+            $request->validate([
+                'video' => 'required|file|mimes:mp4,mov,webm,avi,mkv,m4v|max:512000',
+            ]);
+
+            $this->deletePostVideoFile($post);
+
+            $file = $request->file('video');
+            $extension = strtolower($file->getClientOriginalExtension()) ?: 'mp4';
+            $name = \Illuminate\Support\Str::random(20);
+            $dir = 'videos/' . auth()->id() . '/' . now()->format('Y-m-d');
+
+            Storage::disk('local')->makeDirectory($dir);
+            $file->storeAs($dir, $name . '.' . $extension, 'local');
+
+            $video = [
+                'name' => $name,
+                'extension' => $extension,
+                'path' => '/' . $dir . '/' . $name . '.' . $extension,
+            ];
+
+            $post->video = json_encode($video);
+            $post->save();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Видео добавлено',
+                'video' => $video,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Удалить видео поста.
+     *
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function deleteVideo(Post $post)
+    {
+        $this->deletePostVideoFile($post);
+
+        $post->video = null;
+        $post->save();
+
+        return response()->json(['status' => true, 'message' => 'Видео удалено']);
+    }
+
+    private function deletePostVideoFile(Post $post): void
+    {
+        if (empty($post->video_data['path'])) {
+            return;
+        }
+
+        Storage::disk('local')->delete($post->video_data['path']);
+    }
+
+    /**
+     * Загрузить и сразу привязать новое изображение к посту, не затрагивая уже существующие
+     * (пост может иметь несколько изображений — original_image/medium_image/small_image
+     * хранятся как коллекция, keyed по имени файла).
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function addImage(Request $request, Post $post)
+    {
+        try {
+            $request->validate([
+                'image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp',
+            ]);
+
+            $user = auth()->user();
+
+            $uploadController = new UploadImageController();
+            $staged = $uploadController->stageFileToTempDirectory($request->file('image'));
+
+            // allowDuplicateChoice = true: если найден дубликат МЕНЬШЕГО размера в другом
+            // посте — не отклоняем автоматически, а спрашиваем пользователя, что делать
+            $saveImageForPost = $uploadController->saveImageForPost($staged['data'], $user->id, $post->category_id, true);
+
+            if (!empty($saveImageForPost['duplicate_choice']) || !empty($saveImageForPost['duplicate_reject_choice'])) {
+                $isBigger = !empty($saveImageForPost['duplicate_choice']);
+                $duplicate = $isBigger ? $saveImageForPost['duplicate_choice'] : $saveImageForPost['duplicate_reject_choice'];
+
+                return response()->json([
+                    'status' => false,
+                    'needs_choice' => true,
+                    // 'replace_or_cancel': новое изображение лучше — можно заменить старое или отменить
+                    // 'add_anyway_or_cancel': новое не лучше — возможно, это ложное совпадение,
+                    //   можно всё равно добавить (оставив обе картинки) или отменить
+                    'mode' => $isBigger ? 'replace_or_cancel' : 'add_anyway_or_cancel',
+                    'message' => $isBigger
+                        ? 'Похожее изображение меньшего размера уже есть в посте #' . $duplicate->post_id . '. Что сделать?'
+                        : 'Похоже, такое изображение уже есть в посте #' . $duplicate->post_id . '. Это точно другая картинка?',
+                    'duplicate' => [
+                        'post_id' => $duplicate->post_id,
+                        'image_name' => $duplicate->image_name,
+                        'thumbnail_url' => '/storage' . $duplicate->path,
+                        'width' => $duplicate->width,
+                        'height' => $duplicate->height,
+                    ],
+                    'new_image' => [
+                        'thumbnail_url' => '/storage/' . $saveImageForPost['staged_image']['image_path'],
+                        'width' => $saveImageForPost['new_width'],
+                        'height' => $saveImageForPost['new_height'],
+                    ],
+                    // отдаём во фронтенд, чтобы прислать обратно при подтверждении —
+                    // файл уже во временной папке, повторно загружать не нужно
+                    'staged_image' => $saveImageForPost['staged_image'],
+                ]);
+            }
+
+            if (!empty($saveImageForPost['errors'])) {
+                $errors = $saveImageForPost['errors'];
+                throw new \Exception(is_array($errors) ? implode(' ', $errors) : $errors);
+            }
+
+            $this->attachSavedImageToPost($post, $saveImageForPost);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Изображение добавлено',
+                'image' => $saveImageForPost['original_image'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Пользователь подтвердил: у нового (большего/лучшего) изображения есть похожий
+     * дубликат меньшего размера в ДРУГОМ посте — этот дубликат нужно удалить оттуда,
+     * а новое изображение привязать к текущему посту.
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function confirmReplaceDuplicate(Request $request, Post $post)
+    {
+        try {
+            $request->validate([
+                'staged_image' => 'required|array',
+                'duplicate_post_id' => 'required|integer',
+                'duplicate_image_name' => 'required|string',
+            ]);
+
+            $user = auth()->user();
+
+            $duplicatePost = Post::where('id', $request->duplicate_post_id)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if ($duplicatePost) {
+                $deletePostImages = (new UploadImageController)->deletePostImages($duplicatePost, $request->duplicate_image_name);
+                if ($deletePostImages !== true) {
+                    $errorMessage = 'Не удалось удалить старое изображение из поста #' . $duplicatePost->id;
+                    if (!empty($deletePostImages['errors'])) {
+                        throw new \Exception($errorMessage . '. ' . $deletePostImages['errors']);
+                    }
+                    throw new \Exception($errorMessage);
+                }
+
+                UploadImageController::deleteImageHash($duplicatePost->id, $request->duplicate_image_name);
+            }
+
+            $uploadController = new UploadImageController();
+            // временный файл уже лежит на диске с прошлой попытки — сохраняем его,
+            // на этот раз без проверки на дубликат (мы её уже прошли и подтвердили выбор)
+            $saveImageForPost = $uploadController->saveImageForPost($request->staged_image, $user->id, $post->category_id);
+
+            if (!empty($saveImageForPost['errors'])) {
+                $errors = $saveImageForPost['errors'];
+                throw new \Exception(is_array($errors) ? implode(' ', $errors) : $errors);
+            }
+
+            $this->attachSavedImageToPost($post, $saveImageForPost);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Изображение добавлено, старая копия удалена',
+                'image' => $saveImageForPost['original_image'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Пользователь подтвердил: похожая картинка меньшего/такого же размера в другом посте —
+     * это ложное совпадение (или просто не страшно), добавляем новую как есть, ничего
+     * не удаляя и не трогая. См. UploadImageController::DUPLICATE_*_THRESHOLD — совпадение
+     * визуального хеша не гарантирует, что это буквально одна и та же картинка.
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function confirmAddDuplicate(Request $request, Post $post)
+    {
+        try {
+            $request->validate([
+                'staged_image' => 'required|array',
+            ]);
+
+            $user = auth()->user();
+
+            $uploadController = new UploadImageController();
+            // forceAdd = true: пользователь уже подтвердил выбор — повторно не проверяем
+            $saveImageForPost = $uploadController->saveImageForPost($request->staged_image, $user->id, $post->category_id, false, true);
+
+            if (!empty($saveImageForPost['errors'])) {
+                $errors = $saveImageForPost['errors'];
+                throw new \Exception(is_array($errors) ? implode(' ', $errors) : $errors);
+            }
+
+            $this->attachSavedImageToPost($post, $saveImageForPost);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Изображение добавлено',
+                'image' => $saveImageForPost['original_image'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Приводит "сырой" объект дубликата (из UploadImageController::findDuplicateByHash())
+     * к виду, удобному для фронтенда (готовый thumbnail_url вместо внутреннего path).
+     *
+     * @param object|null $duplicate
+     * @return array|null
+     */
+    private function formatDuplicateForFrontend($duplicate): ?array
+    {
+        if (empty($duplicate)) {
+            return null;
+        }
+
+        return [
+            'post_id' => $duplicate->post_id,
+            'image_name' => $duplicate->image_name,
+            'thumbnail_url' => '/storage' . $duplicate->path,
+            'width' => $duplicate->width,
+            'height' => $duplicate->height,
+        ];
+    }
+
+    /**
+     * Привязывает уже сохранённое (moveImage выполнен) изображение к посту:
+     * дописывает его в original_image/medium_image/small_image и сохраняет хеш
+     * для дальнейшего поиска дублей.
+     *
+     * @param Post $post
+     * @param array $saveImageForPost результат UploadImageController::saveImageForPost()
+     * @return void
+     */
+    private function attachSavedImageToPost(Post $post, array $saveImageForPost): void
+    {
+        $originalImages = UploadImageController::normalizeImages($post->original_image);
+        $mediumImages = UploadImageController::normalizeImages($post->medium_image);
+        $smallImages = UploadImageController::normalizeImages($post->small_image);
+
+        $originalImages[$saveImageForPost['original_image']['name']] = $saveImageForPost['original_image'];
+        if (!empty($saveImageForPost['medium_image'])) {
+            $mediumImages[$saveImageForPost['medium_image']['name']] = $saveImageForPost['medium_image'];
+        }
+        if (!empty($saveImageForPost['small_image'])) {
+            $smallImages[$saveImageForPost['small_image']['name']] = $saveImageForPost['small_image'];
+        }
+
+        $post->original_image = json_encode($originalImages);
+        $post->medium_image = json_encode($mediumImages);
+        $post->small_image = json_encode($smallImages);
+        $post->save();
+
+        if (!empty($saveImageForPost['phash'])) {
+            UploadImageController::storeImageHash(
+                $post->id,
+                $saveImageForPost['original_image']['name'],
+                $saveImageForPost['original_image']['path'],
+                $saveImageForPost['width'],
+                $saveImageForPost['height'],
+                $saveImageForPost['phash'],
+                $saveImageForPost['perceptual_hash'] ?? null
+            );
+        }
+    }
+
+    /**
+     * Переименовать изображение поста (по текущему имени файла) — вместе со всеми его
+     * размерами (original/medium/small).
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function renameImage(Request $request, Post $post)
+    {
+        try {
+            $request->validate([
+                'old_name' => 'required|string',
+                'new_name' => 'required|string',
+            ]);
+
+            $user = auth()->user();
+            $oldName = $request->old_name;
+            $newTitle = $request->new_name;
+
+            $originalImages = UploadImageController::normalizeImages($post->original_image);
+            if (empty($originalImages[$oldName])) {
+                throw new \Exception('Изображение не найдено');
+            }
+
+            $uploadController = new UploadImageController();
+
+            // сначала оригинал — по нему берём базовое имя, чтобы найти его medium/small
+            $renamedOriginal = $this->moveRenamedImage(
+                $uploadController,
+                $originalImages[$oldName],
+                $newTitle,
+                $user->id,
+                $post->category_id
+            );
+
+            unset($originalImages[$oldName]);
+            $originalImages[$renamedOriginal['name']] = $renamedOriginal;
+            $post->original_image = json_encode($originalImages);
+
+            // medium/small хранятся отдельными файлами, чьё имя содержит базовое имя
+            // оригинала (см. saveImageForPost()/resizeImage()) — переименовываем и их тоже
+            $oldBaseName = pathinfo($oldName, PATHINFO_FILENAME);
+
+            $mediumImages = UploadImageController::normalizeImages($post->medium_image);
+            $post->medium_image = json_encode($this->renameDerivedImages(
+                $uploadController, $mediumImages, $oldBaseName, $newTitle, $user->id, $post->category_id
+            ));
+
+            $smallImages = UploadImageController::normalizeImages($post->small_image);
+            $post->small_image = json_encode($this->renameDerivedImages(
+                $uploadController, $smallImages, $oldBaseName, $newTitle, $user->id, $post->category_id
+            ));
+
+            $post->save();
+
+            UploadImageController::updateImageHashReference(
+                $post->id,
+                $oldName,
+                $renamedOriginal['name'],
+                $renamedOriginal['path']
+            );
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Файл переименован',
+                'image' => $renamedOriginal,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Переименовывает и перемещает один файл изображения (original/medium/small).
+     * Для medium/small ($isOriginalImage = false) размер (_ширина_высота) в новое имя
+     * подставляется автоматически, по фактическим размерам текущего файла —
+     * см. UploadImageController::generateImageNameAndPath().
+     *
+     * @param UploadImageController $uploadController
+     * @param array $image {name, extension, path}
+     * @param string $newBaseName
+     * @param $userId
+     * @param $categoryId
+     * @param bool $isOriginalImage
+     * @return array {name, extension, path}
+     */
+    private function moveRenamedImage(
+        UploadImageController $uploadController,
+        array $image,
+        string $newBaseName,
+        $userId,
+        $categoryId,
+        bool $isOriginalImage = true
+    ): array {
+        $oldAbsolutePath = Storage::disk('local')->path($image['path']);
+
+        $generateImagePath = UploadImageController::generateImageNameAndPath(
+            $newBaseName,
+            $image['extension'],
+            $userId,
+            $categoryId,
+            $isOriginalImage,
+            $oldAbsolutePath
+        );
+
+        $newPath = $generateImagePath['image_path'] . '/' . $generateImagePath['image_name'];
+
+        $moveImage = $uploadController->moveImage($image['path'], $newPath);
+        if ($moveImage !== true) {
+            throw new \Exception(is_string($moveImage) ? $moveImage : 'Не удалось переименовать файл');
+        }
+
+        return [
+            'name' => $generateImagePath['image_name'],
+            'extension' => $image['extension'],
+            'path' => $newPath,
+        ];
+    }
+
+    /**
+     * Переименовывает все medium/small записи, относящиеся к переименовываемому оригиналу
+     * (их ключ содержит базовое имя оригинала — так их сохраняет saveImageForPost()).
+     * Записи, не относящиеся к этому оригиналу, остаются как есть.
+     *
+     * @param UploadImageController $uploadController
+     * @param array $images нормализованная коллекция medium_image/small_image
+     * @param string $oldBaseName
+     * @param string $newTitle
+     * @param $userId
+     * @param $categoryId
+     * @return array
+     */
+    private function renameDerivedImages(
+        UploadImageController $uploadController,
+        array $images,
+        string $oldBaseName,
+        string $newTitle,
+        $userId,
+        $categoryId
+    ): array {
+        foreach ($images as $key => $image) {
+            if (stripos($key, $oldBaseName) === false) {
+                continue;
+            }
+
+            $renamed = $this->moveRenamedImage($uploadController, $image, $newTitle, $userId, $categoryId, false);
+            unset($images[$key]);
+            $images[$renamed['name']] = $renamed;
+        }
+
+        return $images;
     }
 
     /**

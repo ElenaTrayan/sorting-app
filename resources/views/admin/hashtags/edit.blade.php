@@ -12,8 +12,9 @@
                 </div><!-- /.col -->
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active">Dashboard v1</li>
+                        <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('hashtags.index') }}">Все хештеги</a></li>
+                        <li class="breadcrumb-item active">Редактирование хештега</li>
                     </ol>
                 </div><!-- /.col -->
             </div><!-- /.row -->
@@ -58,23 +59,36 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="short_description">Cвязанные хэштеги</label>
-                            <div>
-                                @if (!empty($associated_hashtags))
-                                    @foreach($associated_hashtags as $associated_hashtag)
-                                        <span class="tag" data-id="{{ $associated_hashtag->id }}" data-name="">{{ $associated_hashtag->title }}<span class="icon font-icon fas close"></span></span>
-                                    @endforeach
-                                @endif
-                            </div>
-                            <input type="text" class="form-control" name="associated_hashtags" id="associated_hashtags" value="" placeholder="">
-                        </div>
                     </div>
                     <!-- /.card-body -->
                     <div class="card-footer">
                         <button type="submit" class="btn btn-primary">Сохранить изменения</button>
                     </div>
                 </form>
+
+                <div class="card-body b-hashtags-edit__related">
+                    <div class="form-group">
+                        <label for="related-hashtags-input">Связанные хэштеги</label>
+                        <div class="b-hashtags-edit__related-field js-hashtag-related-field"
+                             data-hashtag-id="{{ $hashtag->id }}"
+                             data-search-action="{{ route('search.hashtag') }}"
+                             data-attach-action="{{ route('hashtags.related.attach', $hashtag->id) }}">
+                            <div class="b-tags">
+                                <div class="b-tags__container" id="related-hashtags-container">
+                                    @foreach ($relatedHashtags as $relatedHashtag)
+                                        <div class="b-tags__item" data-id="{{ $relatedHashtag->id }}" data-name="{{ $relatedHashtag->title }}">
+                                            {{ $relatedHashtag->title }}
+                                            <span class="close">&times;</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <input type="text" class="b-tags__input" id="related-hashtags-input" placeholder="Введите название хештега...">
+                            </div>
+                            <ul class="b-tags__dropdown" id="related-hashtags-dropdown"></ul>
+                        </div>
+                        <small class="form-text text-muted">Связь двусторонняя — добавленный хештег тоже будет ссылаться на этот.</small>
+                    </div>
+                </div>
             </div>
         </div><!-- /.container-fluid -->
     </section>

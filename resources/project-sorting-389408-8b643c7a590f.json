@@ -1,4 +1,3 @@
-//TODO - настройки для ImageReader (от Google)
 {
   "type": "service_account",
   "project_id": "project-sorting-389408",

@@ -1,0 +1,411 @@
+:root {
+    color-scheme: light;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f6f9;
+    color: #2b2e33;
+}
+
+.wp-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding-bottom: 60px;
+}
+
+.wp-head {
+    text-align: center;
+    padding: 40px 20px 20px;
+}
+.wp-head__title {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 10px;
+}
+.wp-head__description {
+    color: #8a8f98;
+    margin: 0 0 10px;
+}
+.wp-head__occasion {
+    display: inline-block;
+    background: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 16px;
+    padding: 4px 14px;
+    font-size: 13px;
+    color: #495057;
+}
+
+.wp-filterbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    border-top: 1px solid #e9ecef;
+    border-bottom: 1px solid #e9ecef;
+    padding: 12px 20px;
+    font-size: 13px;
+    margin-bottom: 20px;
+}
+.wp-filterbar__toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+.wp-filterbar__count {
+    color: #a3a8ad;
+}
+
+.wp-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 0 20px;
+}
+
+.wp-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+.wp-empty__icon {
+    font-size: 48px;
+    color: #c8cdd3;
+    margin-bottom: 15px;
+    display: block;
+}
+
+/* --- карточка желания (та же разметка, что и в админке, см. admin.wishlists.parts.item_cards) --- */
+.b-wishlist-item {
+    background: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.b-wishlist-item__thumb {
+    height: 160px;
+    background-color: #f4f6f9;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 32px;
+    position: relative;
+}
+.b-wishlist-item__reserved-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(40, 167, 69, .92);
+    color: #fff;
+    font-size: 11px;
+    padding: 4px 8px;
+    text-align: center;
+}
+.b-wishlist-item__body {
+    padding: 10px 12px;
+    flex: 1;
+}
+.b-wishlist-item__title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.b-wishlist-item__title a {
+    color: inherit;
+    text-decoration: none;
+}
+.b-wishlist-item__title a:hover {
+    text-decoration: underline;
+}
+.b-wishlist-item__meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+}
+.b-wishlist-item__domain {
+    color: #a3a8ad;
+}
+.b-wishlist-item__price {
+    color: #7367f0;
+    font-weight: 600;
+}
+
+/* hover-оверлей поверх картинки (та же разметка/классы, что и в админке) */
+.b-wishlist-item__hover-top {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    justify-content: space-between;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.b-wishlist-item__hover-top > :last-child {
+    margin-left: auto;
+}
+.b-wishlist-item:hover .b-wishlist-item__hover-top,
+.b-wishlist-item:hover .b-wishlist-item__hover-bottom {
+    opacity: 1;
+}
+.b-wishlist-item__hover-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,.9);
+    color: #495057;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    margin-right: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+    cursor: pointer;
+}
+.b-wishlist-item__hover-btn:last-child {
+    margin-right: 0;
+}
+.b-wishlist-item__hover-btn--accent {
+    background: #7367f0;
+    color: #fff;
+}
+.b-wishlist-item__hover-bottom {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.b-wishlist-item__fulfill-pill {
+    width: 100%;
+    border: none;
+    border-radius: 20px;
+    background: rgba(255,255,255,.92);
+    color: #495057;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+    cursor: pointer;
+}
+.b-wishlist-item__fulfill-pill:hover {
+    background: #fff;
+}
+.b-wishlist-item--reserved .b-wishlist-item__hover-bottom,
+.b-wishlist-item--fulfilled .b-wishlist-item__hover-bottom {
+    bottom: 30px;
+}
+.b-wishlist-item__reserved-badge--fulfilled {
+    background: rgba(115, 103, 240, .92);
+}
+
+/* --- содержимое попапа "Подробнее о желании" (сам попап переиспользует .modal-reserve-name) --- */
+.wp-item-detail__box {
+    max-width: 480px;
+    text-align: left;
+    position: relative;
+}
+.wp-item-detail__close {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: #a3a8ad;
+    cursor: pointer;
+    line-height: 1;
+}
+.b-item-detail {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+}
+.b-item-detail__thumb {
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background-size: cover;
+    background-position: center;
+    background-color: #f4f6f9;
+}
+.b-item-detail__title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+.b-item-detail__price {
+    font-size: 15px;
+    color: #7367f0;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.b-item-detail__description {
+    color: #6c757d;
+    font-size: 13px;
+    margin: 0;
+}
+.wp-item-detail__store-link {
+    display: inline-block;
+    margin-top: 14px;
+    color: #7367f0;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* --- попап "Поделиться вишлистом" (сам попап переиспользует .modal-reserve-name) --- */
+.wp-share__box {
+    max-width: 420px;
+    text-align: left;
+    position: relative;
+}
+.wp-share__box h3 {
+    margin-top: 0;
+}
+.wp-share__box label {
+    display: block;
+    color: #6c757d;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+.b-share-link {
+    display: flex;
+    gap: 8px;
+}
+.b-share-link input {
+    flex: 1;
+    background: #f4f6f9;
+}
+.b-share-link__btn {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    background: #f4f6f9;
+    color: #495057;
+    cursor: pointer;
+}
+.b-share-link__btn:hover {
+    background: #e9ecef;
+}
+.b-share-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: #a3a8ad;
+    font-size: 11px;
+    letter-spacing: .05em;
+    margin: 20px 0 16px;
+}
+.b-share-divider::before,
+.b-share-divider::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid #e9ecef;
+}
+.b-share-divider span {
+    padding: 0 12px;
+}
+.b-share-socials {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+}
+.b-share-socials__item {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 18px;
+}
+.b-share-socials__item:hover {
+    opacity: .85;
+    color: #fff;
+}
+.b-share-socials__item--telegram { background: #29a9eb; }
+.b-share-socials__item--viber { background: #7360f2; }
+.b-share-socials__item--whatsapp { background: #25d366; }
+.b-share-socials__item--pinterest { background: #e60023; }
+.b-share-socials__item--facebook { background: #1877f2; }
+.b-share-socials__item--twitter { background: #1da1f2; }
+
+/* по умолчанию скрываем зарезервированные — включаются переключателем "Показать зарезервированные" */
+.wp-items:not(.wp-items--show-reserved) .b-wishlist-item--reserved {
+    display: none;
+}
+
+/* --- попап ввода имени при бронировании --- */
+.modal-reserve-name__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+}
+.modal-reserve-name__box {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px;
+    width: 90%;
+    max-width: 380px;
+}
+.modal-reserve-name__box h3 {
+    margin-top: 0;
+}
+.modal-reserve-name__box .form-control {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+.modal-reserve-name__actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+.modal-reserve-name__actions button {
+    flex: 1;
+    padding: 8px 0;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+.modal-reserve-name__actions .btn-primary {
+    background: #7367f0;
+    color: #fff;
+}
+.modal-reserve-name__actions .btn-secondary {
+    background: #f4f6f9;
+    border-color: #dee2e6;
+    color: #495057;
+}
+
+@media (max-width: 600px) {
+    .wp-head__title {
+        font-size: 22px;
+    }
+}

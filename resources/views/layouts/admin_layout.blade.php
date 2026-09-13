@@ -6,12 +6,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Админ-панель - @yield('title')</title>
 
-    <!-- Google Font: Source Sans Pro -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+    <!-- Google Font: Source Sans Pro (самостоятельно захостен в /admin/fonts/source-sans-pro) -->
+    <link rel="stylesheet" href="/admin/fonts/source-sans-pro/source-sans-pro.css">
+    <!-- Google Font: Nunito (самостоятельно захостен в /admin/fonts/nunito) — только для левого меню -->
+    <link rel="stylesheet" href="/admin/fonts/nunito/nunito.css">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="/admin/plugins/fontawesome-free/css/all.min.css">
-    <!-- Ionicons -->
-    <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
     <!-- Tempusdominus Bootstrap 4 -->
     <link rel="stylesheet" href="/admin/plugins/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css">
     <!-- iCheck -->
@@ -27,16 +27,15 @@
     <!-- summernote -->
     <link rel="stylesheet" href="/admin/plugins/summernote/summernote-bs4.min.css">
 
-    <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.css"
-    />
+    <link rel="stylesheet" href="/admin/plugins/fancybox/fancybox.css" />
 
     <link rel="stylesheet" href="/admin/plugins/toastr/toastr.css">
 
-    <link rel="stylesheet" href="/admin/admin-panel.css">
+    <link rel="stylesheet" href="/admin/admin-panel.css?v={{ filemtime(public_path('admin/admin-panel.css')) }}">
+
+    @stack('head-styles')
 </head>
-<body class="hold-transition sidebar-mini layout-fixed">
+<body class="hold-transition sidebar-mini layout-fixed" data-preload-duration="999999999">
 <div class="wrapper">
 
     <!-- Preloader -->
@@ -46,82 +45,27 @@
 
     <!-- Navbar -->
     <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+
         <!-- Left navbar links -->
         <ul class="navbar-nav navbar-nav-left">
             <li class="nav-item">
                 <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
             </li>
 
+            @if (request()->routeIs('posts.index'))
             <div class="" style="display: flex;flex-flow: column;width: 100%;">
-                <div>
-                    <input type="radio" id="search-by-hashtags" name="search-type" value="hashtags" checked />
-                    <label for="search-by-hashtags">Поиск по хештегам</label>
-
-                    <input type="radio" id="search-by-text" name="search-type" value="text" />
-                    <label for="search-by-text">Поиск по тексту</label>
-
-                    <input type="radio" id="search-by-image" name="search-type" value="image" />
-                    <label for="search-by-image">Поиск по картинке</label>
-                </div>
-
-                <div>
-                    <div id="js-b-search" class="b-search" data-action="{{ route('search.posts-by-hashtags') }}">
-                        <div id="js-b-search__field" class="b-search__field" data-action="{{ route('search.hashtag') }}">
-                            <div id="b-search__field__tags-container" class="b-search__field__tags-container html-input-field">
-                                <div id="b-search__field__tags-container__tags" class="b-search__field__tags-container__tags">
-                                    <div id="b-search__input" class="b-search__input">
-                                        <input type="text" id="search-input" class="form-control" name="KeywordForm[keyword]" aria-required="true" aria-invalid="false">
-                                    </div>
-                                </div>
-                            </div>
-                            <ul id="b-search__results" class="b-search__results"></ul>
-                        </div>
-
-                        <div id="js-b-search__field" class="b-search__field" data-action="{{ route('search.hashtag') }}">
-                            <div id="b-search__field__tags-container-1-2" class="b-search__field__tags-container html-input-field">
-                                <div id="b-search__field__tags-container__tags" class="b-search__field__tags-container__tags">
-                                    <div id="b-search__input" class="b-search__input">
-                                        <input type="text" id="search-input-1-2" class="form-control" name="KeywordForm[keyword]" aria-required="true" aria-invalid="false">
-                                    </div>
-                                </div>
-                            </div>
-                            <ul id="b-search__results-1-2" class="b-search__results"></ul>
-                        </div>
-
-                        <button id="btn-search" type="submit" class="btn btn-block btn-outline-info b-search__button">Поиск</button>
-                        {{--                <div class="col-lg-2">--}}
-                        {{--                    <button type="submit" class="btn btn-block btn-info transition-3d-hover">Поиск</button>--}}
-                        {{--                </div>--}}
-                    </div>
-
-                    <div>
-                        <div id="js-b-search" class="b-search" data-action="{{ route('search.posts-by-hashtags') }}">
-                            <div id="js-b-search__field" class="b-search__field" data-action="{{ route('search.hashtag') }}">
-                                <div id="b-search__field__tags-container" class="b-search__field__tags-container html-input-field">
-                                    <div id="b-search__field__tags-container__tags-1-2" class="b-search__field__tags-container__tags">
-                                        {{--                            <span class="tag" contenteditable="false">#test<span class="icon font-icon fas close"></span></span>--}}
-                                        {{--                            <span class="tag" contenteditable="false">#лес<span class="icon font-icon fas close"></span></span>--}}
-                                        <div id="b-search__input-1-2" class="b-search__input">
-                                            <input type="text" id="search-input" class="form-control" name="KeywordForm[keyword]" aria-required="true" aria-invalid="false">
-                                        </div>
-                                    </div>
-
-                                </div>
-                                <ul id="b-search__results" class="b-search__results">
-                                    {{--                        <li>test</li>--}}
-                                    {{--                        <li>test2</li>--}}
-                                    {{--                        <li>test3</li>--}}
-                                </ul>
-                            </div>
-                            <button id="btn-search" type="submit" class="btn btn-block btn-outline-info b-search__button">Поиск</button>
-                            {{--                <div class="col-lg-2">--}}
-                            {{--                    <button type="submit" class="btn btn-block btn-info transition-3d-hover">Поиск</button>--}}
-                            {{--                </div>--}}
-                        </div>
-                    </div>
-                </div>
-
+                @include('layouts.parts.search_widget')
             </div>
+            @endif
+
+            @if (request()->routeIs('contacts.index'))
+                <li class="nav-item d-flex align-items-center">
+                    <ol class="breadcrumb b-navbar-breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+                        <li class="breadcrumb-item active">База контактов</li>
+                    </ol>
+                </li>
+            @endif
         </ul>
 {{--        b-tags-results--}}
 
@@ -249,159 +193,104 @@
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
-    <aside class="main-sidebar sidebar-dark-primary elevation-4">
-        <!-- Brand Logo -->
-        <a href="index3.html" class="brand-link">
-            <img src="/admin/dist/img/AdminLTELogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
-            <span class="brand-text font-weight-light">Админ-панель</span>
+    <aside class="main-sidebar b-sidebar elevation-1">
+        <!-- Brand -->
+        <a href="{{ route('homeAdmin') }}" class="b-sidebar-brand">
+            <span class="b-sidebar-brand__icon">A</span>
+            <span class="b-sidebar-brand__text">Админ-панель</span>
         </a>
 
         <!-- Sidebar -->
-        <div class="sidebar">
-            <!-- Sidebar user panel (optional) -->
-            <div class="user-panel mt-3 pb-3 mb-3 d-flex">
-                <div class="image">
-                    <img src="/admin/dist/img/user2-160x160.jpg" class="img-circle elevation-2" alt="User Image">
-                </div>
-                <div class="info">
-                    <a href="#" class="d-block">{{ Auth::user()->name }}</a>
-                </div>
-            </div>
-
-            <!-- SidebarSearch Form -->
-            <div class="form-inline">
-                <div class="input-group" data-widget="sidebar-search">
-                    <input class="form-control form-control-sidebar" type="search" placeholder="Search" aria-label="Search">
-                    <div class="input-group-append">
-                        <button class="btn btn-sidebar">
-                            <i class="fas fa-search fa-fw"></i>
-                        </button>
-                    </div>
+        <div class="sidebar b-sidebar__body">
+            <!-- Sidebar user panel -->
+            <div class="b-sidebar-user">
+                <img src="/admin/dist/img/user2-160x160.jpg" class="b-sidebar-user__photo" alt="User Image">
+                <div class="b-sidebar-user__info">
+                    <div class="b-sidebar-user__name">{{ Auth::user()->name }}</div>
+                    <div class="b-sidebar-user__role">Администратор</div>
                 </div>
             </div>
 
-            <!-- Sidebar Menu -->
+            {{-- Кнопка "Поиск": на странице "Все посты" виджет и так виден в шапке (см. выше) —
+                 просто прокручиваем/фокусируем его; на остальных страницах открывает
+                 поп-ап modal-search-global (см. ниже, после </aside>), см. admin.js --}}
+            <div class="b-sidebar-search">
+                <button type="button" class="b-sidebar-search__btn js-sidebar-search-btn">
+                    @include('layouts.parts.sidebar_icon', ['name' => 'search', 'class' => 'b-sidebar-search__icon'])
+                    <span>Поиск</span>
+                    @include('layouts.parts.sidebar_icon', ['name' => 'chevron-right', 'class' => 'b-sidebar-search__chevron'])
+                </button>
+            </div>
+
+            <!-- Sidebar Menu (плоский список — без выпадающих подпунктов, пункт сразу ведёт
+                 на "Все X"; "Добавить X" остаётся кнопкой на самой странице списка) -->
             <nav class="mt-2">
-                <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-                    <!-- Add icons to the links using the .nav-icon class
-                         with font-awesome or any other icon font library -->
+                <ul class="nav b-sidebar-nav flex-column" role="menu">
                     <li class="nav-item">
-                        <a href="{{ route('homeAdmin') }}" class="nav-link">
-                            <i class="nav-icon fas fa-tachometer-alt"></i>
-                            <p>Главная</p>
+                        <a href="{{ route('homeAdmin') }}" class="b-sidebar-nav__link @if (request()->routeIs('homeAdmin')) is-active @endif">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'home', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Главная</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" class="nav-link">
-                            <i class="nav-icon fas fa-edit"></i>
-                            <p>
-                                Посты
-                                <i class="fas fa-angle-left right"></i>
-                                <span class="badge badge-info right">6</span>
-                            </p>
+                        <a href="{{ route('posts.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('posts.*')) is-active @endif">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'edit', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Посты</span>
+                            <span class="b-sidebar-nav__badge">6</span>
                         </a>
-                        <ul class="nav nav-treeview">
-                            <li class="nav-item">
-                                <a href="{{ route('posts.index') }}" class="nav-link">
-                                    <i class="far fa-circle nav-icon"></i>
-                                    <p>Все посты</p>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a href="{{ route('posts.create') }}" class="nav-link">
-                                    <i class="far fa-circle nav-icon"></i>
-                                    <p>Добавить пост</p>
-                                </a>
-                            </li>
-                        </ul>
                     </li>
                     <li class="nav-item">
-                        <a href="#" class="nav-link">
-                            <i class="nav-icon fas fa-edit"></i>
-                            <p>
-                                Категории
-                                <i class="fas fa-angle-left right"></i>
-                                <span class="badge badge-info right">6</span>
-                            </p>
+                        <a href="{{ route('posts-categories.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('posts-categories.*')) is-active @endif">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'grid', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Категории</span>
+                            <span class="b-sidebar-nav__badge">6</span>
                         </a>
-                        <ul class="nav nav-treeview">
-                            <li class="nav-item">
-                                <a href="{{ route('posts-categories.index') }}" class="nav-link">
-                                    <i class="far fa-circle nav-icon"></i>
-                                    <p>Все категории</p>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a href="{{ route('posts-categories.create') }}" class="nav-link">
-                                    <i class="far fa-circle nav-icon"></i>
-                                    <p>Добавить категорию</p>
-                                </a>
-                            </li>
-                        </ul>
                     </li>
+                    <li class="nav-item">
+                        <a href="{{ route('hashtags.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('hashtags.*')) is-active @endif">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'hash', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Хештеги</span>
+                            <span class="b-sidebar-nav__badge">6</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="pages/widgets.html" class="b-sidebar-nav__link">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'lightbulb', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Идеи Инстаграм</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="pages/widgets.html" class="b-sidebar-nav__link">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'image', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Позирование</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('wishlists.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('wishlists.*')) is-active @endif">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'gift', 'class' => 'b-sidebar-nav__icon'])
+                            <span>My Gift List</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('contacts.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('contacts.*')) is-active @endif">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'users', 'class' => 'b-sidebar-nav__icon'])
+                            <span>База контактов</span>
+                        </a>
+                    </li>
+                </ul>
 
-                    <li class="nav-item">
-                        <a href="#" class="nav-link">
-                            <i class="nav-icon fas fa-edit"></i>
-                            <p>
-                                Хештеги
-                                <i class="fas fa-angle-left right"></i>
-                                <span class="badge badge-info right">6</span>
-                            </p>
-                        </a>
-                        <ul class="nav nav-treeview">
-                            <li class="nav-item">
-                                <a href="{{ route('hashtags.index') }}" class="nav-link">
-                                    <i class="far fa-circle nav-icon"></i>
-                                    <p>Все хештеги</p>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a href="{{ route('hashtags.create') }}" class="nav-link">
-                                    <i class="far fa-circle nav-icon"></i>
-                                    <p>Добавить хештег</p>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
+                <div class="b-sidebar-divider"></div>
 
+                <ul class="nav b-sidebar-nav flex-column">
                     <li class="nav-item">
-                        <a href="pages/widgets.html" class="nav-link">
-                            <i class="nav-icon fas fa-copy"></i>
-                            <p>Вкладки</p>
-                        </a>
+                        <form action="{{ route('logout') }}" method="POST" class="m-0">
+                            @csrf
+                            <button type="submit" class="b-sidebar-nav__link b-sidebar-nav__link--danger">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'log-out', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Выйти</span>
+                            </button>
+                        </form>
                     </li>
-                    <li class="nav-item">
-                        <a href="pages/widgets.html" class="nav-link">
-                            <i class="nav-icon fas fa-edit"></i>
-                            <p>Идеи Инстаграм</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="pages/widgets.html" class="nav-link">
-                            <i class="nav-icon fas fa-image"></i>
-                            <p>Позирование</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="pages/widgets.html" class="nav-link">
-                            <i class="nav-icon fas fa-edit"></i>
-                            <p>Идеи Планер</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="pages/widgets.html" class="nav-link">
-                            <i class="nav-icon fas fa-book"></i>
-                            <p>Идеи Книга</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="pages/widgets.html" class="nav-link">
-                            <i class="nav-icon fas fa-gift"></i>
-                            <p>My Gift List</p>
-                        </a>
-                    </li>
-
                 </ul>
             </nav>
             <!-- /.sidebar-menu -->
@@ -409,8 +298,38 @@
         <!-- /.sidebar -->
     </aside>
 
+    {{-- Поп-ап "Поиск" — открывается кнопкой "Поиск" в меню слева (js-sidebar-search-btn) на
+         всех страницах, кроме "Все посты" (там тот же виджет уже виден прямо в шапке, см. выше,
+         и на одной странице не может быть двух элементов с одинаковыми id) --}}
+    @unless (request()->routeIs('posts.index'))
+        @php
+            $searchModalSubtitle = request()->routeIs('contacts.*')
+                ? 'Ищите контакты по хэштегам, тексту или картинке'
+                : 'Ищите по тексту';
+        @endphp
+        <div class="modal fade" id="modal-search-global" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                <div class="modal-content b-search-modal">
+                    <div class="modal-header b-search-modal__header">
+                        <div class="b-search-modal__heading">
+                            <i class="fas fa-search"></i>
+                            <div>
+                                <h5 class="modal-title">Поиск</h5>
+                                <div class="b-search-modal__subtitle">{{ $searchModalSubtitle }}</div>
+                            </div>
+                        </div>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        @include('layouts.parts.search_widget')
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endunless
+
     <!-- Content Wrapper. Contains page content -->
-    <div class="content-wrapper">
+    <div class="content-wrapper @if (request()->routeIs('contacts.index')) content-wrapper--contacts @endif">
         @yield('content')
     </div>
     <!-- /.content-wrapper -->
@@ -463,23 +382,20 @@
 <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
 <script src="/admin/dist/js/pages/dashboard.js"></script>
 
-<!-- TinyMCE -->
-<script src="https://cdn.tiny.cloud/1/9g67ywmzu7yvnd7xvormx1w3kztgki8hvrxv7egsusuqtzqt/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
+<!-- TinyMCE (самостоятельно захостено в /admin/plugins/tinymce — было на CDN tiny.cloud,
+     без интернета совсем не грузилось и рвало весь admin.js, т.к. дальше по коду
+     идёт tinymce.init()) -->
+<script src="/admin/plugins/tinymce/tinymce.min.js"></script>
 
 <script src="/admin/plugins/toastr/toastr.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+<script src="/admin/plugins/fancybox/fancybox.umd.js"></script>
 
-{{--<script src="/clipboard.js/dist/clipboard.min.js"></script>--}}
+<!-- Masonry Cascading grid layout library -->
+<script src="/admin/plugins/masonry-layout/masonry.pkgd.min.js"></script>
+<script src="/admin/plugins/imagesloaded/imagesloaded.pkgd.min.js"></script>
 
-<!-- Masonry  Cascading grid layout library -->
-{{--<script src="../node_modules/masonry-layout/dist/masonry.pkgd.min.js"></script>--}}
-<script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
-<script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/jquery-infinitescroll/2.0b2.120519/jquery.infinitescroll.min.js"></script>
-<script src="/admin/plugins/infinite-scroll.pkgd.js"></script>
-
-<script src="/admin/admin.js"></script>
+<script src="/admin/admin.js?v={{ filemtime(public_path('admin/admin.js')) }}"></script>
 @stack('footer-scripts')
 
 </body>
