@@ -14,6 +14,9 @@ use App\Models\ContactSocialLink;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
@@ -38,12 +41,231 @@ class ContactController extends Controller
         ]);
     }
 
+    /**
+     * Подсказки город/страна для поля "Место жительства" (форма контакта). Основной
+     * источник — своя локальная база (residence_cities/residence_countries, импорт
+     * из GeoNames см. App\Console\Commands\ImportResidenceGeoData): быстро, без сети
+     * и всегда с названием на русском/английском (у внешних геосервисов с этим беда —
+     * например, украинские города они знают только под местным названием). Внешние
+     * Photon/Nominatim — просто подстраховка на случай, если города нет в локальной
+     * базе (она не полная: только от ~5000 жителей). Кэш на сутки — на тот случай,
+     * когда всё же пришлось идти во внешний сервис.
+     */
+    public function searchResidence(Request $request)
+    {
+        $search = trim((string) $request->input('search'));
+        if (mb_strlen($search) < 2) {
+            return response()->json(['status' => true, 'results' => []]);
+        }
+
+        $localItems = self::searchResidenceLocal($search);
+        if ($localItems) {
+            return response()->json(['status' => true, 'results' => $localItems]);
+        }
+
+        $results = Cache::remember('contacts-residence-search:' . mb_strtolower($search), now()->addDay(), function () use ($search) {
+            // Один источник не покрывает всё: у Photon индекс по префиксам слов (годится для
+            // "печатаю и сразу вижу совпадения" — "Чугу"/"Чугуе"), но он ищет только по
+            // основному "name" из OSM, без языковых вариантов — украинский город "Чугуїв"
+            // так и остаётся "Чугуїв", даже если ввести русское "Чугуев" целиком. А вот у
+            // Nominatim в индексе есть и альтернативные/языковые названия (name:ru и т.п.),
+            // поэтому он находит "Чугуев" → "Чугуев, Украина", но только по ПОЛНОМУ слову —
+            // на частичном вводе съезжает в нечёткий (typo-tolerant) поиск и подсовывает
+            // случайные города. Поэтому оба источника вместе: Photon отвечает за подсказки
+            // по ходу набора, Nominatim подхватывает точное русское название под конец.
+            $items = self::searchResidencePhoton($search);
+
+            foreach (self::searchResidenceNominatim($search) as $item) {
+                if (count($items) >= 6) {
+                    break;
+                }
+                if (!in_array($item['label'], array_column($items, 'label'), true)) {
+                    $items[] = $item;
+                }
+            }
+
+            return array_slice($items, 0, 6);
+        });
+
+        return response()->json(['status' => true, 'results' => $results]);
+    }
+
+    /**
+     * Своя база (GeoNames, импортирована локально) — ищем по всем вариантам названия
+     * города (ru/en/оригинал/ascii-транслитерация), чтобы находило и при вводе на
+     * русском, и на английском. Сортировка по населению — крупные города вперёд.
+     */
+    private static function searchResidenceLocal(string $search): array
+    {
+        $like = str_replace(['%', '_'], ['\\%', '\\_'], $search) . '%';
+
+        $rows = DB::table('residence_cities as city')
+            ->leftJoin('residence_countries as country', 'country.iso_code', '=', 'city.country_code')
+            ->where(function ($q) use ($like) {
+                $q->where('city.name_ru', 'like', $like)
+                    ->orWhere('city.name_en', 'like', $like)
+                    ->orWhere('city.name', 'like', $like)
+                    ->orWhere('city.name_ascii', 'like', $like);
+            })
+            ->orderByDesc('city.population')
+            ->limit(6)
+            ->get([
+                'city.name as city_name', 'city.name_ru as city_ru', 'city.name_en as city_en',
+                'country.name as country_name', 'country.name_ru as country_ru', 'country.name_en as country_en',
+                'city.lat', 'city.lng',
+            ]);
+
+        $items = [];
+        foreach ($rows as $row) {
+            $cityLabel = $row->city_ru ?? $row->city_en ?? $row->city_name;
+            $countryLabel = $row->country_ru ?? $row->country_en ?? $row->country_name;
+            $label = $countryLabel ? "{$cityLabel}, {$countryLabel}" : $cityLabel;
+
+            if (!in_array($label, array_column($items, 'label'), true)) {
+                $items[] = [
+                    'label' => $label,
+                    'lat' => $row->lat !== null ? (float) $row->lat : null,
+                    'lng' => $row->lng !== null ? (float) $row->lng : null,
+                ];
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Photon (komoot) — геокодинг на данных OSM с индексом по префиксам слов, поэтому
+     * годится для автокомплита прямо по ходу набора (см. searchResidence).
+     */
+    private static function searchResidencePhoton(string $search): array
+    {
+        try {
+            $response = Http::withHeaders([
+                    'User-Agent' => 'SortingAdminPanel/1.0 (' . (config('app.url') ?: 'contact@example.com') . ')',
+                ])
+                ->timeout(5)
+                ->get('https://photon.komoot.io/api/', [
+                    'q' => $search,
+                    'limit' => 12,
+                ]);
+
+            if (!$response->successful()) {
+                return [];
+            }
+
+            $items = [];
+            foreach ($response->json('features') ?: [] as $feature) {
+                $props = $feature['properties'] ?? [];
+
+                // берём только настоящие населённые пункты — Photon вперемешку с ними
+                // отдаёт вершины/вокзалы/КПП/районы и области целиком (osm_key/osm_value
+                // у них другие), для поля "место жительства" это не подходит
+                $isSettlement = ($props['osm_key'] ?? null) === 'place' && in_array($props['osm_value'] ?? null, [
+                    'city', 'town', 'village', 'hamlet', 'municipality', 'suburb', 'borough',
+                ], true);
+
+                if (!$isSettlement) {
+                    continue;
+                }
+
+                $name = $props['name'] ?? null;
+                $country = $props['country'] ?? null;
+                $label = ($name && $country) ? "{$name}, {$country}" : $name;
+
+                if (!$label || in_array($label, array_column($items, 'label'), true)) {
+                    continue;
+                }
+
+                // geometry.coordinates у GeoJSON — [долгота, широта], в этом порядке
+                $coords = $feature['geometry']['coordinates'] ?? null;
+                $items[] = [
+                    'label' => $label,
+                    'lat' => isset($coords[1]) ? (float) $coords[1] : null,
+                    'lng' => isset($coords[0]) ? (float) $coords[0] : null,
+                ];
+
+                if (count($items) >= 6) {
+                    break;
+                }
+            }
+
+            return $items;
+        } catch (\Throwable $e) {
+            // Photon недоступен/таймаут — просто без этой части подсказок
+            return [];
+        }
+    }
+
+    /**
+     * Nominatim — резервный источник специально ради русских названий (name:ru и т.п.),
+     * которых нет в индексе Photon. У него нет автокомплита по неполному слову, поэтому
+     * толку от него на "Чугу"/"Чугуе" немного, зато на "Чугуев" он найдёт "Чугуев, Украина".
+     * Фильтр по вхождению строки — защита от его же нечёткого (typo-tolerant) поиска,
+     * который на коротких/редких запросах подсовывает вообще не похожие города.
+     */
+    private static function searchResidenceNominatim(string $search): array
+    {
+        try {
+            $response = Http::withHeaders([
+                    // Nominatim блокирует запросы без внятного User-Agent/контакта — см.
+                    // https://operations.osmfoundation.org/policies/nominatim/
+                    'User-Agent' => 'SortingAdminPanel/1.0 (' . (config('app.url') ?: 'contact@example.com') . ')',
+                ])
+                ->timeout(5)
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'q' => $search,
+                    'format' => 'jsonv2',
+                    'addressdetails' => 1,
+                    'limit' => 8,
+                    'accept-language' => 'ru',
+                ]);
+
+            if (!$response->successful()) {
+                return [];
+            }
+
+            $items = [];
+            foreach ($response->json() ?: [] as $row) {
+                $address = $row['address'] ?? [];
+                $city = $address['city'] ?? $address['town'] ?? $address['village']
+                    ?? $address['municipality'] ?? $address['county'] ?? null;
+                $country = $address['country'] ?? null;
+                $label = ($city && $country) ? "{$city}, {$country}" : ($row['display_name'] ?? null);
+
+                if (!$label || mb_stripos($city ?? $label, $search) === false) {
+                    continue;
+                }
+
+                if (in_array($label, array_column($items, 'label'), true)) {
+                    continue;
+                }
+
+                $items[] = [
+                    'label' => $label,
+                    'lat' => isset($row['lat']) ? (float) $row['lat'] : null,
+                    'lng' => isset($row['lon']) ? (float) $row['lon'] : null,
+                ];
+
+                if (count($items) >= 6) {
+                    break;
+                }
+            }
+
+            return $items;
+        } catch (\Throwable $e) {
+            // Nominatim недоступен/таймаут/заблокировал по лимиту — просто без этой части
+            return [];
+        }
+    }
+
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
             'birth_date' => 'nullable|date',
             'residence' => 'nullable|string|max:255',
+            'residence_lat' => 'nullable|numeric|between:-90,90',
+            'residence_lng' => 'nullable|numeric|between:-180,180',
             'phone' => 'nullable|string|max:50',
             'photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp',
             'hashtag_ids' => 'nullable|string',
@@ -54,6 +276,8 @@ class ContactController extends Controller
             'name' => $request->name,
             'birth_date' => $request->birth_date ?: null,
             'residence' => $request->residence,
+            'residence_lat' => $request->residence_lat ?: null,
+            'residence_lng' => $request->residence_lng ?: null,
             'phone' => $request->phone,
         ]);
 
@@ -128,6 +352,8 @@ class ContactController extends Controller
             'name' => 'required|string|max:255',
             'birth_date' => 'nullable|date',
             'residence' => 'nullable|string|max:255',
+            'residence_lat' => 'nullable|numeric|between:-90,90',
+            'residence_lng' => 'nullable|numeric|between:-180,180',
             'phone' => 'nullable|string|max:50',
             'photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp',
             'hashtag_ids' => 'nullable|string',
@@ -136,6 +362,8 @@ class ContactController extends Controller
         $contact->name = $request->name;
         $contact->birth_date = $request->birth_date ?: null;
         $contact->residence = $request->residence;
+        $contact->residence_lat = $request->residence_lat ?: null;
+        $contact->residence_lng = $request->residence_lng ?: null;
         $contact->phone = $request->phone;
 
         if ($request->hasFile('photo')) {

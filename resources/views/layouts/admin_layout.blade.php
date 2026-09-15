@@ -364,9 +364,12 @@
 <script src="/admin/plugins/jquery-knob/jquery.knob.min.js"></script>
 <!-- daterangepicker -->
 <script src="/admin/plugins/moment/moment.min.js"></script>
+<script src="/admin/plugins/moment/locale/ru.js"></script>
 <script src="/admin/plugins/daterangepicker/daterangepicker.js"></script>
 <!-- Tempusdominus Bootstrap 4 -->
 <script src="/admin/plugins/tempusdominus-bootstrap-4/js/tempusdominus-bootstrap-4.min.js"></script>
+<!-- Inputmask (маска телефона в форме контакта, .js-contact-form__phone) -->
+<script src="/admin/plugins/inputmask/jquery.inputmask.min.js"></script>
 <!-- Summernote -->
 <script src="/admin/plugins/summernote/summernote-bs4.min.js"></script>
 <!-- overlayScrollbars -->

@@ -94,18 +94,30 @@
 
                     <div class="b-contacts-grid js-contacts-grid">
                         @foreach ($contacts as $contact)
+                            @php $shownTags = $contact->hashtags->take(3); $restTags = $contact->hashtags->slice(3); @endphp
                             <a href="{{ route('contacts.show', $contact->id) }}" class="b-contact-card" data-hashtag-ids="{{ $contact->hashtags->pluck('id')->implode(',') }}" data-name="{{ $contact->name }}" title="{{ $contact->name }}{{ $contact->hashtags->isNotEmpty() ? ' — ' . $contact->hashtags->pluck('title')->implode(', ') : '' }}">
-                                <div class="b-contact-card__photo" @if ($contact->photo_url) style="background-image: url({{ $contact->photo_url }})" @endif>
-                                    @if (!$contact->photo_url)
-                                        <span class="b-contact-card__initials">{{ $contact->initials }}</span>
-                                    @endif
+                                <div class="b-contact-card__top">
+                                    <div class="b-contact-card__photo" @if ($contact->photo_url) style="background-image: url({{ $contact->photo_url }})" @endif>
+                                        @if (!$contact->photo_url)
+                                            <span class="b-contact-card__initials">{{ $contact->initials }}</span>
+                                        @endif
+                                        <span class="b-contact-card__status-dot" title="Активна"></span>
+                                    </div>
+                                    <div class="b-contact-card__id">
+                                        <div class="b-contact-card__name">{{ $contact->name }}</div>
+                                        <div class="b-contact-card__handle">{{ $contact->demo['handle'] }}</div>
+                                    </div>
                                 </div>
-                                <div class="b-contact-card__name">{{ $contact->name }}</div>
-                                <div class="b-contact-card__meta">{{ $contact->hashtags->isNotEmpty() ? $contact->hashtags->count() . ' ' . $ruPlural($contact->hashtags->count(), 'хештег', 'хештега', 'хештегов') : 'Без хештегов' }} · {{ $contact->short_added_label }}</div>
-                                @php $shownTags = $contact->hashtags->take(3); $restTags = $contact->hashtags->slice(3); @endphp
+
+                                <div class="b-contact-card__meta">
+                                    <span><i class="fas fa-map-marker-alt"></i> {{ $contact->residence ?: '—' }}</span>
+                                    <span class="b-contact-card__meta-sep">|</span>
+                                    <span><i class="far fa-calendar-alt"></i> {{ $contact->birth_date ? $contact->birth_date->age . ' ' . $ruPlural($contact->birth_date->age, 'год', 'года', 'лет') : '—' }}</span>
+                                </div>
+
                                 <div class="b-contact-card__tags">
-                                    @foreach ($shownTags as $hashtag)
-                                        <span class="b-contact-card__tag">#{{ $hashtag->title }}</span>
+                                    @foreach ($shownTags as $i => $hashtag)
+                                        <span class="b-contact-card__tag @if ($i === 0) b-contact-card__tag--primary @endif">#{{ $hashtag->title }}</span>
                                     @endforeach
                                     @if ($restTags->isNotEmpty())
                                         <span class="b-contact-card__tag b-contact-card__tag--more" title="{{ $restTags->pluck('title')->implode(', ') }}">+{{ $restTags->count() }}</span>

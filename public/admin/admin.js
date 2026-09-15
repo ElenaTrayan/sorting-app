@@ -4005,6 +4005,152 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  }
              });
          });
+
+         // --- поиск по названию ---
+         const grid = document.querySelector('.js-wishlists-grid');
+         const searchInput = document.querySelector('.js-wishlists-search-input');
+         const emptySearchState = document.querySelector('.js-wishlists-empty-search');
+         // копия списка карточек, а не live-NodeList — при удалении вишлиста (см. ниже)
+         // просто вырезаем элемент отсюда же, без повторного querySelectorAll
+         const cards = grid ? Array.prototype.slice.call(grid.querySelectorAll('.js-wishlist-card')) : [];
+
+         function applySearch() {
+             if (!grid) {
+                 return;
+             }
+             let query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+             let visibleCount = 0;
+             cards.forEach(function (card) {
+                 let match = !query || card.getAttribute('data-title').toLowerCase().indexOf(query) !== -1;
+                 card.style.display = match ? '' : 'none';
+                 if (match) {
+                     visibleCount++;
+                 }
+             });
+             if (emptySearchState) {
+                 emptySearchState.style.display = visibleCount === 0 ? '' : 'none';
+             }
+             grid.style.display = visibleCount === 0 ? 'none' : '';
+         }
+
+         if (searchInput) {
+             searchInput.addEventListener('input', applySearch);
+         }
+
+         // --- сортировка (просто переставляет карточки в DOM — grid не Masonry,
+         // как на странице одного вишлиста, поэтому relayout не нужен) ---
+         const sortWrap = document.querySelector('.js-wishlists-sort');
+         if (sortWrap && grid) {
+             const sortTrigger = sortWrap.querySelector('.js-wishlists-sort-trigger');
+             const sortLabel = sortWrap.querySelector('.js-wishlists-sort-label');
+
+             sortTrigger.addEventListener('click', function (event) {
+                 event.stopPropagation();
+                 sortWrap.classList.toggle('is-open');
+             });
+
+             sortWrap.querySelectorAll('.js-wishlists-sort-option').forEach(function (option) {
+                 option.addEventListener('click', function () {
+                     sortWrap.querySelectorAll('.js-wishlists-sort-option').forEach(function (o) {
+                         o.classList.remove('is-active');
+                     });
+                     option.classList.add('is-active');
+                     sortLabel.textContent = option.textContent.trim();
+                     sortWrap.classList.remove('is-open');
+
+                     let order = option.getAttribute('data-order');
+                     let sorted = cards.slice().sort(function (a, b) {
+                         if (order === 'new') {
+                             return b.getAttribute('data-created') - a.getAttribute('data-created');
+                         }
+                         if (order === 'old') {
+                             return a.getAttribute('data-created') - b.getAttribute('data-created');
+                         }
+                         let titleA = a.getAttribute('data-title').toLowerCase();
+                         let titleB = b.getAttribute('data-title').toLowerCase();
+                         return order === 'az' ? titleA.localeCompare(titleB, 'ru') : titleB.localeCompare(titleA, 'ru');
+                     });
+                     sorted.forEach(function (card) {
+                         grid.appendChild(card);
+                     });
+                 });
+             });
+         }
+
+         // --- "..." меню карточки (пока только удаление) ---
+         document.querySelectorAll('.js-wishlist-card__menu').forEach(function (menu) {
+             const toggle = menu.querySelector('.js-wishlist-card__menu-toggle');
+             const deleteBtn = menu.querySelector('.js-wishlist-card__delete');
+             const card = menu.closest('.js-wishlist-card');
+
+             // вся карточка — это <a>, поэтому клики по кнопке/пунктам меню не должны
+             // ни открывать вишлист, ни "протекать" на document (закрывающий меню)
+             toggle.addEventListener('click', function (event) {
+                 event.preventDefault();
+                 event.stopPropagation();
+                 let wasOpen = menu.classList.contains('is-open');
+                 document.querySelectorAll('.js-wishlist-card__menu.is-open').forEach(function (m) {
+                     m.classList.remove('is-open');
+                 });
+                 if (!wasOpen) {
+                     menu.classList.add('is-open');
+                 }
+             });
+
+             deleteBtn.addEventListener('click', function (event) {
+                 event.preventDefault();
+                 event.stopPropagation();
+                 menu.classList.remove('is-open');
+
+                 if (!confirm('Удалить вишлист «' + card.getAttribute('data-title') + '» вместе со всеми желаниями? Это действие нельзя отменить.')) {
+                     return;
+                 }
+
+                 $.ajax({
+                     type: 'delete',
+                     url: card.getAttribute('data-destroy-action'),
+                     headers: {'X-CSRF-TOKEN': csrfToken()},
+                     success: function (response) {
+                         if (response.status === true) {
+                             let idx = cards.indexOf(card);
+                             if (idx !== -1) {
+                                 cards.splice(idx, 1);
+                             }
+                             card.remove();
+                             toastr.success(response.message || 'Вишлист удалён');
+                             applySearch();
+                         } else {
+                             toastr.error(response.message || 'Не удалось удалить вишлист');
+                         }
+                     },
+                     error: function () {
+                         toastr.error('Не удалось удалить вишлист');
+                     }
+                 });
+             });
+         });
+
+         document.addEventListener('click', function (event) {
+             if (!event.target.closest('.js-wishlist-card__menu')) {
+                 document.querySelectorAll('.js-wishlist-card__menu.is-open').forEach(function (m) {
+                     m.classList.remove('is-open');
+                 });
+             }
+             if (sortWrap && !sortWrap.contains(event.target)) {
+                 sortWrap.classList.remove('is-open');
+             }
+         });
+         document.addEventListener('keydown', function (event) {
+             if (event.key !== 'Escape') {
+                 return;
+             }
+             document.querySelectorAll('.js-wishlist-card__menu.is-open').forEach(function (m) {
+                 m.classList.remove('is-open');
+             });
+             if (sortWrap) {
+                 sortWrap.classList.remove('is-open');
+             }
+         });
      })();
 
      // ===== Мой список подарков: страница одного вишлиста =====
@@ -5154,6 +5300,20 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          const selected = pickerEl.querySelector('.js-contact-tag-picker__selected');
          let searchTimeout = null;
 
+         // Список по умолчанию открывается вниз; разворачиваем вверх, только если снизу
+         // не остаётся места даже на пару пунктов — сам список и так скроллится внутри
+         // себя (overflow-y:auto, max-height 200px в CSS), поэтому не требуем поместить
+         // весь найденный список целиком: если сравнивать со scrollHeight, поиск обычно
+         // находит достаточно хештегов, чтобы scrollHeight почти всегда упирался в те
+         // же 200px — а в форме контакта поле "Хештеги" как раз оказывается на высоте,
+         // где свободного места чуть меньше 200px, из-за чего список разворачивался
+         // вверх практически всегда, даже когда снизу места объективно достаточно.
+         let MIN_RESULTS_SPACE = 90; // примерно 2-3 пункта списка
+         function positionResults() {
+             let spaceBelow = window.innerHeight - pickerEl.getBoundingClientRect().bottom;
+             results.classList.toggle('b-contact-tag-picker__results--above', spaceBelow < MIN_RESULTS_SPACE);
+         }
+
          function getSelectedMap() {
              let map = {};
              selected.querySelectorAll('.b-contact-tag-picker__tag').forEach(function (tag) {
@@ -5249,7 +5409,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                              results.appendChild(createLi);
                          }
 
-                         results.classList.toggle('b-contact-tag-picker__results--open', results.children.length > 0);
+                         let hasResults = results.children.length > 0;
+                         results.classList.toggle('b-contact-tag-picker__results--open', hasResults);
+                         if (hasResults) {
+                             positionResults();
+                         }
                      }
                  });
              }, 300);
@@ -5307,6 +5471,212 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      }
 
+     // Кнопка "×" внутри поля "Место жительства" (contact_form_modal.blade.php, оба
+     // режима — есть в обоих попапах, поэтому вешаем на все найденные сразу): видна,
+     // только пока в поле что-то введено, по клику чистит поле и прячется обратно.
+     document.querySelectorAll('.js-contact-form__residence-clear').forEach(function (btn) {
+         let input = btn.closest('.b-contact-form-input').querySelector('.js-contact-form__residence');
+         if (!input) {
+             return;
+         }
+         function syncClearVisibility() {
+             btn.classList.toggle('is-visible', input.value.trim().length > 0);
+         }
+         syncClearVisibility();
+         input.addEventListener('input', syncClearVisibility);
+         btn.addEventListener('click', function () {
+             input.value = '';
+             syncClearVisibility();
+             // 'input' событие — чтобы initResidenceAutocomplete() ниже тоже узнал об
+             // очистке и закрыл список подсказок (он сам на неё не подписан)
+             input.dispatchEvent(new Event('input'));
+             input.focus();
+         });
+     });
+
+     // Календарь "Дата рождения" в форме контакта (tempusdominus-bootstrap-4, уже
+     // подключён в admin_layout.blade.php, но раньше нигде не использовался) — вместо
+     // нативного <input type="date">, чей календарь нельзя стилизовать. Есть в обоих
+     // попапах (создание/редактирование), поэтому просто инициализируем все найденные.
+     document.querySelectorAll('.js-contact-form__birth-date-wrap').forEach(function (wrap) {
+         $(wrap).datetimepicker({
+             format: 'DD.MM.YYYY',
+             locale: 'ru',
+             useCurrent: false,
+             maxDate: moment(),
+             icons: {previous: 'fas fa-chevron-left', next: 'fas fa-chevron-right'}
+         });
+     });
+
+     // Маска поля "Телефон" в форме контакта (jquery.inputmask, подключён в
+     // admin_layout.blade.php). Контакты международные (см. demo-данные — Стокгольм,
+     // Швеция и т.п.), поэтому НЕ жёсткий шаблон под один код страны/длину
+     // (+7 (999) 999-99-99 отсёк бы любой не-российский номер) — просто не даём
+     // вводить ничего, кроме цифр, "+", пробелов, скобок и дефисов.
+     document.querySelectorAll('.js-contact-form__phone').forEach(function (phoneInput) {
+         $(phoneInput).inputmask({
+             regex: '^[+]?[0-9 ()\\-]*$',
+             greedy: false,
+             showMaskOnFocus: false,
+             showMaskOnHover: false
+         });
+     });
+
+     // Координаты выбранного города (lat/lng) — просто складываем в скрытые
+     // .js-contact-form__residence-lat/-lng вместе с текстом поля, про запас на будущее
+     // (сортировка/фильтр по расстоянию и т.п.); в самой форме никак не показываются.
+     // При ручном наборе без выбора из списка координаты не проставляются/сбрасываются.
+     function residenceCoordsControls(modalEl) {
+         const latInput = modalEl.querySelector('.js-contact-form__residence-lat');
+         const lngInput = modalEl.querySelector('.js-contact-form__residence-lng');
+         if (!latInput || !lngInput) {
+             return {setCoords: function () {}, clearCoords: function () {}};
+         }
+
+         return {
+             setCoords: function (lat, lng) {
+                 latInput.value = lat;
+                 lngInput.value = lng;
+             },
+             clearCoords: function () {
+                 latInput.value = '';
+                 lngInput.value = '';
+             }
+         };
+     }
+
+     // Подсказки город/страна для "Места жительства" — сначала своя локальная база,
+     // при необходимости — Photon/Nominatim (ContactController::searchResidence, URL в
+     // data-residence-search-action на корневом .modal, см. contact_form_modal.blade.php).
+     // Выбор из списка просто заменяет значение поля целиком — не список тегов, поэтому
+     // не переиспользует initHashtagPicker(), хоть и повторяет его паттерн (debounce,
+     // разворот вверх/вниз по месту).
+     function initResidenceAutocomplete(modalEl) {
+         const wrap = modalEl.querySelector('.js-contact-residence');
+         const input = modalEl.querySelector('.js-contact-form__residence');
+         const results = modalEl.querySelector('.js-contact-residence-results');
+         const searchUrl = modalEl.getAttribute('data-residence-search-action');
+         if (!wrap || !input || !results || !searchUrl) {
+             return;
+         }
+
+         const coords = residenceCoordsControls(modalEl);
+
+         let searchTimeout = null;
+         let requestSeq = 0; // чтобы устаревший ответ (пользователь уже печатает дальше) не перезаписал список
+
+         function closeResults() {
+             results.classList.remove('b-contact-residence__results--open');
+         }
+
+         function positionResults() {
+             let spaceBelow = window.innerHeight - wrap.getBoundingClientRect().bottom;
+             results.classList.toggle('b-contact-residence__results--above', spaceBelow < 90);
+         }
+
+         function openResults() {
+             results.classList.add('b-contact-residence__results--open');
+             positionResults();
+         }
+
+         function renderEmpty(text) {
+             results.innerHTML = '';
+             let li = document.createElement('li');
+             li.className = 'b-contact-residence__empty-item';
+             li.textContent = text;
+             results.appendChild(li);
+             openResults();
+         }
+
+         function selectPlace(item) {
+             input.value = item.label;
+             closeResults();
+             if (typeof item.lat === 'number' && typeof item.lng === 'number') {
+                 coords.setCoords(item.lat, item.lng);
+             } else {
+                 coords.clearCoords();
+             }
+         }
+
+         input.addEventListener('input', function () {
+             // текст больше не соответствует ранее выбранной подсказке (если она вообще
+             // была) — координаты устарели
+             coords.clearCoords();
+
+             clearTimeout(searchTimeout);
+             let value = input.value.trim();
+             if (value.length < 2) {
+                 closeResults();
+                 return;
+             }
+
+             let seq = ++requestSeq;
+             // Nominatim просит не спамить запросами — 400мс достаточно, чтобы не слать
+             // запрос на каждую нажатую клавишу, но не ощущалось "тормозным" при вводе
+             searchTimeout = setTimeout(function () {
+                 $.ajax({
+                     type: 'post',
+                     url: searchUrl,
+                     headers: {'X-CSRF-TOKEN': csrfToken()},
+                     data: {search: value},
+                     success: function (response) {
+                         if (seq !== requestSeq) {
+                             return;
+                         }
+                         let items = (response && response.status === true && response.results) ? response.results : [];
+                         if (!items.length) {
+                             renderEmpty('Ничего не найдено');
+                             return;
+                         }
+                         results.innerHTML = '';
+                         items.forEach(function (item) {
+                             let li = document.createElement('li');
+                             let icon = document.createElement('i');
+                             icon.className = 'fas fa-map-marker-alt';
+                             li.appendChild(icon);
+                             li.appendChild(document.createTextNode(' ' + item.label));
+                             li.addEventListener('click', function () {
+                                 selectPlace(item);
+                             });
+                             results.appendChild(li);
+                         });
+                         openResults();
+                     },
+                     error: function () {
+                         if (seq === requestSeq) {
+                             closeResults();
+                         }
+                     }
+                 });
+             }, 400);
+         });
+
+         document.addEventListener('click', function (event) {
+             if (!wrap.contains(event.target)) {
+                 closeResults();
+             }
+         });
+         document.addEventListener('keydown', function (event) {
+             if (event.key === 'Escape') {
+                 closeResults();
+             }
+         });
+     }
+     document.querySelectorAll('#modal-create-contact, #modal-edit-contact').forEach(initResidenceAutocomplete);
+
+     // Поле пишет дату как ДД.ММ.ГГГГ (см. datetimepicker выше) — на бэкенд шлём
+     // однозначный ISO-формат, а не полагаемся на то, как PHP/Carbon разберёт строку
+     // с точками. Пустая/нераспознанная строка → пустая строка (birth_date у контакта
+     // nullable, backend это допускает).
+     function parseBirthDateInput(inputEl) {
+         let raw = (inputEl.value || '').trim();
+         if (!raw) {
+             return '';
+         }
+         let parsed = moment(raw, 'DD.MM.YYYY', true);
+         return parsed.isValid() ? parsed.format('YYYY-MM-DD') : '';
+     }
+
      // ===== База контактов: список контактов (/admin_panel/contacts) =====
      (function () {
          const indexPage = document.getElementById('contacts-index');
@@ -5336,6 +5706,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              let reader = new FileReader();
              reader.onload = function () {
                  photoPreview.style.backgroundImage = 'url(' + reader.result + ')';
+                 // прячет плейсхолдер (иконка + "фото") — см. .has-photo в admin-panel.css
+                 photoPreview.classList.add('has-photo');
              };
              reader.readAsDataURL(selectedPhotoFile);
          });
@@ -5349,9 +5721,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
              let formData = new FormData();
              formData.append('name', name);
-             formData.append('birth_date', document.querySelector('#modal-create-contact .js-contact-form__birth-date').value);
+             formData.append('birth_date', parseBirthDateInput(document.querySelector('#modal-create-contact .js-contact-form__birth-date')));
              formData.append('phone', document.querySelector('#modal-create-contact .js-contact-form__phone').value);
              formData.append('residence', document.querySelector('#modal-create-contact .js-contact-form__residence').value);
+             formData.append('residence_lat', document.querySelector('#modal-create-contact .js-contact-form__residence-lat').value);
+             formData.append('residence_lng', document.querySelector('#modal-create-contact .js-contact-form__residence-lng').value);
              formData.append('hashtag_ids', JSON.stringify(tagPicker.getSelectedIds()));
              if (selectedPhotoFile) {
                  formData.append('photo', selectedPhotoFile);
@@ -5629,6 +6003,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              let reader = new FileReader();
              reader.onload = function () {
                  editPhotoPreview.style.backgroundImage = 'url(' + reader.result + ')';
+                 editPhotoPreview.classList.add('has-photo');
              };
              reader.readAsDataURL(editSelectedPhotoFile);
          });
@@ -5643,9 +6018,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              let formData = new FormData();
              formData.append('_method', 'PUT');
              formData.append('name', name);
-             formData.append('birth_date', editModalEl.querySelector('.js-contact-form__birth-date').value);
+             formData.append('birth_date', parseBirthDateInput(editModalEl.querySelector('.js-contact-form__birth-date')));
              formData.append('phone', editModalEl.querySelector('.js-contact-form__phone').value);
              formData.append('residence', editModalEl.querySelector('.js-contact-form__residence').value);
+             formData.append('residence_lat', editModalEl.querySelector('.js-contact-form__residence-lat').value);
+             formData.append('residence_lng', editModalEl.querySelector('.js-contact-form__residence-lng').value);
              formData.append('hashtag_ids', JSON.stringify(editTagPicker.getSelectedIds()));
              if (editSelectedPhotoFile) {
                  formData.append('photo', editSelectedPhotoFile);
@@ -6286,7 +6663,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          function getSocialIcon(platform) {
              let key = (platform || '').trim().toLowerCase();
              let map = [
-                 ['instagram', ['fab fa-instagram', '#E1306C']],
+                 ['instagram', ['fab fa-instagram', 'linear-gradient(135deg, #f9d13e 0%, #f2603f 40%, #d92e7f 70%, #8a3ab9 100%)']],
                  ['telegram', ['fab fa-telegram-plane', '#229ED9']],
                  ['tiktok', ['fab fa-tiktok', '#010101']],
                  ['youtube', ['fab fa-youtube', '#FF0000']],
@@ -6329,15 +6706,72 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              // --- иконка рядом с select (переиспользуем getSocialIcon(), см. выше) ---
              const platformSelect = socialAddModalEl.querySelector('.js-social-add-platform');
              const platformIconEl = socialAddModalEl.querySelector('.js-social-add-platform-icon i');
+             const selectValueEl = socialAddModalEl.querySelector('.js-social-select-value');
              function updateSocialPlatformIcon() {
                  let icon = getSocialIcon(platformSelect.value);
                  platformIconEl.className = icon[0];
                  platformIconEl.parentElement.style.background = icon[1];
+                 // подпись кастомного дропдауна (см. ниже) держим в синхроне с select —
+                 // и по change-событию, и при программном сбросе (resetSocialAddForm)
+                 if (selectValueEl && platformSelect.selectedIndex >= 0) {
+                     selectValueEl.textContent = platformSelect.options[platformSelect.selectedIndex].text;
+                 }
              }
              if (platformSelect) {
                  platformSelect.addEventListener('change', updateSocialPlatformIcon);
                  updateSocialPlatformIcon();
              }
+
+             // --- кастомный дропдаун вместо нативного select ---
+             // раскрытый список нативного <select> рисует ОС/браузер, CSS его не стилизует
+             // (нет доступа к иконкам по пунктам, hover-подсветке, скруглениям), поэтому
+             // список рисуем сами; сам <select> остаётся источником значения (скрыт, но
+             // на него завязаны updateSocialPlatformIcon/сохранение/сброс формы выше и ниже) —
+             // клик по кастомному пункту просто проставляет ему value и шлёт 'change'
+             (function () {
+                 const selectWrap = socialAddModalEl.querySelector('.js-social-select');
+                 const selectTrigger = socialAddModalEl.querySelector('.js-social-select-trigger');
+                 const selectList = socialAddModalEl.querySelector('.js-social-select-list');
+                 if (!selectWrap || !selectTrigger || !selectList) {
+                     return;
+                 }
+                 function closeSelectList() {
+                     selectList.hidden = true;
+                     selectTrigger.setAttribute('aria-expanded', 'false');
+                 }
+                 function openSelectList() {
+                     selectList.hidden = false;
+                     selectTrigger.setAttribute('aria-expanded', 'true');
+                 }
+                 selectTrigger.addEventListener('click', function (event) {
+                     event.preventDefault();
+                     if (selectList.hidden) {
+                         openSelectList();
+                     } else {
+                         closeSelectList();
+                     }
+                 });
+                 selectList.querySelectorAll('.js-social-select-option').forEach(function (option) {
+                     option.addEventListener('click', function () {
+                         platformSelect.value = option.getAttribute('data-value');
+                         platformSelect.dispatchEvent(new Event('change', {bubbles: true}));
+                         selectList.querySelectorAll('.js-social-select-option').forEach(function (o) {
+                             o.classList.toggle('is-selected', o === option);
+                         });
+                         closeSelectList();
+                     });
+                 });
+                 document.addEventListener('click', function (event) {
+                     if (!selectWrap.contains(event.target)) {
+                         closeSelectList();
+                     }
+                 });
+                 document.addEventListener('keydown', function (event) {
+                     if (event.key === 'Escape') {
+                         closeSelectList();
+                     }
+                 });
+             })();
 
              // --- "Добавить свою социальную сеть" — прячем select, показываем текстовое поле ---
              const platformGroup = socialAddModalEl.querySelector('.js-social-add-platform-group');
@@ -6384,6 +6818,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  if (platformSelect.options.length) {
                      platformSelect.selectedIndex = 0;
                      updateSocialPlatformIcon();
+                 }
+                 // закрываем кастомный дропдаун и возвращаем выделение на первый пункт —
+                 // иначе при повторном открытии попапа список мог остаться раскрытым
+                 let selectList = socialAddModalEl.querySelector('.js-social-select-list');
+                 if (selectList) {
+                     selectList.hidden = true;
+                     selectList.querySelectorAll('.js-social-select-option').forEach(function (o, i) {
+                         o.classList.toggle('is-selected', i === 0);
+                     });
                  }
                  socialAddModalEl.querySelector('.js-social-add-url').value = '';
                  socialAddModalEl.querySelector('.js-social-add-handle').value = '';

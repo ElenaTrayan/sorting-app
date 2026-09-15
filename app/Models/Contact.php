@@ -18,6 +18,8 @@ class Contact extends Model
         'photo',
         'birth_date',
         'residence',
+        'residence_lat',
+        'residence_lng',
         'phone',
     ];
 

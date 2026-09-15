@@ -1859,19 +1859,19 @@ margin: 0 0 20px 0;
 
 .b-contacts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
     padding: 0 15px 15px;
 }
 .b-contact-card {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
+    align-items: stretch;
+    text-align: left;
     background: #fff;
     border: 1px solid #ececf1;
     border-radius: 14px;
-    padding: 22px 16px 16px;
+    padding: 20px;
     text-decoration: none;
     color: inherit;
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
@@ -1883,25 +1883,40 @@ margin: 0 0 20px 0;
     color: inherit;
     text-decoration: none;
 }
+.b-contact-card__top {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
 .b-contact-card__photo {
-    width: 76px;
-    height: 76px;
+    position: relative;
+    width: 64px;
+    height: 64px;
     flex: none;
-    border-radius: 50%;
+    border-radius: 16px;
     background-color: #efeaff;
     background-size: cover;
     background-position: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 3px solid #fff;
-    box-shadow: 0 0 0 1px #ececf1;
 }
 .b-contact-card__initials {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
     letter-spacing: .01em;
     color: #5c3af0;
+}
+/* точка-индикатор "Активна" поверх аватара, как в макете */
+.b-contact-card__status-dot {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #0fb6ab;
+    border: 2px solid #fff;
 }
 /* цветовая ротация аватаров-заглушек (когда у контакта нет фото) */
 .b-contact-card:nth-of-type(4n+1) .b-contact-card__photo:not([style*="background-image"]) { background-color: #efeaff; }
@@ -1912,32 +1927,54 @@ margin: 0 0 20px 0;
 .b-contact-card:nth-of-type(4n+3) .b-contact-card__initials { color: #5a5a68; }
 .b-contact-card:nth-of-type(4n+4) .b-contact-card__photo:not([style*="background-image"]) { background-color: #fdf0e6; }
 .b-contact-card:nth-of-type(4n+4) .b-contact-card__initials { color: #b96b1e; }
+.b-contact-card__id {
+    min-width: 0;
+    padding-top: 2px;
+}
 .b-contact-card__name {
-    margin-top: 14px;
-    font-size: 14.5px;
-    font-weight: 600;
+    font-size: 15.5px;
+    font-weight: 700;
     line-height: 1.3;
     letter-spacing: -.01em;
+    color: #1f2430;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    min-height: 38px;
+}
+.b-contact-card__handle {
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: #9aa1ac;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .b-contact-card__meta {
-    margin-top: 3px;
-    font-size: 11.5px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 14px 0 0;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #f2f2f6;
+    font-size: 12px;
     color: #9a9aa6;
     font-weight: 500;
 }
+.b-contact-card__meta i {
+    color: #c3c5cf;
+    margin-right: 2px;
+}
+.b-contact-card__meta-sep {
+    color: #e0e1e8;
+}
 .b-contact-card__tags {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #f2f2f6;
+    margin-top: 14px;
     width: 100%;
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
     align-content: flex-start;
     gap: 6px;
     min-height: 30px;
@@ -1954,10 +1991,14 @@ margin: 0 0 20px 0;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.b-contact-card__tag--more {
-    font-weight: 600;
+.b-contact-card__tag--primary {
     color: #0f9b8e;
     background: #e2f6f3;
+}
+.b-contact-card__tag--more {
+    font-weight: 600;
+    color: #7367f0;
+    background: #eef0fe;
 }
 
 /* --- панель "Фильтры" справа (filters_panel.blade.php) — по-настоящему фильтрует
@@ -2235,69 +2276,390 @@ margin: 0 0 20px 0;
     background: #5e50e0;
 }
 
-/* --- форма создания/редактирования контакта --- */
-.b-contact-form__photo-row {
+/* --- форма создания/редактирования контакта (contact_form_modal.blade.php) ---
+   По макету Claude Design (артефакт eb49d882): компактная карточка, поля в рамке
+   с иконкой, круглое превью фото с бейджем-камерой, зона перетаскивания. Этот макет
+   уже в масштабе приложения (13-14px), в отличие от первого варианта social-модалки,
+   поэтому пиксели взяты почти как есть, без пересчёта. */
+.b-contact-form-modal-dialog {
+    max-width: 560px;
+    /* без modal-dialog-centered (убрали в blade) — попап не центрируется по вертикали,
+       а прижимается к верху с небольшим отступом. Так формы, у которых до низа окна
+       остаётся мало места (см. positionResults() в admin.js для "Хештеги"), обычно
+       вообще помещаются на экране без скролла и без разворота списков вверх */
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+.b-contact-form-modal {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    border: none;
+    border-radius: 16px;
+    /* НЕ overflow:hidden — иначе список подсказок хештегов (.b-contact-tag-picker__results,
+       position:absolute) обрезается плоской линией по нижнему краю попапа вместо того,
+       чтобы нормально выпадать поверх футера. border-radius и так держит скругление —
+       внутренние блоки нигде не доходят до самого края. */
+    box-shadow: 0 24px 60px rgba(15,23,42,.3);
+}
+.b-contact-form-modal__header {
+    align-items: flex-start;
+    gap: 13px;
+    padding: 20px 22px 0;
+    border-bottom: none;
+}
+.b-contact-form-modal__icon {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #f1f0fe;
+    color: #5b4bdb;
+    font-size: 15px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px;
-    border: 1px dashed transparent;
-    border-radius: 8px;
-    transition: border-color .15s, background-color .15s;
+    justify-content: center;
 }
-.b-contact-form__photo-row.is-dragover {
-    border-color: #7367f0;
-    background: #f8f8ff;
+.b-contact-form-modal__heading {
+    flex: 1;
+    min-width: 0;
 }
-.b-contact-form__photo-preview {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background-color: #f4f6f9;
-    background-size: cover;
-    background-position: center;
-    flex-shrink: 0;
-    border: 1px solid #e2e2e2;
+.b-contact-form-modal__heading .modal-title {
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -.2px;
+    color: #1e2537;
+    line-height: 1.2;
+}
+.b-contact-form-modal__subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #7b8494;
+}
+.b-contact-form-modal__header .b-contact-form-modal__close {
+    flex: none;
+    margin: 0;
+    padding: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    opacity: 1;
+    color: #4b5361;
+    font-size: 13px;
+    font-weight: 400;
+    text-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-contact-form-modal__header .b-contact-form-modal__close:hover {
+    background: #f4f5f9;
+    color: #1e2537;
+    opacity: 1;
+}
+.b-contact-form-modal .modal-body {
+    padding: 16px 22px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.b-contact-form-modal .modal-footer {
+    display: flex;
+}
+/* только собственный лейбл поля ("Имя", "Фото", ...), а не вложенные <label>
+   вроде .b-contact-form__photo-drop-inner (та же карточка "Выбрать файл") —
+   поэтому именно прямой потомок, а не просто "label" где-то внутри */
+.b-contact-form-field > label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1e2537;
+    margin: 0 0 6px;
+}
+.b-contact-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 15px;
 }
 
+/* --- поле с иконкой (имя/дата/телефон/место/хештег) --- */
+.b-contact-form-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 11px;
+    border: 1px solid #e3e6ec;
+    border-radius: 8px;
+    background: #fcfcfd;
+}
+.b-contact-form-input:focus-within {
+    border-color: #c9c3f7;
+    box-shadow: 0 0 0 3px rgba(91,75,219,.12);
+}
+.b-contact-form-input > i {
+    flex: none;
+    color: #7b8494;
+    font-size: 13px;
+}
+.b-contact-form-date > i {
+    cursor: pointer;
+}
+.b-contact-form-input input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    font-size: 12.5px;
+    color: #1e2537;
+}
+.b-contact-form-input input::placeholder {
+    color: #9aa1ac;
+}
+.b-contact-form-input__clear {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #6d7585;
+    font-size: 11px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.b-contact-form-input__clear.is-visible {
+    display: flex;
+}
+.b-contact-form-input__clear:hover {
+    background: #f1f2f6;
+    color: #1e2537;
+}
+
+/* --- подсказки город/страна для "Места жительства" (ContactController::searchResidence,
+   геокодинг OpenStreetMap) — тот же визуальный язык, что и у .b-contact-tag-picker__results,
+   но отдельные классы: это разные виджеты (один пункт вместо чипов), дублировать проще
+   и безопаснее, чем натягивать общий компонент на оба несовместимых сценария использования */
+.b-contact-residence {
+    position: relative;
+}
+.b-contact-residence__results {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(15,23,42,.12);
+    max-height: 180px;
+    overflow-y: auto;
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 4px;
+    display: none;
+}
+.b-contact-residence__results--above {
+    top: auto;
+    bottom: 100%;
+    margin: 0 0 4px;
+}
+.b-contact-residence__results--open {
+    display: block;
+}
+.b-contact-residence__results li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: #2b3345;
+}
+.b-contact-residence__results li:hover {
+    background: #f4f6f9;
+}
+.b-contact-residence__results li i {
+    flex: none;
+    color: #9aa1ac;
+    font-size: 11px;
+}
+.b-contact-residence__empty-item {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #9aa1ac;
+    cursor: default;
+}
+.b-contact-residence__empty-item:hover {
+    background: none;
+}
+
+/* --- фото: круглое превью с бейджем + карточка "перетащите/выберите файл" --- */
+.b-contact-form__photo-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    flex-wrap: wrap;
+    border-radius: 8px;
+    transition: outline-color .15s;
+    outline: 2px dashed transparent;
+    outline-offset: 3px;
+}
+.b-contact-form__photo-row.is-dragover {
+    outline-color: #5b4bdb;
+}
+.b-contact-form__photo-wrap {
+    position: relative;
+    width: 88px;
+    height: 88px;
+    flex: none;
+}
+.b-contact-form__photo-preview {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: #f7f7fe;
+    background-size: cover;
+    background-position: center;
+    border: 2px dashed #d7d3f6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #b7b0ec;
+    font-size: 20px;
+}
+.b-contact-form__photo-preview span {
+    font-size: 10px;
+    color: #9aa1ac;
+}
+.b-contact-form__photo-preview.has-photo {
+    border-style: solid;
+    border-color: #fff;
+}
+.b-contact-form__photo-preview.has-photo i,
+.b-contact-form__photo-preview.has-photo span {
+    display: none;
+}
+.b-contact-form__photo-badge {
+    position: absolute;
+    right: 1px;
+    bottom: 2px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #5b4bdb;
+    border: 3px solid #fff;
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.b-contact-form__photo-drop {
+    flex: 1 1 0%;
+    min-width: 210px;
+    background: rgb(247, 247, 254);
+    border-radius: 11px;
+    padding: 8px;
+}
+.b-contact-form__photo-drop-inner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border: 2px dashed #cfcbf4;
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 0;
+}
+.b-contact-form__photo-drop-icon {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #e9e7fd;
+    color: #5b4bdb;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-contact-form__photo-drop-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.b-contact-form__photo-drop-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1e2537;
+}
+.b-contact-form__photo-drop-hint {
+    margin-top: 3px;
+    font-size: 10.5px;
+    color: #6d7585;
+}
+.b-contact-form__photo-drop-sub {
+    margin-top: 2px;
+    font-size: 10px;
+    color: #9aa1ac;
+}
+
+/* --- хештеги --- */
 .b-contact-tag-picker {
     position: relative;
 }
 .b-contact-tag-picker__results {
     position: absolute;
     z-index: 5;
-    top: 100%;
     left: 0;
     right: 0;
     background: #fff;
     border: 1px solid #dee2e6;
-    border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.1);
-    max-height: 200px;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(15,23,42,.12);
+    max-height: 180px;
     overflow-y: auto;
     list-style: none;
-    margin: 2px 0 0;
-    padding: 4px 0;
+    margin: 4px 0 0;
+    padding: 4px;
     display: none;
+}
+/* когда снизу до края окна не хватает места — JS (initHashtagPicker в admin.js)
+   добавляет этот класс, и список открывается вверх, над полем, а не вниз */
+.b-contact-tag-picker__results--above {
+    top: auto;
+    bottom: 100%;
+    margin: 0 0 4px;
 }
 .b-contact-tag-picker__results--open {
     display: block;
 }
 .b-contact-tag-picker__results li {
-    padding: 6px 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12.5px;
 }
 .b-contact-tag-picker__results li:hover {
     background: #f4f6f9;
 }
 .js-contact-tag-picker__create {
-    color: #7367f0;
+    color: #5b4bdb;
     font-weight: 600;
     border-top: 1px solid #f0f1f3;
+    margin-top: 2px;
+    border-radius: 0 0 6px 6px;
 }
 .js-contact-tag-picker__create:hover {
-    background: #eef0fe;
+    background: #f1f0fe;
 }
 .js-contact-tag-picker__create.is-loading {
     opacity: .6;
@@ -2306,21 +2668,112 @@ margin: 0 0 20px 0;
 .b-contact-tag-picker__selected {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
+    gap: 8px;
+    margin-top: 9px;
 }
 .b-contact-tag-picker__tag {
-    background: #eef0fe;
-    color: #7367f0;
-    border-radius: 12px;
-    padding: 3px 10px;
-    font-size: 12px;
+    background: #f3f3fb;
+    color: #4a5262;
+    border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 11.5px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
 }
 .b-contact-tag-picker__tag i {
+    color: #7b8494;
+    font-size: 10px;
     cursor: pointer;
+}
+.b-contact-tag-picker__tag i:hover {
+    color: #1e2537;
+}
+
+/* --- футер: "Удалить контакт" слева, "Отмена"/"Сохранить" справа --- */
+.b-contact-form-modal__footer {
+    border-top: 1px solid #ecedf2;
+    padding: 13px 22px;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.b-contact-form-modal__spacer {
+    flex: 1;
+    min-width: 6px;
+}
+.b-contact-form-modal__btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    white-space: nowrap;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.b-contact-form-modal__btn--danger {
+    border: 1px solid #f3b8c0;
+    background: #fff;
+    color: #e5344a;
+}
+.b-contact-form-modal__btn--danger:hover {
+    background: #fdf1f2;
+}
+.b-contact-form-modal__btn--cancel {
+    border: 1px solid #e3e6ec;
+    background: #fcfcfd;
+    color: #2b3345;
+}
+.b-contact-form-modal__btn--cancel:hover {
+    background: #f1f2f6;
+}
+.b-contact-form-modal__btn--save {
+    border: 0;
+    background: #5b4bdb;
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(91,75,219,.28);
+}
+.b-contact-form-modal__btn--save:hover {
+    background: #4c3ecf;
+}
+
+/* --- календарь "Дата рождения" (tempusdominus-bootstrap-4) — плагин больше нигде
+   в проекте не используется, поэтому глобально перекрашиваем его акцент из дефолтного
+   синего (#007bff) в фирменный фиолетовый, вместо того чтобы городить локальный скоуп */
+.bootstrap-datetimepicker-widget table td.active,
+.bootstrap-datetimepicker-widget table td.active:hover,
+.bootstrap-datetimepicker-widget table td span.active {
+    background: #5b4bdb;
+    color: #fff;
+    text-shadow: none;
+}
+.bootstrap-datetimepicker-widget table td.today:before {
+    border-bottom-color: #5b4bdb;
+}
+.bootstrap-datetimepicker-widget table td.active.today:before {
+    border-bottom-color: #fff;
+}
+.bootstrap-datetimepicker-widget .picker-switch,
+.bootstrap-datetimepicker-widget .datepicker-days th.next,
+.bootstrap-datetimepicker-widget .datepicker-days th.prev,
+.bootstrap-datetimepicker-widget .datepicker-decades th.next,
+.bootstrap-datetimepicker-widget .datepicker-decades th.prev,
+.bootstrap-datetimepicker-widget .datepicker-years th.next,
+.bootstrap-datetimepicker-widget .datepicker-years th.prev,
+.bootstrap-datetimepicker-widget .datepicker-months th.next,
+.bootstrap-datetimepicker-widget .datepicker-months th.prev {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+}
+.bootstrap-datetimepicker-widget {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    font-size: 12.5px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 12px 30px rgba(15,23,42,.16);
+    border: 1px solid #ececf1;
 }
 
 /* --- страница контакта --- */
@@ -2397,6 +2850,12 @@ margin: 0 0 20px 0;
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
+}
+@media (max-width: 1392px) {
+    .b-contact-head__toprow {
+        display: block;
+        margin-bottom: 15px;
+    }
 }
 .b-contact-head__name {
     font-weight: 700;
@@ -2591,69 +3050,393 @@ margin: 0 0 20px 0;
     color: #7367f0;
 }
 
-/* --- поп-ап "Добавить социальную сеть" (social_add_modal.blade.php) --- */
+/* --- поп-ап "Добавить социальную сеть" (social_add_modal.blade.php) ---
+   Стиль/структура/цвета — из макета Claude Design (артефакт 8b355a1b), но размер
+   компактный, под масштаб остальной админки (13-15px), а не буквальные пиксели
+   макета: тот отрисован как отдельная полноэкранная страница (заголовок 33px,
+   модалка 1010px), а не как попап поверх интерфейса — 1:1 тут выглядел бы гигантским. */
+.b-social-modal-dialog {
+    max-width: 520px;
+}
+.b-social-modal {
+    /* в макете шрифт Manrope (см. @font-face в артефакте 8b355a1b); модалка
+       рендерится в show.blade.php ПОСЛЕ закрытия .b-contact-page, поэтому не
+       наследует шрифт оттуда — задаём явно (файл уже подключён на этой странице,
+       см. @push('head-styles') в show.blade.php) */
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(15,23,42,.3);
+}
+.b-social-modal__header {
+    align-items: flex-start;
+    gap: 14px;
+    padding: 22px 24px 0;
+    border-bottom: none;
+}
+.b-social-modal__icon {
+    flex: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 9px;
+    background: #f1f0fe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-social-modal__heading {
+    flex: 1;
+    min-width: 0;
+    padding-top: 2px;
+}
+.b-social-modal__heading .modal-title {
+    font-weight: 800;
+    font-size: 17px;
+    color: #2d3348;
+    letter-spacing: -.3px;
+}
+.b-social-modal__subtitle {
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: #7c849b;
+}
+.b-social-modal__header .b-social-modal__close {
+    flex: none;
+    margin: 2px 0 0;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    opacity: 1;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: none;
+    font-weight: 400;
+}
+.b-social-modal__header .b-social-modal__close svg {
+    width: 16px;
+    height: 16px;
+}
+.b-social-modal__header .b-social-modal__close:hover {
+    background: #f4f5f9;
+    color: #495057;
+    opacity: 1;
+}
+.b-social-modal .modal-body {
+    padding: 18px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.b-social-modal .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 0;
+}
+.b-social-modal .text-muted.small {
+    font-size: 12px;
+    color: #8b93a7;
+}
+.b-social-modal label {
+    font-weight: 700;
+    font-size: 13.5px;
+    color: #2d3348;
+    margin-bottom: 0;
+}
+.b-social-modal .form-control {
+    border-radius: 10px;
+    border: 1.5px solid #e3e6ee;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #2d3348;
+    min-height: auto;
+    height: auto;
+}
+.b-social-modal .form-control:focus {
+    border-color: #c9c3f7;
+    box-shadow: 0 0 0 3px rgba(109,63,243,.12);
+}
+/* --- кастомный дропдаун "Социальная сеть" вместо нативного select — см. комментарий
+   в social_add_modal.blade.php и admin.js: раскрытый список нативного select рисует
+   ОС/браузер, стилизовать его (иконки по пунктам, hover, скругления) нельзя --- */
+.b-social-select {
+    position: relative;
+}
+.b-social-select select {
+    /* сам select спрятан — источник значения для существующей JS-логики, глазами
+       никто его не видит, поэтому не через display:none (это ломает :invalid/фокус
+       в некоторых браузерах при валидации форм), а через visually-hidden приём */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.b-social-select__trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1.5px solid #e3e6ee;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+}
+.b-social-select__trigger:hover {
+    border-color: #c9c3f7;
+}
+.b-social-select__trigger[aria-expanded="true"] {
+    border-color: #6d3ff3;
+    box-shadow: 0 0 0 3px rgba(109,63,243,.12);
+}
+.b-social-select__trigger .b-quote-source-select__icon {
+    position: static;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #6d3ff3;
+}
+.b-social-select__value {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #2d3348;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.b-social-select__trigger .b-social-modal__select-chevron {
+    position: static;
+    flex: none;
+    transform: none;
+    transition: transform .15s;
+}
+.b-social-select__trigger[aria-expanded="true"] .b-social-modal__select-chevron {
+    transform: rotate(180deg);
+}
+.b-social-select__list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 20;
+    max-height: 240px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #e3e6ee;
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgba(15,23,42,.16);
+}
+.b-social-select__option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #2d3348;
+    cursor: pointer;
+}
+.b-social-select__option:hover {
+    background: #f5f5fb;
+}
+.b-social-select__option.is-selected {
+    background: #f1f0fe;
+    font-weight: 700;
+}
+.b-social-select__option-icon {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 10px;
+}
+.b-social-modal__footer {
+    border-top: 1.5px solid #eef0f5;
+    padding: 16px 24px;
+}
+.b-social-modal__btn {
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+}
+.b-social-modal__btn--cancel {
+    background: #f7f8fa;
+    border: 1.5px solid #e3e6ee;
+    color: #4b5263;
+}
+.b-social-modal__btn--cancel:hover {
+    background: #eef0f5;
+}
+.b-social-modal__btn--save {
+    background: #6d3ff3;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(109,63,243,.3);
+}
+.b-social-modal__btn--save:hover {
+    background: #5c31e0;
+}
+
 .b-social-hint {
     display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    margin-top: 10px;
-    padding: 12px 14px;
-    border-radius: 8px;
-    background: #f4f6f9;
-    color: #6c757d;
-    font-size: 12.5px;
-    line-height: 1.5;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: #f5f5fb;
 }
-.b-social-hint i {
-    color: #9aa1ac;
-    margin-top: 2px;
+.b-social-hint__icon {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #6d3ff3;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    font-family: Georgia, serif;
 }
-.b-social-hint a {
-    color: #17a2b8;
-    font-weight: 600;
+.b-social-hint__text {
+    flex: 1;
+    min-width: 180px;
+}
+.b-social-hint__text-line1 {
+    font-size: 13px;
+    color: #5b6379;
+}
+.b-social-hint__text-line2 {
+    margin-top: 3px;
+    font-size: 13px;
+    color: #8b93a7;
+}
+.b-social-hint__btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1.5px solid #c9c3f7;
+    border-radius: 10px;
+    padding: 9px 16px;
+    background: #fff;
+    color: #6d3ff3;
+    font-weight: 700;
+    font-size: 13px;
     text-decoration: none;
+    white-space: nowrap;
 }
-.b-social-hint a:hover {
-    text-decoration: underline;
+.b-social-hint__btn svg {
+    width: 14px;
+    height: 14px;
+}
+.b-social-hint__btn:hover {
+    background: #f4f2ff;
+    text-decoration: none;
+    color: #6d3ff3;
 }
 .b-social-input-icon {
     position: relative;
 }
+.b-social-input-icon > svg,
 .b-social-input-icon > i {
     position: absolute;
-    left: 12px;
+    left: 14px;
     top: 50%;
+    width: 15px;
+    height: 15px;
     transform: translateY(-50%);
-    color: #9aa1ac;
+    color: #9aa2b1;
     font-size: 13px;
     pointer-events: none;
 }
-.b-social-input-icon input {
-    padding-left: 34px;
+.b-social-modal .b-social-input-icon input {
+    padding-left: 38px;
 }
 .b-social-hint-box {
-    margin-top: 16px;
-    padding: 12px 14px;
-    border-radius: 8px;
-    background: #eef6fb;
-    font-size: 12.5px;
-    color: #495057;
-    line-height: 1.5;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: #eaf7f6;
+    color: #4b5263;
 }
 .b-social-hint-box__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-weight: 700;
-    color: #17a2b8;
-    margin-bottom: 6px;
+    color: #12a89d;
+    font-size: 14.5px;
+}
+.b-social-hint-box__title-icon {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #12a89d;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    font-family: Georgia, serif;
 }
 .b-social-hint-box ul {
-    margin: 0;
-    padding-left: 18px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
 }
 .b-social-hint-box li {
-    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-size: 13px;
 }
-.b-social-hint-box li:last-child {
-    margin-bottom: 0;
+.b-social-hint-box strong {
+    color: #2d3348;
+    font-weight: 700;
+}
+.b-social-hint-box__row-icon {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 11px;
 }
 
 /* --- вкладки на странице контакта (чисто визуальная группировка секций) --- */
@@ -4059,6 +4842,86 @@ margin: 0 0 20px 0;
 }
 
 /* ============ Мой список подарков (My Gift List) ============ */
+/* Вёрстка страницы списка (/admin_panel/wishlists) — по макету Claude Design
+   (тот же язык, что и "База контактов": Manrope, фиолетовый #7367f0, карточки
+   со скруглением и мягкой тенью на hover). Страница одного вишлиста
+   (wishlists/show.blade.php) сюда не относится — там свой, более ранний стиль. */
+
+.wishlists-index {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+}
+
+.content-header.content-header--wishlists {
+    padding: 20px 30px 0;
+}
+.content-header.content-header--wishlists h1 {
+    margin: 0;
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+/* заголовок + breadcrumb с кнопкой создания — по макету разъезжаются в разные
+   углы одной шапки, а не идут отдельными строками, как в исходной AdminLTE-вёрстке */
+.b-wishlists-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.b-wishlists-header__subtitle {
+    margin-top: 6px;
+    font-size: 14px;
+    color: #8b8b99;
+}
+.b-wishlists-header__right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+}
+.b-wishlists-header__breadcrumb {
+    background: transparent;
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+}
+.b-wishlists-header__breadcrumb .breadcrumb-item a {
+    color: #8b8b99;
+}
+.b-wishlists-header__breadcrumb .breadcrumb-item a:hover {
+    color: #6c757d;
+    text-decoration: none;
+}
+.b-wishlists-header__breadcrumb .breadcrumb-item.active {
+    color: #1f2430;
+    font-weight: 500;
+}
+.b-wishlists-header__breadcrumb .breadcrumb-item + .breadcrumb-item::before {
+    color: #c8cdd3;
+}
+.b-wishlists-toolbar__create {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: #7367f0;
+    color: #fff;
+    font: 600 13.5px Manrope, sans-serif;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(115, 103, 240, .28);
+    transition: background-color .15s;
+}
+.b-wishlists-toolbar__create:hover {
+    background: #5e50ee;
+    color: #fff;
+}
 
 .b-wishlists-empty {
     text-align: center;
@@ -4071,48 +4934,240 @@ margin: 0 0 20px 0;
     margin-bottom: 15px;
     display: block;
 }
+.b-wishlists-empty--search {
+    background: #fff;
+    border: 1px dashed #e0e0ea;
+    border-radius: 14px;
+    margin: 0 15px;
+}
+
+/* --- панель поиска + сортировки --- */
+.b-wishlists-filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 0 15px 20px;
+}
+.b-wishlists-filterbar__search {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex: 1 1 260px;
+    min-width: 0;
+    padding: 11px 14px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    margin-bottom: 0; /* это <label>, у Bootstrap/AdminLTE база задаёт margin-bottom: .5rem */
+}
+.b-wishlists-filterbar__search i {
+    color: #8b8b99;
+    font-size: 13px;
+}
+.b-wishlists-filterbar__search input {
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 13.5px;
+    font-weight: 500;
+    width: 100%;
+    color: #1c1c22;
+}
+
+.b-wishlists-sort {
+    position: relative;
+    flex: none;
+}
+.b-wishlists-sort__trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #4a4a56;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.b-wishlists-sort__trigger:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+}
+.b-wishlists-sort__trigger i:first-child {
+    color: #8b8b99;
+    font-size: 12px;
+}
+.b-wishlists-sort__chevron {
+    font-size: 10px;
+    color: #8b8b99;
+    margin-left: 4px;
+    transition: transform .15s;
+}
+.b-wishlists-sort.is-open .b-wishlists-sort__chevron {
+    transform: rotate(180deg);
+}
+.b-wishlists-sort__list {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin: 6px 0 0;
+    padding: 6px;
+    width: 200px;
+    list-style: none;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .14);
+    z-index: 6;
+}
+.b-wishlists-sort.is-open .b-wishlists-sort__list {
+    display: block;
+}
+.b-wishlists-sort__option {
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #2b2e33;
+    cursor: pointer;
+}
+.b-wishlists-sort__option:hover {
+    background: #f4f6f9;
+}
+.b-wishlists-sort__option.is-active {
+    background: #eef0fe;
+    color: #7367f0;
+    font-weight: 600;
+}
 
 .b-wishlists-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
     padding: 0 15px 15px;
 }
 
 .b-wishlist-card {
+    position: relative;
     display: block;
     background: #fff;
-    border: 1px solid #e2e2e2;
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
+    border: 1px solid #ececf1;
+    border-radius: 16px;
+    overflow: hidden;
     text-decoration: none;
     color: inherit;
-    transition: box-shadow .15s, border-color .15s;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
 }
 .b-wishlist-card:hover {
-    box-shadow: 0 2px 10px rgba(0,0,0,.08);
-    border-color: #7367f0;
+    box-shadow: 0 6px 16px rgba(28, 28, 34, .07);
+    border-color: #cfc4ff;
+    transform: translateY(-2px);
     color: inherit;
     text-decoration: none;
 }
-.b-wishlist-card__icon {
-    font-size: 26px;
-    color: #7367f0;
-    margin-bottom: 10px;
+.b-wishlist-card__top {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 150px;
+    background: linear-gradient(135deg, #ede9fe, #e0d6ff);
+    font-size: 56px;
+    line-height: 1;
+}
+/* цветовая ротация "обложки", как у аватаров в контактах — чтобы плитка не была
+   монотонной, когда вишлистов много */
+.b-wishlist-card:nth-of-type(4n+2) .b-wishlist-card__top { background: linear-gradient(135deg, #dcf6f1, #c9ece5); }
+.b-wishlist-card:nth-of-type(4n+3) .b-wishlist-card__top { background: linear-gradient(135deg, #fdeee0, #fbe0c4); }
+.b-wishlist-card:nth-of-type(4n+4) .b-wishlist-card__top { background: linear-gradient(135deg, #eef1fb, #dfe4f7); }
+.b-wishlist-card__body {
+    padding: 18px 20px 20px;
 }
 .b-wishlist-card__title {
-    font-weight: 600;
-    margin-bottom: 6px;
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    color: #1f2430;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 .b-wishlist-card__occasion {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 13px;
-    color: #6c757d;
-    margin-bottom: 4px;
+    color: #6c7280;
+    margin-bottom: 6px;
+}
+.b-wishlist-card__occasion i {
+    color: #9aa1ac;
+    font-size: 12px;
 }
 .b-wishlist-card__meta {
-    font-size: 12px;
-    color: #a3a8ad;
+    font-size: 13px;
+    color: #9aa1ac;
+}
+
+/* "..." меню карточки — сейчас в нём только удаление, поэтому простой попап,
+   не полноценный виджет (сравни с .b-quotes-card__menu) */
+.b-wishlist-card__menu {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+}
+.b-wishlist-card__menu-toggle {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: #fff;
+    color: #4a4a56;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, .15);
+}
+.b-wishlist-card__menu-toggle:hover {
+    color: #7367f0;
+}
+.b-wishlist-card__menu-list {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin: 6px 0 0;
+    padding: 6px;
+    width: 170px;
+    list-style: none;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .16);
+}
+.b-wishlist-card__menu.is-open .b-wishlist-card__menu-list {
+    display: block;
+}
+.b-wishlist-card__menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #e04f4f;
+    cursor: pointer;
+}
+.b-wishlist-card__menu-item:hover {
+    background: #fdecec;
 }
 
 /* пилюли выбора повода — переиспользуются и в попапе создания, и в настройках вишлиста */

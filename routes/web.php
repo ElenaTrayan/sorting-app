@@ -54,6 +54,7 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
     // База контактов
     Route::get('/contacts', [App\Http\Controllers\Admin\ContactController::class, 'index'])->name('contacts.index');
     Route::post('/contacts', [App\Http\Controllers\Admin\ContactController::class, 'store'])->name('contacts.store');
+    Route::post('/contacts/residence-search', [App\Http\Controllers\Admin\ContactController::class, 'searchResidence'])->name('contacts.residence.search');
     Route::get('/contacts/{contact}', [App\Http\Controllers\Admin\ContactController::class, 'show'])->name('contacts.show');
     Route::put('/contacts/{contact}', [App\Http\Controllers\Admin\ContactController::class, 'update'])->name('contacts.update');
     Route::delete('/contacts/{contact}', [App\Http\Controllers\Admin\ContactController::class, 'destroy'])->name('contacts.destroy');
