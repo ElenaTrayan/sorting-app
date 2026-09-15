@@ -92,6 +92,68 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
 
     Route::post('/get-text-from-image', [\App\Http\Controllers\Admin\PostController::class, 'getTextFromImage'])->name('get-text-from-image');
 
+    // ------------------------------------------------------------------
+    // "Мои запасы" — домашние запасы, аптечка, покупки, магазины, акции,
+    // заказы, резерв ЧС, история покупок (см. app/Http/Controllers/Admin/Stock)
+    // ------------------------------------------------------------------
+    Route::prefix('stock')->name('stock.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\Stock\OverviewController::class, 'index'])->name('overview');
+
+        Route::get('/inventory', [App\Http\Controllers\Admin\Stock\InventoryController::class, 'index'])->name('inventory.index');
+        Route::post('/inventory', [App\Http\Controllers\Admin\Stock\InventoryController::class, 'store'])->name('inventory.store');
+        Route::put('/inventory/{item}', [App\Http\Controllers\Admin\Stock\InventoryController::class, 'update'])->name('inventory.update');
+        Route::delete('/inventory/{item}', [App\Http\Controllers\Admin\Stock\InventoryController::class, 'destroy'])->name('inventory.destroy');
+        Route::post('/inventory/{item}/save-as-regular', [App\Http\Controllers\Admin\Stock\InventoryController::class, 'saveAsRegular'])->name('inventory.save-as-regular');
+        Route::post('/inventory/{item}/add-to-shopping-list', [App\Http\Controllers\Admin\Stock\InventoryController::class, 'addToShoppingList'])->name('inventory.add-to-shopping-list');
+
+        Route::get('/shopping-list', [App\Http\Controllers\Admin\Stock\ShoppingListController::class, 'index'])->name('shopping-list.index');
+        Route::post('/shopping-list', [App\Http\Controllers\Admin\Stock\ShoppingListController::class, 'store'])->name('shopping-list.store');
+        Route::put('/shopping-list/{item}', [App\Http\Controllers\Admin\Stock\ShoppingListController::class, 'update'])->name('shopping-list.update');
+        Route::post('/shopping-list/{item}/toggle', [App\Http\Controllers\Admin\Stock\ShoppingListController::class, 'toggle'])->name('shopping-list.toggle');
+        Route::delete('/shopping-list/{item}', [App\Http\Controllers\Admin\Stock\ShoppingListController::class, 'destroy'])->name('shopping-list.destroy');
+        Route::post('/shopping-list/clear-purchased', [App\Http\Controllers\Admin\Stock\ShoppingListController::class, 'clearPurchased'])->name('shopping-list.clear-purchased');
+
+        Route::get('/regular-purchases', [App\Http\Controllers\Admin\Stock\RegularPurchaseController::class, 'index'])->name('regular-purchases.index');
+        Route::post('/regular-purchases', [App\Http\Controllers\Admin\Stock\RegularPurchaseController::class, 'store'])->name('regular-purchases.store');
+        Route::put('/regular-purchases/{regularPurchase}', [App\Http\Controllers\Admin\Stock\RegularPurchaseController::class, 'update'])->name('regular-purchases.update');
+        Route::delete('/regular-purchases/{regularPurchase}', [App\Http\Controllers\Admin\Stock\RegularPurchaseController::class, 'destroy'])->name('regular-purchases.destroy');
+        Route::post('/regular-purchases/{regularPurchase}/search-offers', [App\Http\Controllers\Admin\Stock\RegularPurchaseController::class, 'searchOffers'])->name('regular-purchases.search-offers');
+
+        Route::get('/stores', [App\Http\Controllers\Admin\Stock\StoreController::class, 'index'])->name('stores.index');
+        Route::post('/stores', [App\Http\Controllers\Admin\Stock\StoreController::class, 'store'])->name('stores.store');
+        Route::put('/stores/{store}', [App\Http\Controllers\Admin\Stock\StoreController::class, 'update'])->name('stores.update');
+        Route::delete('/stores/{store}', [App\Http\Controllers\Admin\Stock\StoreController::class, 'destroy'])->name('stores.destroy');
+        Route::post('/stores/{store}/toggle-monitoring', [App\Http\Controllers\Admin\Stock\StoreController::class, 'toggleMonitoring'])->name('stores.toggle-monitoring');
+
+        Route::get('/promotions', [App\Http\Controllers\Admin\Stock\PromotionController::class, 'index'])->name('promotions.index');
+        Route::post('/promotions/sync', [App\Http\Controllers\Admin\Stock\PromotionController::class, 'sync'])->name('promotions.sync');
+        Route::post('/promotions', [App\Http\Controllers\Admin\Stock\PromotionController::class, 'store'])->name('promotions.store');
+        Route::delete('/promotions/{promotion}', [App\Http\Controllers\Admin\Stock\PromotionController::class, 'destroy'])->name('promotions.destroy');
+        Route::post('/promotions/{promotion}/add-to-shopping-list', [App\Http\Controllers\Admin\Stock\PromotionController::class, 'addToShoppingList'])->name('promotions.add-to-shopping-list');
+
+        Route::get('/orders', [App\Http\Controllers\Admin\Stock\OrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/{order}', [App\Http\Controllers\Admin\Stock\OrderController::class, 'show'])->name('orders.show');
+        Route::post('/orders', [App\Http\Controllers\Admin\Stock\OrderController::class, 'store'])->name('orders.store');
+        Route::put('/orders/{order}', [App\Http\Controllers\Admin\Stock\OrderController::class, 'update'])->name('orders.update');
+        Route::delete('/orders/{order}', [App\Http\Controllers\Admin\Stock\OrderController::class, 'destroy'])->name('orders.destroy');
+        Route::post('/orders/{order}/status', [App\Http\Controllers\Admin\Stock\OrderController::class, 'updateStatus'])->name('orders.update-status');
+        Route::post('/orders/{order}/register-return', [App\Http\Controllers\Admin\Stock\OrderController::class, 'registerReturn'])->name('orders.register-return');
+        Route::post('/order-items/{orderItem}/add-to-stock', [App\Http\Controllers\Admin\Stock\OrderController::class, 'addItemToStock'])->name('orders.items.add-to-stock');
+
+        Route::get('/reserve', [App\Http\Controllers\Admin\Stock\ReserveController::class, 'index'])->name('reserve.index');
+        Route::post('/reserve', [App\Http\Controllers\Admin\Stock\ReserveController::class, 'store'])->name('reserve.store');
+        Route::put('/reserve/{reserveItem}', [App\Http\Controllers\Admin\Stock\ReserveController::class, 'update'])->name('reserve.update');
+        Route::delete('/reserve/{reserveItem}', [App\Http\Controllers\Admin\Stock\ReserveController::class, 'destroy'])->name('reserve.destroy');
+        Route::post('/reserve/{reserveItem}/add-to-shopping-list', [App\Http\Controllers\Admin\Stock\ReserveController::class, 'addToShoppingList'])->name('reserve.add-to-shopping-list');
+
+        Route::get('/history', [App\Http\Controllers\Admin\Stock\HistoryController::class, 'index'])->name('history.index');
+        Route::post('/history', [App\Http\Controllers\Admin\Stock\HistoryController::class, 'store'])->name('history.store');
+        Route::get('/history/export', [App\Http\Controllers\Admin\Stock\HistoryController::class, 'export'])->name('history.export');
+
+        Route::get('/settings', [App\Http\Controllers\Admin\Stock\SettingsController::class, 'index'])->name('settings.index');
+        Route::put('/settings', [App\Http\Controllers\Admin\Stock\SettingsController::class, 'update'])->name('settings.update');
+    });
+
     Route::get('/generate-docs', function(){
 
         $headers = array(

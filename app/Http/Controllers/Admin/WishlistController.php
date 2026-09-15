@@ -28,7 +28,12 @@ class WishlistController extends Controller
     public function index()
     {
         $wishlists = Wishlist::where('user_id', Auth::id())
-            ->withCount('items')
+            ->withCount([
+                'items',
+                'items as reserved_items_count' => function ($query) {
+                    $query->where('is_reserved', true);
+                },
+            ])
             ->latest()
             ->get();
 

@@ -223,6 +223,11 @@
 .content-wrapper.content-wrapper--contacts {
     background: #f6f6f9 !important;
 }
+/* страница "Мой список подарков" — тот же фон под макет, см. .content-wrapper--wishlists
+   в resources/views/layouts/admin_layout.blade.php */
+.content-wrapper.content-wrapper--wishlists {
+    background: #f6f6f9 !important;
+}
 .content-wrapper > .content {
     padding: 0 .7rem;
 }
@@ -406,6 +411,67 @@
 }
 .b-sidebar-nav__link--danger .b-sidebar-nav__icon {
     color: #dc3545;
+}
+
+/* --- "Мои запасы" — единственный раскрывающийся пункт меню (см. admin_layout.blade.php) --- */
+.b-sidebar-nav .nav-item.b-sidebar-nav__group {
+    height: auto;
+}
+.b-sidebar-nav__link--toggle {
+    cursor: pointer;
+}
+.b-sidebar-nav__chevron {
+    display: block;
+    width: 16px;
+    height: 16px;
+    margin-left: auto;
+    flex-shrink: 0;
+    color: #9099b8;
+    transition: transform .15s ease;
+}
+.b-sidebar-nav__group.is-open > .b-sidebar-nav__link--toggle .b-sidebar-nav__chevron {
+    transform: rotate(180deg);
+}
+.b-sidebar-nav__submenu {
+    list-style: none;
+    margin: 0 0 4px;
+    padding: 0;
+}
+.b-sidebar-nav__sublink {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px 8px 34px;
+    border-radius: 10px;
+    margin-bottom: 2px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #565b74;
+    text-decoration: none;
+}
+.b-sidebar-nav__sublink:hover {
+    background: #f4f6f9;
+    color: #1f2430;
+    text-decoration: none;
+}
+.b-sidebar-nav__sublink.is-active {
+    background: #eee9fe;
+    color: #4b3bf5;
+    font-weight: 800;
+}
+.b-sidebar-nav__sublink .b-sidebar-nav__icon {
+    width: 16px;
+    height: 16px;
+}
+.b-sidebar-nav__sublink.is-active .b-sidebar-nav__icon {
+    color: #4b3bf5;
+}
+@media (min-width: 992px) {
+    .sidebar-mini.sidebar-collapse .b-sidebar-nav__submenu,
+    .sidebar-mini.sidebar-collapse .b-sidebar-nav__chevron {
+        display: none;
+    }
 }
 
 /* --- свёрнутое меню (AdminLTE sidebar-mini/sidebar-collapse) — ширина .main-sidebar и
@@ -1714,9 +1780,9 @@ margin: 0 0 20px 0;
     font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
 }
 
-/* хлебные крошки в верхнем navbar (navbar-nav-left) — только на странице "База
-   контактов", см. resources/views/layouts/admin_layout.blade.php. По макету это
-   простой текст рядом с кнопкой меню, а не серая "таблетка" из AdminLTE. */
+/* хлебные крошки в верхнем navbar (navbar-nav-left) — на страницах "База
+   контактов" и "Мой список подарков", см. resources/views/layouts/admin_layout.blade.php.
+   По макету это простой текст рядом с кнопкой меню, а не серая "таблетка" из AdminLTE. */
 .b-navbar-breadcrumb {
     font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
     font-size: 14px;
@@ -3546,7 +3612,7 @@ margin: 0 0 20px 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
 .b-contact-section__header h3 {
     font-size: 15px;
@@ -4863,45 +4929,22 @@ margin: 0 0 20px 0;
     line-height: 1.15;
 }
 
-/* заголовок + breadcrumb с кнопкой создания — по макету разъезжаются в разные
-   углы одной шапки, а не идут отдельными строками, как в исходной AdminLTE-вёрстке */
+/* заголовок с кнопкой создания — по макету заголовок с подзаголовком слева,
+   кнопка справа в той же строке (хлебные крошки — в navbar-nav-left, см.
+   .b-navbar-breadcrumb и @push('navbar-breadcrumb') в index.blade.php) */
 .b-wishlists-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
+    margin-bottom: .5rem !important;
 }
 .b-wishlists-header__subtitle {
-    margin-top: 6px;
-    font-size: 14px;
-    color: #8b8b99;
-}
-.b-wishlists-header__right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 12px;
-}
-.b-wishlists-header__breadcrumb {
-    background: transparent;
-    margin: 0;
-    padding: 0;
+    margin-top: 4px;
     font-size: 13px;
-}
-.b-wishlists-header__breadcrumb .breadcrumb-item a {
     color: #8b8b99;
-}
-.b-wishlists-header__breadcrumb .breadcrumb-item a:hover {
-    color: #6c757d;
-    text-decoration: none;
-}
-.b-wishlists-header__breadcrumb .breadcrumb-item.active {
-    color: #1f2430;
     font-weight: 500;
-}
-.b-wishlists-header__breadcrumb .breadcrumb-item + .breadcrumb-item::before {
-    color: #c8cdd3;
 }
 .b-wishlists-toolbar__create {
     display: flex;
@@ -4941,13 +4984,18 @@ margin: 0 0 20px 0;
     margin: 0 15px;
 }
 
-/* --- панель поиска + сортировки --- */
+/* --- панель поиска + сортировки — такая же карточка, как .b-contacts-filterbar
+   на странице "База контактов" --- */
 .b-wishlists-filterbar {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
     margin: 0 15px 20px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #ececf1;
+    border-radius: 12px;
 }
 .b-wishlists-filterbar__search {
     display: flex;
@@ -4955,10 +5003,10 @@ margin: 0 0 20px 0;
     gap: 9px;
     flex: 1 1 260px;
     min-width: 0;
-    padding: 11px 14px;
+    padding: 9px 12px;
     border: 1px solid #e6e6ee;
-    border-radius: 10px;
-    background: #fff;
+    border-radius: 9px;
+    background: #fafafc;
     margin-bottom: 0; /* это <label>, у Bootstrap/AdminLTE база задаёт margin-bottom: .5rem */
 }
 .b-wishlists-filterbar__search i {
@@ -4969,7 +5017,7 @@ margin: 0 0 20px 0;
     border: 0;
     outline: 0;
     background: transparent;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 500;
     width: 100%;
     color: #1c1c22;
@@ -4982,12 +5030,12 @@ margin: 0 0 20px 0;
 .b-wishlists-sort__trigger {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 11px 14px;
+    gap: 7px;
+    padding: 9px 13px;
     border: 1px solid #e6e6ee;
-    border-radius: 10px;
+    border-radius: 9px;
     background: #fff;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
     color: #4a4a56;
     white-space: nowrap;
@@ -5046,99 +5094,142 @@ margin: 0 0 20px 0;
 
 .b-wishlists-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+    gap: 14px;
     padding: 0 15px 15px;
 }
 
+/* Карточка вишлиста — по макету Claude Design (миниатюра 16:9 с иконкой подарка,
+   бейдж повода поверх неё, статус справа от названия, счётчики внизу через
+   разделитель). См. артефакт https://claude.ai/artifact/6ohgH6dc7ArXyfh18VhHUt */
 .b-wishlist-card {
     position: relative;
-    display: block;
+    display: flex;
+    flex-direction: column;
     background: #fff;
-    border: 1px solid #ececf1;
-    border-radius: 16px;
+    border: 1px solid #e9e9ef;
+    border-radius: 14px;
     overflow: hidden;
     text-decoration: none;
     color: inherit;
-    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    box-shadow: 0 1px 2px rgba(22, 22, 40, .04);
+    transition: box-shadow .15s ease, border-color .15s ease;
 }
 .b-wishlist-card:hover {
-    box-shadow: 0 6px 16px rgba(28, 28, 34, .07);
-    border-color: #cfc4ff;
-    transform: translateY(-2px);
+    border-color: #d9d9e6;
+    box-shadow: 0 4px 14px rgba(22, 22, 40, .07);
     color: inherit;
     text-decoration: none;
 }
-.b-wishlist-card__top {
+.b-wishlist-card__thumb {
     position: relative;
+    aspect-ratio: 16 / 9;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 150px;
-    background: linear-gradient(135deg, #ede9fe, #e0d6ff);
-    font-size: 56px;
-    line-height: 1;
+    background: #f6f5fb;
+    border-bottom: 1px solid #eeeef4;
 }
-/* цветовая ротация "обложки", как у аватаров в контактах — чтобы плитка не была
-   монотонной, когда вишлистов много */
-.b-wishlist-card:nth-of-type(4n+2) .b-wishlist-card__top { background: linear-gradient(135deg, #dcf6f1, #c9ece5); }
-.b-wishlist-card:nth-of-type(4n+3) .b-wishlist-card__top { background: linear-gradient(135deg, #fdeee0, #fbe0c4); }
-.b-wishlist-card:nth-of-type(4n+4) .b-wishlist-card__top { background: linear-gradient(135deg, #eef1fb, #dfe4f7); }
+.b-wishlist-card__thumb-icon {
+    color: #a99ceb;
+}
+.b-wishlist-card__badge {
+    position: absolute;
+    top: 9px;
+    left: 9px;
+    background: #fff;
+    border: 1px solid #e9e9ef;
+    border-radius: 7px;
+    padding: 3px 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #3f3f4a;
+}
 .b-wishlist-card__body {
-    padding: 18px 20px 20px;
+    padding: 12px 14px 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    flex: 1;
+}
+.b-wishlist-card__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
 }
 .b-wishlist-card__title {
-    font-size: 15.5px;
+    font-size: 15px;
     font-weight: 700;
     letter-spacing: -.01em;
     color: #1f2430;
-    margin-bottom: 8px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
-.b-wishlist-card__occasion {
+/* бейдж статуса вишлиста — "Активен" (по умолчанию) / "Архив", см. is_archived
+   в wishlists/index.blade.php */
+.b-wishlist-card__status {
+    flex: none;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    background: #eef0fe;
+    color: #7367f0;
+}
+.b-wishlist-card__status--archived {
+    background: #f1f1f5;
+    color: #8b8b99;
+}
+.b-wishlist-card__footer {
+    margin-top: auto;
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: #6c7280;
-    margin-bottom: 6px;
-}
-.b-wishlist-card__occasion i {
-    color: #9aa1ac;
+    gap: 8px;
+    padding-top: 9px;
+    border-top: 1px solid #f1f1f6;
     font-size: 12px;
+    font-weight: 600;
+    color: #3f3f4a;
 }
-.b-wishlist-card__meta {
-    font-size: 13px;
-    color: #9aa1ac;
+.b-wishlist-card__footer-sep {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #cfcfd8;
+    flex: none;
+}
+.b-wishlist-card__footer-reserved {
+    color: #8a8a96;
 }
 
 /* "..." меню карточки — сейчас в нём только удаление, поэтому простой попап,
    не полноценный виджет (сравни с .b-quotes-card__menu) */
 .b-wishlist-card__menu {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 8px;
+    right: 8px;
     z-index: 2;
 }
 .b-wishlist-card__menu-toggle {
-    width: 30px;
-    height: 30px;
-    border: none;
-    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    border: 1px solid #e9e9ef;
+    border-radius: 8px;
     background: #fff;
-    color: #4a4a56;
+    color: #6b6b76;
     font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, .15);
 }
 .b-wishlist-card__menu-toggle:hover {
-    color: #7367f0;
+    color: #16161a;
+    border-color: #d9d9e6;
 }
 .b-wishlist-card__menu-list {
     display: none;
@@ -5170,6 +5261,38 @@ margin: 0 0 20px 0;
     background: #fdecec;
 }
 
+/* карточка-плитка "+ Новый вишлист" в конце сетки — открывает тот же попап
+   создания, что и кнопка в шапке (js-wishlist-create-btn) */
+.b-wishlist-card--add {
+    border: 1.5px dashed #dcdce8;
+    background: transparent;
+    border-radius: 14px;
+    min-height: 190px;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #8a8a96;
+    transition: border-color .15s ease, color .15s ease, background-color .15s ease;
+}
+.b-wishlist-card--add:hover {
+    border-color: #7367f0;
+    color: #5e50ee;
+    background: #fbfaff;
+}
+.b-wishlist-card--add__plus {
+    font-size: 20px;
+    font-weight: 300;
+    line-height: 1;
+}
+.b-wishlist-card--add__label {
+    font-size: 13px;
+    font-weight: 700;
+}
+
 /* пилюли выбора повода — переиспользуются и в попапе создания, и в настройках вишлиста */
 .b-occasion-picker {
     display: flex;
@@ -5196,31 +5319,69 @@ margin: 0 0 20px 0;
 }
 
 /* --- страница одного вишлиста --- */
-/* здесь content-header содержит только хлебные крошки (без h1) — уменьшаем отступ снизу */
-.content-header.content-header--wishlist {
-    padding: 10px 0.5rem 5px;
+/* тот же язык дизайна, что и на "Мой список подарков"/"База контактов": Manrope,
+   фиолетовый #7367f0, хлебные крошки в navbar-nav-left (см. @push('navbar-breadcrumb')
+   в show.blade.php) — своего content-header у страницы больше нет */
+.b-wishlist-page {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
 }
 .b-wishlist-head {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 20px;
-    padding: 20px 15px;
+    padding: 24px 15px 20px;
     flex-wrap: wrap;
 }
 .b-wishlist-head__title {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    font-size: 26px;
     font-weight: 700;
-    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin: 0 0 4px;
 }
 .b-wishlist-head__description {
-    color: #8a8f98;
     margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: #8b8b99;
 }
 .b-wishlist-head__actions {
     display: flex;
     gap: 10px;
     flex-shrink: 0;
     flex-wrap: wrap;
+}
+/* кнопки шапки — второстепенные (обводка) и основная "Добавить желание" (заливка),
+   тот же стиль, что у .b-contacts-filterbar__btn / .b-wishlists-toolbar__create */
+.b-wishlist-head__btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    color: #4a4a56;
+    font: 600 13.5px Manrope, sans-serif;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background-color .15s;
+}
+.b-wishlist-head__btn:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+}
+.b-wishlist-head__btn--primary {
+    border: 0;
+    background: #7367f0;
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(115, 103, 240, .28);
+}
+.b-wishlist-head__btn--primary:hover {
+    background: #5e50ee;
+    color: #fff;
 }
 
 /* --- панель "повод + статистика" --- */

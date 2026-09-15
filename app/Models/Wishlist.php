@@ -19,6 +19,11 @@ class Wishlist extends Model
         'title',
         'description',
         'occasion',
+        'is_archived',
+    ];
+
+    protected $casts = [
+        'is_archived' => 'boolean',
     ];
 
     protected static function booted()

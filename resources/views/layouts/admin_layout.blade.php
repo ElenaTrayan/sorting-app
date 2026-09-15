@@ -273,6 +273,31 @@
                             <span>База контактов</span>
                         </a>
                     </li>
+
+                    {{-- "Мои запасы" — единственный раскрывающийся пункт меню (остальные —
+                         плоский список, см. комментарий выше), т.к. раздел из 10 подстраниц
+                         этого требует напрямую. Группа авто-раскрыта, если активен любой
+                         дочерний роут (stock.*). Поведение toggle — admin.js, #js-stock-nav-toggle. --}}
+                    @php $stockActive = request()->routeIs('stock.*'); @endphp
+                    <li class="nav-item b-sidebar-nav__group @if ($stockActive) is-open @endif">
+                        <button type="button" class="b-sidebar-nav__link b-sidebar-nav__link--toggle js-stock-nav-toggle">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'package', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Мои запасы</span>
+                            @include('layouts.parts.sidebar_icon', ['name' => 'chevron-down', 'class' => 'b-sidebar-nav__chevron'])
+                        </button>
+                        <ul class="b-sidebar-nav__submenu" @if (!$stockActive) style="display:none;" @endif>
+                            <li><a href="{{ route('stock.overview') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.overview')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'layout-dashboard', 'class' => 'b-sidebar-nav__icon']) <span>Обзор</span></a></li>
+                            <li><a href="{{ route('stock.inventory.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.inventory.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'box', 'class' => 'b-sidebar-nav__icon']) <span>Мои запасы</span></a></li>
+                            <li><a href="{{ route('stock.shopping-list.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.shopping-list.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'list', 'class' => 'b-sidebar-nav__icon']) <span>Список покупок</span></a></li>
+                            <li><a href="{{ route('stock.regular-purchases.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.regular-purchases.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'repeat', 'class' => 'b-sidebar-nav__icon']) <span>Постоянные покупки</span></a></li>
+                            <li><a href="{{ route('stock.stores.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.stores.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'store', 'class' => 'b-sidebar-nav__icon']) <span>Магазины</span></a></li>
+                            <li><a href="{{ route('stock.promotions.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.promotions.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'percent', 'class' => 'b-sidebar-nav__icon']) <span>Акции</span></a></li>
+                            <li><a href="{{ route('stock.orders.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.orders.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'truck', 'class' => 'b-sidebar-nav__icon']) <span>Заказы</span></a></li>
+                            <li><a href="{{ route('stock.reserve.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.reserve.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'shield', 'class' => 'b-sidebar-nav__icon']) <span>Резерв (ЧС)</span></a></li>
+                            <li><a href="{{ route('stock.history.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.history.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'clock', 'class' => 'b-sidebar-nav__icon']) <span>История покупок</span></a></li>
+                            <li><a href="{{ route('stock.settings.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.settings.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'settings', 'class' => 'b-sidebar-nav__icon']) <span>Настройки</span></a></li>
+                        </ul>
+                    </li>
                 </ul>
 
                 <div class="b-sidebar-divider"></div>
@@ -325,7 +350,7 @@
     @endunless
 
     <!-- Content Wrapper. Contains page content -->
-    <div class="content-wrapper @if (request()->routeIs('contacts.index')) content-wrapper--contacts @endif">
+    <div class="content-wrapper @if (request()->routeIs('contacts.index')) content-wrapper--contacts @endif @if (request()->routeIs('wishlists.index') || request()->routeIs('wishlists.show')) content-wrapper--wishlists @endif">
         @yield('content')
     </div>
     <!-- /.content-wrapper -->

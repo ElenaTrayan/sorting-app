@@ -2,21 +2,23 @@
 
 @section('title', $wishlist->title)
 
-@section('content')
-    <div class="content-header content-header--wishlist">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-12">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('wishlists.index') }}">Мой список подарков</a></li>
-                        <li class="breadcrumb-item active">{{ $wishlist->title }}</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+@push('head-styles')
+    {{-- Manrope — шрифт макета Claude Design, тот же, что и на "Мой список подарков"
+         и "База контактов" (самостоятельно захостен в /admin/fonts/manrope) --}}
+    <link rel="stylesheet" href="/admin/fonts/manrope/manrope.css">
+@endpush
 
+@push('navbar-breadcrumb')
+    <li class="nav-item d-flex align-items-center">
+        <ol class="breadcrumb b-navbar-breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('wishlists.index') }}">Мой список подарков</a></li>
+            <li class="breadcrumb-item active">{{ $wishlist->title }}</li>
+        </ol>
+    </li>
+@endpush
+
+@section('content')
     <section class="content">
         <div class="container-fluid">
             <div class="b-wishlist-page" id="wishlist-page"
@@ -61,21 +63,21 @@
 
                 <div class="b-wishlist-head">
                     <div class="b-wishlist-head__text">
-                        <h2 class="b-wishlist-head__title js-wishlist-title">{{ $wishlist->title }}</h2>
+                        <h1 class="b-wishlist-head__title js-wishlist-title">{{ $wishlist->title }}</h1>
                         <p class="b-wishlist-head__description js-wishlist-description">
                             {{ $wishlist->description ?: 'Дополнительная информация о вишлисте (необязательно)' }}
                         </p>
                     </div>
 
                     <div class="b-wishlist-head__actions">
-                        <button type="button" class="btn btn-outline-secondary js-wishlist-share">
-                            <i class="fas fa-share-alt mr-1"></i> Поделиться
+                        <button type="button" class="b-wishlist-head__btn js-wishlist-share">
+                            <i class="fas fa-share-alt"></i> Поделиться
                         </button>
-                        <button type="button" class="btn btn-primary js-wishlist-add-item">
-                            <i class="fas fa-plus mr-1"></i> Добавить желание
+                        <button type="button" class="b-wishlist-head__btn b-wishlist-head__btn--primary js-wishlist-add-item">
+                            <i class="fas fa-plus"></i> Добавить желание
                         </button>
-                        <button type="button" class="btn btn-outline-secondary js-wishlist-edit">
-                            <i class="fas fa-cog mr-1"></i> Настройки вишлиста
+                        <button type="button" class="b-wishlist-head__btn js-wishlist-edit">
+                            <i class="fas fa-cog"></i> Настройки вишлиста
                         </button>
                     </div>
                 </div>

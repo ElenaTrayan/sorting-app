@@ -1872,6 +1872,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
          }
 
+         // "Мои запасы" в левом меню — единственный раскрывающийся пункт (см. admin_layout.blade.php).
+         // Группа уже открыта на сервере (is-open), если активен любой stock.*-роут — тут только клик.
+         const stockNavToggle = document.querySelector('.js-stock-nav-toggle');
+         if (stockNavToggle) {
+             stockNavToggle.addEventListener('click', function () {
+                 const group = stockNavToggle.closest('.b-sidebar-nav__group');
+                 const submenu = group.querySelector('.b-sidebar-nav__submenu');
+                 const isOpen = group.classList.toggle('is-open');
+                 submenu.style.display = isOpen ? 'block' : 'none';
+             });
+         }
+
          // ===== Поиск по хэштегам (вкладка "Поиск по хэштегам") =====
 
          // Выбранные хэштеги отдельно для поля "включить" и поля "исключить": { id: title, ... }
@@ -4073,6 +4085,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      sorted.forEach(function (card) {
                          grid.appendChild(card);
                      });
+                     // плитка "+ Новый вишлист" всегда остаётся последней в сетке
+                     let addTile = grid.querySelector('.b-wishlist-card--add');
+                     if (addTile) {
+                         grid.appendChild(addTile);
+                     }
                  });
              });
          }

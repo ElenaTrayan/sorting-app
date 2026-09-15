@@ -8,7 +8,19 @@
     <link rel="stylesheet" href="/admin/fonts/manrope/manrope.css">
 @endpush
 
+@push('navbar-breadcrumb')
+    <li class="nav-item d-flex align-items-center">
+        <ol class="breadcrumb b-navbar-breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+            <li class="breadcrumb-item active">Мой список подарков</li>
+        </ol>
+    </li>
+@endpush
+
 @section('content')
+    {{-- хлебные крошки для этой страницы вынесены в верхний navbar-nav-left, см.
+         resources/views/layouts/admin_layout.blade.php (по макету Claude Design,
+         как на странице "База контактов") --}}
     <div class="content-header content-header--wishlists">
         <div class="container-fluid">
             <div class="b-wishlists-header">
@@ -16,15 +28,9 @@
                     <h1 class="m-0">Мой список подарков</h1>
                     <div class="b-wishlists-header__subtitle">Создавайте вишлисты и сохраняйте идеи подарков</div>
                 </div>
-                <div class="b-wishlists-header__right">
-                    <ol class="breadcrumb b-wishlists-header__breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
-                        <li class="breadcrumb-item active">Мой список подарков</li>
-                    </ol>
-                    <button type="button" class="b-wishlists-toolbar__create js-wishlist-create-btn">
-                        <i class="fas fa-plus"></i> Создать вишлист
-                    </button>
-                </div>
+                <button type="button" class="b-wishlists-toolbar__create js-wishlist-create-btn">
+                    <i class="fas fa-plus"></i> Создать вишлист
+                </button>
             </div>
         </div>
     </div>
@@ -76,28 +82,51 @@
                                 $occasion = collect($occasions)->firstWhere('slug', $wishlist->occasion);
                             @endphp
                             <a href="{{ route('wishlists.show', $wishlist->id) }}" class="b-wishlist-card js-wishlist-card" data-title="{{ $wishlist->title }}" data-created="{{ $wishlist->created_at->timestamp }}" data-destroy-action="{{ route('wishlists.destroy', $wishlist->id) }}">
-                                <div class="b-wishlist-card__top">🎁</div>
+                                <div class="b-wishlist-card__thumb">
+                                    <svg class="b-wishlist-card__thumb-icon" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
+                                        <rect x="3" y="8.5" width="18" height="12" rx="2"></rect>
+                                        <line x1="3" y1="12.5" x2="21" y2="12.5"></line>
+                                        <line x1="12" y1="8.5" x2="12" y2="20.5"></line>
+                                        <circle cx="9" cy="6" r="2.4"></circle>
+                                        <circle cx="15" cy="6" r="2.4"></circle>
+                                    </svg>
 
-                                <div class="b-wishlist-card__menu js-wishlist-card__menu">
-                                    <button type="button" class="b-wishlist-card__menu-toggle js-wishlist-card__menu-toggle" aria-label="Меню вишлиста">
-                                        <i class="fas fa-ellipsis-h"></i>
-                                    </button>
-                                    <ul class="b-wishlist-card__menu-list">
-                                        <li class="b-wishlist-card__menu-item js-wishlist-card__delete"><i class="fas fa-trash-alt"></i> Удалить</li>
-                                    </ul>
+                                    @if ($occasion)
+                                        <span class="b-wishlist-card__badge">{{ $occasion['title'] }}</span>
+                                    @elseif ($wishlist->occasion)
+                                        <span class="b-wishlist-card__badge">{{ $wishlist->occasion }}</span>
+                                    @endif
+
+                                    <div class="b-wishlist-card__menu js-wishlist-card__menu">
+                                        <button type="button" class="b-wishlist-card__menu-toggle js-wishlist-card__menu-toggle" aria-label="Меню вишлиста">
+                                            <i class="fas fa-ellipsis-h"></i>
+                                        </button>
+                                        <ul class="b-wishlist-card__menu-list">
+                                            <li class="b-wishlist-card__menu-item js-wishlist-card__delete"><i class="fas fa-trash-alt"></i> Удалить</li>
+                                        </ul>
+                                    </div>
                                 </div>
 
                                 <div class="b-wishlist-card__body">
-                                    <div class="b-wishlist-card__title">{{ $wishlist->title }}</div>
-                                    @if ($occasion)
-                                        <div class="b-wishlist-card__occasion"><i class="far fa-calendar-alt"></i> {{ $occasion['title'] }}</div>
-                                    @elseif ($wishlist->occasion)
-                                        <div class="b-wishlist-card__occasion"><i class="far fa-calendar-alt"></i> {{ $wishlist->occasion }}</div>
-                                    @endif
-                                    <div class="b-wishlist-card__meta">{{ $wishlist->items_count }} {{ __('желаний') }}</div>
+                                    <div class="b-wishlist-card__title-row">
+                                        <div class="b-wishlist-card__title">{{ $wishlist->title }}</div>
+                                        <span class="b-wishlist-card__status @if ($wishlist->is_archived) b-wishlist-card__status--archived @endif">{{ $wishlist->is_archived ? 'Архив' : 'Активен' }}</span>
+                                    </div>
+                                    <div class="b-wishlist-card__footer">
+                                        <span>{{ $wishlist->items_count }} {{ __('желаний') }}</span>
+                                        @if ($wishlist->reserved_items_count > 0)
+                                            <span class="b-wishlist-card__footer-sep"></span>
+                                            <span class="b-wishlist-card__footer-reserved">{{ $wishlist->reserved_items_count }} забронировано</span>
+                                        @endif
+                                    </div>
                                 </div>
                             </a>
                         @endforeach
+
+                        <button type="button" class="b-wishlist-card--add js-wishlist-create-btn">
+                            <span class="b-wishlist-card--add__plus">+</span>
+                            <span class="b-wishlist-card--add__label">Новый вишлист</span>
+                        </button>
                     </div>
 
                     <div class="b-wishlists-empty b-wishlists-empty--search js-wishlists-empty-search" style="display: none;">
