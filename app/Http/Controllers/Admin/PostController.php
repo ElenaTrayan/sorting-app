@@ -36,28 +36,93 @@ class PostController extends Controller
     {
         //$posts = Post::orderBy('title', 'asc')->get();
 
-        $posts = Post::selectRaw('posts.id, posts.title, posts.alias, posts.user_id, posts.category_id,
-        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image, posts.video')
-            ->with([
-                'category' => function($q) {
-                    $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
-                },
-                'category.parent' => function($q) {
-                    $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
-                },
-                'category.parent.parent' => function($q) {
-                    $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
-                },
-                'hashtags' => function($q) {
-                    $q->select(['id', 'title', 'parent_id', 'user_id']);
-                },
-            ])
+        $withoutHashtags = $request->boolean('without_hashtags');
+        $activeType = in_array($request->get('type'), ['photo', 'video', 'carousel'], true) ? $request->get('type') : 'all';
+        // по умолчанию — сначала старые (id 1 и дальше), а не "сначала новые": при
+        // группировке постов (скриншоты одной переписки и т.п.) это даёт правильный
+        // порядок чтения без необходимости каждый раз переключать сортировку вручную
+        $activeSort = in_array($request->get('sort'), ['new', 'title'], true) ? $request->get('sort') : 'old';
+        $perPage = 50;
+        $page = max((int) $request->get('page', 1), 1);
+
+        $withRelations = [
+            'category' => function($q) {
+                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+            },
+            'category.parent' => function($q) {
+                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+            },
+            'category.parent.parent' => function($q) {
+                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+            },
+            'hashtags' => function($q) {
+                $q->select(['id', 'title', 'parent_id', 'user_id']);
+            },
+        ];
+
+        // лёгкая выборка (без eager loads) — только для подсчёта постов по типу медиа
+        // (вкладки "Фото/Видео/Карусель" в шапке). Тип медиа не хранится отдельной
+        // колонкой, определяется по форме JSON в *_image (как и cover_image ниже),
+        // поэтому посчитать/отфильтровать по нему можно только в PHP, не в SQL.
+        $lightPosts = Post::selectRaw('posts.id, posts.title, posts.created_at, posts.small_image, posts.medium_image, posts.original_image, posts.video')
             ->where('posts.user_id', 1)
-            ->when($request->boolean('without_hashtags'), function($q) {
+            ->when($withoutHashtags, function($q) {
                 $q->whereDoesntHave('hashtags');
             })
-            ->latest()
-            ->paginate(50);
+            ->get()
+            ->each(function ($post) {
+                $post->media_type = $this->resolvePostMediaType($post);
+            });
+
+        $typeCounts = [
+            'all' => $lightPosts->count(),
+            'photo' => $lightPosts->where('media_type', 'photo')->count(),
+            'video' => $lightPosts->where('media_type', 'video')->count(),
+            'carousel' => $lightPosts->where('media_type', 'carousel')->count(),
+        ];
+
+        $baseSelect = 'posts.id, posts.title, posts.alias, posts.user_id, posts.category_id,
+        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image, posts.video';
+
+        if ($activeType === 'all') {
+            // без фильтра по типу медиа — обычная SQL-пагинация, как раньше
+            $posts = Post::selectRaw($baseSelect)
+                ->with($withRelations)
+                ->where('posts.user_id', 1)
+                ->when($withoutHashtags, function($q) {
+                    $q->whereDoesntHave('hashtags');
+                })
+                ->when($activeSort === 'old', function ($q) { $q->oldest(); })
+                ->when($activeSort === 'title', function ($q) { $q->orderBy('posts.title'); })
+                ->when($activeSort === 'new', function ($q) { $q->latest(); })
+                ->paginate($perPage);
+        } else {
+            // с фильтром по типу — тип уже посчитан выше в $lightPosts, дальше просто
+            // сортируем/режем на страницы в PHP и подгружаем полные посты по их id
+            $filtered = $lightPosts->where('media_type', $activeType);
+            $filtered = match ($activeSort) {
+                'old' => $filtered->sortBy('created_at'),
+                'title' => $filtered->sortBy('title'),
+                default => $filtered->sortByDesc('created_at'),
+            };
+            $orderedIds = $filtered->pluck('id')->values();
+            $pageIds = $orderedIds->forPage($page, $perPage);
+
+            $pagedPosts = Post::selectRaw($baseSelect)
+                ->with($withRelations)
+                ->whereIn('posts.id', $pageIds)
+                ->get()
+                ->sortBy(fn ($post) => $pageIds->search($post->id))
+                ->values();
+
+            $posts = new \Illuminate\Pagination\LengthAwarePaginator(
+                $pagedPosts,
+                $orderedIds->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
 
         foreach ($posts as $post) {
             //dd($post);
@@ -87,8 +152,38 @@ class PostController extends Controller
 
         return view('admin.posts.index', [
             'posts' => $posts,
-            'withoutHashtags' => $request->boolean('without_hashtags'),
+            'withoutHashtags' => $withoutHashtags,
+            'typeCounts' => $typeCounts,
+            'activeType' => $activeType,
+            'activeSort' => $activeSort,
         ]);
+    }
+
+    /**
+     * Тип медиа поста для вкладок "Фото/Видео/Карусель" на "Все посты" — есть ли
+     * видео, и если нет, содержит ли JSON с картинками больше одной (карусель)
+     * или ровно одну (фото). Та же логика, что у $post['cover_image'] в index().
+     */
+    private function resolvePostMediaType(Post $post): string
+    {
+        if (!empty($post->video)) {
+            return 'video';
+        }
+
+        $imagesCount = 0;
+
+        if (!empty($post->small_image) && isJson($post->small_image)) {
+            $decoded = json_decode($post->small_image, true);
+            $imagesCount = isset($decoded['path']) ? 1 : count($decoded);
+        } elseif (!empty($post->medium_image) && isJson($post->medium_image)) {
+            $decoded = json_decode($post->medium_image, true);
+            $imagesCount = isset($decoded['path']) ? 1 : count($decoded);
+        } elseif (!empty($post->original_image) && isJson($post->original_image)) {
+            $decoded = json_decode($post->original_image, true);
+            $imagesCount = isset($decoded['path']) ? 1 : count($decoded);
+        }
+
+        return $imagesCount > 1 ? 'carousel' : 'photo';
     }
 
     /**
@@ -157,16 +252,37 @@ class PostController extends Controller
                     $count = 0;
                     $errors = [];
                     $duplicateInfos = [];
+
+                    // "Группировать посты" (галочка group-posts) — посты остаются отдельными
+                    // записями (в отличие от "Один пост", где картинки объединяются в один),
+                    // но получают общий group_id (= id первого созданного поста группы) и
+                    // sort_order по порядку загрузки — см. posts.groups.show/reorder
+                    $shouldGroup = $request->boolean('groupPosts');
+                    $groupId = null;
+                    $sortOrder = 0;
+
                     foreach ($images as $key => $image) {
                         $count++;
 
-                        $newPost = $this->createPost($request, $user->id, $image);
+                        $createdId = null;
+                        $newPost = $this->createPost($request, $user->id, $image, '', $groupId, $shouldGroup ? $sortOrder : null, $createdId);
 
                         if ($newPost !== true) {
                             $errors[] = $newPost['errors'];
                             if (!empty($newPost['duplicate_infos'])) {
                                 $duplicateInfos = array_merge($duplicateInfos, $newPost['duplicate_infos']);
                             }
+                            continue;
+                        }
+
+                        if ($shouldGroup) {
+                            if ($groupId === null) {
+                                // группы отдельной таблицей не заводим — id первого поста
+                                // группы и есть group_id для всех её постов, включая его самого
+                                $groupId = $createdId;
+                                Post::whereKey($createdId)->update(['group_id' => $groupId]);
+                            }
+                            $sortOrder++;
                         }
                     }
 
@@ -292,20 +408,21 @@ class PostController extends Controller
     /**
      * Display the specified resource.
      *
+     * @param Request $request
      * @param $id
      * @return Application|Factory|View
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $post = Post::where('id', $id)->with([
             'category' => function($q) {
-                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+                $q->select(['id', 'title', 'alias', 'parent_id', 'user_id', 'status']);
             },
             'category.parent' => function($q) {
-                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+                $q->select(['id', 'title', 'alias', 'parent_id', 'user_id', 'status']);
             },
             'category.parent.parent' => function($q) {
-                $q->select(['id', 'alias', 'parent_id', 'user_id', 'status']);
+                $q->select(['id', 'title', 'alias', 'parent_id', 'user_id', 'status']);
             },
             'hashtags' => function($q) {
                 $q->select(['id', 'title', 'parent_id', 'user_id']);
@@ -316,13 +433,137 @@ class PostController extends Controller
 
         $originalImage = json_decode($post->original_image, true);
         $mediumImage = json_decode($post->medium_image, true);
-//        dd($originalImage);
-//        foreach ($originalImage as $key => $image) {
-//            //dd($mediumImage[$key]['path'] ?? $image['path'] ?? '');
-//            dd($image['path']);
-//        }
 
-        return view('admin.posts.show', ['categories' => $categories, 'post' => $post, 'originalImage' => $originalImage, 'mediumImage' => $mediumImage]);
+        // приводим одиночную картинку ({path:...}) и карусель ({0:{path:...}, 1:{...}})
+        // к единому плоскому списку — вьюхе (галерее) без разницы, сколько картинок
+        $galleryImages = [];
+        if (!empty($originalImage)) {
+            if (isset($originalImage['path'])) {
+                $galleryImages[] = [
+                    'full' => $originalImage['path'],
+                    'medium' => $mediumImage['path'] ?? $originalImage['path'],
+                ];
+            } else {
+                foreach ($originalImage as $key => $image) {
+                    if (empty($image['path'])) {
+                        continue;
+                    }
+                    $galleryImages[] = [
+                        'full' => $image['path'],
+                        'medium' => $mediumImage[$key]['path'] ?? $image['path'],
+                    ];
+                }
+            }
+        }
+
+        $groupCount = $post->group_id ? Post::where('group_id', $post->group_id)->count() : 0;
+
+        // компактный превью-фрагмент для галереи-просмотрщика на "Все посты" (клик по
+        // посту открывает Fancybox с этим фрагментом внутри, ?fragment=1 в href триггера —
+        // см. post_items.blade.php и @push('footer-scripts') в posts/index.blade.php)
+        if ($request->boolean('fragment')) {
+            return view('admin.posts.parts.post_preview', [
+                'post' => $post,
+                'galleryImages' => $galleryImages,
+                'groupCount' => $groupCount,
+            ]);
+        }
+
+        return view('admin.posts.show', [
+            'categories' => $categories,
+            'post' => $post,
+            'galleryImages' => $galleryImages,
+            'groupCount' => $groupCount,
+        ]);
+    }
+
+    /**
+     * Группа постов ("Группировать посты" при создании) — список постов группы
+     * в порядке sort_order, с возможностью перетащить и поменять порядок
+     * (см. reorderGroup() и resources/views/admin/posts/group.blade.php).
+     *
+     * @param int $groupId
+     * @return Application|Factory|View
+     */
+    public function showGroup($groupId)
+    {
+        $user = auth()->user();
+
+        $posts = Post::where('group_id', $groupId)
+            ->where('user_id', $user->id)
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($posts->isEmpty()) {
+            abort(404);
+        }
+
+        foreach ($posts as $post) {
+            $post->cover_image = $this->resolveCoverImagePath($post);
+        }
+
+        return view('admin.posts.group', [
+            'groupId' => $groupId,
+            'posts' => $posts,
+        ]);
+    }
+
+    /**
+     * Сохраняет новый порядок постов внутри группы после drag&drop на странице группы.
+     *
+     * @param Request $request
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function reorderGroup(Request $request, $groupId)
+    {
+        $user = auth()->user();
+        $order = $request->input('order', []);
+
+        if (!is_array($order) || empty($order)) {
+            return response()->json(['status' => false, 'message' => 'Некорректный порядок'], 422);
+        }
+
+        $posts = Post::where('group_id', $groupId)->where('user_id', $user->id)->get()->keyBy('id');
+
+        foreach (array_values($order) as $index => $postId) {
+            if (isset($posts[$postId])) {
+                $posts[$postId]->sort_order = $index;
+                $posts[$postId]->save();
+            }
+        }
+
+        return response()->json(['status' => true, 'message' => 'Порядок сохранён']);
+    }
+
+    /**
+     * Обложка поста (первая/единственная картинка) для карточки в списке группы —
+     * та же логика, что у $post['cover_image'] в index(), но как отдельный метод,
+     * т.к. тут не нужен полный набор колонок/eager-load, только путь к картинке.
+     *
+     * @param Post $post
+     * @return string|null
+     */
+    private function resolveCoverImagePath(Post $post): ?string
+    {
+        if (!empty($post->small_image) && isJson($post->small_image)) {
+            $smallImage = json_decode($post->small_image, true);
+            if (!isset($smallImage['path'])) {
+                $firstPicture = array_shift($smallImage);
+                return $firstPicture['path'] ?? null;
+            }
+            return $smallImage['path'];
+        }
+        if (!empty($post->medium_image) && isJson($post->medium_image)) {
+            $mediumImage = json_decode($post->medium_image, true);
+            return $mediumImage['path'] ?? null;
+        }
+        if (!empty($post->original_image) && isJson($post->original_image)) {
+            $originalImage = json_decode($post->original_image, true);
+            return $originalImage['path'] ?? null;
+        }
+
+        return null;
     }
 
     /**
@@ -495,9 +736,12 @@ class PostController extends Controller
      * @param string $userId
      * @param array $image
      * @param string $imageAlias
+     * @param int|null $groupId группа постов ("Группировать посты"), null — без группы
+     * @param int|null $sortOrder порядок внутри группы, null — без группы
+     * @param int|null $createdId ссылка-out: id только что созданного поста (для сборки группы в store())
      * @return array|bool|bool[]|string|string[]
      */
-    private function createPost(Request $request, string $userId, array $image = [], string $imageAlias = '')
+    private function createPost(Request $request, string $userId, array $image = [], string $imageAlias = '', ?int $groupId = null, ?int $sortOrder = null, ?int &$createdId = null)
     {
         //TODO описать что происходит в методе
 
@@ -518,6 +762,13 @@ class PostController extends Controller
         $new_post = new Post();
         $new_post->user_id = $userId;
         $new_post->category_id = $request->category_id ?: 0;
+
+        if ($groupId !== null) {
+            $new_post->group_id = $groupId;
+        }
+        if ($sortOrder !== null) {
+            $new_post->sort_order = $sortOrder;
+        }
 
         if (isset($request->text) && !empty(strip_tags($request->text))) {
             $new_post->content = $request->text;
@@ -710,6 +961,8 @@ class PostController extends Controller
                     $imageHash['perceptual_hash']
                 );
             }
+
+            $createdId = $new_post->id;
 
             return true;
         }

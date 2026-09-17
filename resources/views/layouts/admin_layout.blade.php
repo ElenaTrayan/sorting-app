@@ -52,11 +52,16 @@
                 <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
             </li>
 
+            {{-- виджет поиска (.b-tabs) в шапке "Все посты" временно скрыт — поиск на этой
+                 странице теперь открывается тем же поп-апом modal-search-global, что и на
+                 остальных страницах (кнопка "Поиск" в левом меню, .js-sidebar-search-btn) --}}
+            {{--
             @if (request()->routeIs('posts.index'))
             <div class="" style="display: flex;flex-flow: column;width: 100%;">
                 @include('layouts.parts.search_widget')
             </div>
             @endif
+            --}}
 
             {{-- хлебные крошки в navbar-nav-left — страница сама решает, показывать ли их,
                  см. @push('navbar-breadcrumb') в resources/views/admin/contacts/index.blade.php
@@ -218,87 +223,104 @@
                 </button>
             </div>
 
-            <!-- Sidebar Menu (плоский список — без выпадающих подпунктов, пункт сразу ведёт
-                 на "Все X"; "Добавить X" остаётся кнопкой на самой странице списка) -->
+            <!-- Sidebar Menu (плоский список внутри каждой группы — без выпадающих подпунктов,
+                 пункт сразу ведёт на "Все X"; "Добавить X" остаётся кнопкой на самой странице
+                 списка). Пункты сгруппированы под подписями-лейблами (по макету Claude Design) —
+                 чисто визуальная группировка, на роуты/логику не влияет. -->
             <nav class="mt-2">
-                <ul class="nav b-sidebar-nav flex-column" role="menu">
-                    <li class="nav-item">
-                        <a href="{{ route('homeAdmin') }}" class="b-sidebar-nav__link @if (request()->routeIs('homeAdmin')) is-active @endif">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'home', 'class' => 'b-sidebar-nav__icon'])
-                            <span>Главная</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('posts.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('posts.*')) is-active @endif">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'edit', 'class' => 'b-sidebar-nav__icon'])
-                            <span>Посты</span>
-                            <span class="b-sidebar-nav__badge">6</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('posts-categories.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('posts-categories.*')) is-active @endif">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'grid', 'class' => 'b-sidebar-nav__icon'])
-                            <span>Категории</span>
-                            <span class="b-sidebar-nav__badge">6</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('hashtags.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('hashtags.*')) is-active @endif">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'hash', 'class' => 'b-sidebar-nav__icon'])
-                            <span>Хештеги</span>
-                            <span class="b-sidebar-nav__badge">6</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="pages/widgets.html" class="b-sidebar-nav__link">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'lightbulb', 'class' => 'b-sidebar-nav__icon'])
-                            <span>Идеи Инстаграм</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="pages/widgets.html" class="b-sidebar-nav__link">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'image', 'class' => 'b-sidebar-nav__icon'])
-                            <span>Позирование</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('wishlists.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('wishlists.*')) is-active @endif">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'gift', 'class' => 'b-sidebar-nav__icon'])
-                            <span>My Gift List</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('contacts.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('contacts.*')) is-active @endif">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'users', 'class' => 'b-sidebar-nav__icon'])
-                            <span>База контактов</span>
-                        </a>
-                    </li>
+                <div class="b-sidebar-nav__section">
+                    <div class="b-sidebar-nav__section-label">Обзор</div>
+                    <ul class="nav b-sidebar-nav flex-column" role="menu">
+                        <li class="nav-item">
+                            <a href="{{ route('homeAdmin') }}" class="b-sidebar-nav__link @if (request()->routeIs('homeAdmin')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'home', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Главная</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
 
-                    {{-- "Мои запасы" — единственный раскрывающийся пункт меню (остальные —
-                         плоский список, см. комментарий выше), т.к. раздел из 10 подстраниц
-                         этого требует напрямую. Группа авто-раскрыта, если активен любой
-                         дочерний роут (stock.*). Поведение toggle — admin.js, #js-stock-nav-toggle. --}}
-                    @php $stockActive = request()->routeIs('stock.*'); @endphp
-                    <li class="nav-item b-sidebar-nav__group @if ($stockActive) is-open @endif">
-                        <button type="button" class="b-sidebar-nav__link b-sidebar-nav__link--toggle js-stock-nav-toggle">
-                            @include('layouts.parts.sidebar_icon', ['name' => 'package', 'class' => 'b-sidebar-nav__icon'])
-                            <span>Мои запасы</span>
-                            @include('layouts.parts.sidebar_icon', ['name' => 'chevron-down', 'class' => 'b-sidebar-nav__chevron'])
-                        </button>
-                        <ul class="b-sidebar-nav__submenu" @if (!$stockActive) style="display:none;" @endif>
-                            <li><a href="{{ route('stock.overview') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.overview')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'layout-dashboard', 'class' => 'b-sidebar-nav__icon']) <span>Обзор</span></a></li>
-                            <li><a href="{{ route('stock.inventory.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.inventory.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'box', 'class' => 'b-sidebar-nav__icon']) <span>Мои запасы</span></a></li>
-                            <li><a href="{{ route('stock.shopping-list.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.shopping-list.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'list', 'class' => 'b-sidebar-nav__icon']) <span>Список покупок</span></a></li>
-                            <li><a href="{{ route('stock.regular-purchases.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.regular-purchases.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'repeat', 'class' => 'b-sidebar-nav__icon']) <span>Постоянные покупки</span></a></li>
-                            <li><a href="{{ route('stock.stores.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.stores.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'store', 'class' => 'b-sidebar-nav__icon']) <span>Магазины</span></a></li>
-                            <li><a href="{{ route('stock.promotions.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.promotions.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'percent', 'class' => 'b-sidebar-nav__icon']) <span>Акции</span></a></li>
-                            <li><a href="{{ route('stock.orders.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.orders.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'truck', 'class' => 'b-sidebar-nav__icon']) <span>Заказы</span></a></li>
-                            <li><a href="{{ route('stock.reserve.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.reserve.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'shield', 'class' => 'b-sidebar-nav__icon']) <span>Резерв (ЧС)</span></a></li>
-                            <li><a href="{{ route('stock.history.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.history.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'clock', 'class' => 'b-sidebar-nav__icon']) <span>История покупок</span></a></li>
-                            <li><a href="{{ route('stock.settings.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.settings.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'settings', 'class' => 'b-sidebar-nav__icon']) <span>Настройки</span></a></li>
-                        </ul>
-                    </li>
-                </ul>
+                <div class="b-sidebar-nav__section">
+                    <div class="b-sidebar-nav__section-label">Контент</div>
+                    <ul class="nav b-sidebar-nav flex-column" role="menu">
+                        <li class="nav-item">
+                            <a href="{{ route('posts.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('posts.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'edit', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Посты</span>
+                                <span class="b-sidebar-nav__badge">6</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('posts-categories.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('posts-categories.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'grid', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Категории</span>
+                                <span class="b-sidebar-nav__badge">6</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('hashtags.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('hashtags.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'hash', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Хештеги</span>
+                                <span class="b-sidebar-nav__badge">6</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="pages/widgets.html" class="b-sidebar-nav__link">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'lightbulb', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Идеи Инстаграм</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="pages/widgets.html" class="b-sidebar-nav__link">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'image', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Позирование</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="b-sidebar-nav__section">
+                    <div class="b-sidebar-nav__section-label">Разделы</div>
+                    <ul class="nav b-sidebar-nav flex-column" role="menu">
+                        <li class="nav-item">
+                            <a href="{{ route('wishlists.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('wishlists.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'gift', 'class' => 'b-sidebar-nav__icon'])
+                                <span>My Gift List</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('contacts.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('contacts.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'users', 'class' => 'b-sidebar-nav__icon'])
+                                <span>База контактов</span>
+                            </a>
+                        </li>
+
+                        {{-- "Мои запасы" — единственный раскрывающийся пункт меню (остальные —
+                             плоский список, см. комментарий выше), т.к. раздел из 10 подстраниц
+                             этого требует напрямую. Группа авто-раскрыта, если активен любой
+                             дочерний роут (stock.*). Поведение toggle — admin.js, #js-stock-nav-toggle. --}}
+                        @php $stockActive = request()->routeIs('stock.*'); @endphp
+                        <li class="nav-item b-sidebar-nav__group @if ($stockActive) is-open @endif">
+                            <button type="button" class="b-sidebar-nav__link b-sidebar-nav__link--toggle js-stock-nav-toggle">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'package', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Мои запасы</span>
+                                @include('layouts.parts.sidebar_icon', ['name' => 'chevron-down', 'class' => 'b-sidebar-nav__chevron'])
+                            </button>
+                            <ul class="b-sidebar-nav__submenu" @if (!$stockActive) style="display:none;" @endif>
+                                <li><a href="{{ route('stock.overview') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.overview')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'layout-dashboard', 'class' => 'b-sidebar-nav__icon']) <span>Обзор</span></a></li>
+                                <li><a href="{{ route('stock.inventory.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.inventory.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'box', 'class' => 'b-sidebar-nav__icon']) <span>Мои запасы</span></a></li>
+                                <li><a href="{{ route('stock.shopping-list.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.shopping-list.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'list', 'class' => 'b-sidebar-nav__icon']) <span>Список покупок</span></a></li>
+                                <li><a href="{{ route('stock.regular-purchases.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.regular-purchases.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'repeat', 'class' => 'b-sidebar-nav__icon']) <span>Постоянные покупки</span></a></li>
+                                <li><a href="{{ route('stock.stores.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.stores.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'store', 'class' => 'b-sidebar-nav__icon']) <span>Магазины</span></a></li>
+                                <li><a href="{{ route('stock.promotions.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.promotions.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'percent', 'class' => 'b-sidebar-nav__icon']) <span>Акции</span></a></li>
+                                <li><a href="{{ route('stock.orders.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.orders.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'truck', 'class' => 'b-sidebar-nav__icon']) <span>Заказы</span></a></li>
+                                <li><a href="{{ route('stock.reserve.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.reserve.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'shield', 'class' => 'b-sidebar-nav__icon']) <span>Резерв (ЧС)</span></a></li>
+                                <li><a href="{{ route('stock.history.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.history.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'clock', 'class' => 'b-sidebar-nav__icon']) <span>История покупок</span></a></li>
+                                <li><a href="{{ route('stock.settings.index') }}" class="b-sidebar-nav__sublink @if (request()->routeIs('stock.settings.*')) is-active @endif">@include('layouts.parts.sidebar_icon', ['name' => 'settings', 'class' => 'b-sidebar-nav__icon']) <span>Настройки</span></a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
 
                 <div class="b-sidebar-divider"></div>
 
@@ -320,37 +342,35 @@
     </aside>
 
     {{-- Поп-ап "Поиск" — открывается кнопкой "Поиск" в меню слева (js-sidebar-search-btn) на
-         всех страницах, кроме "Все посты" (там тот же виджет уже виден прямо в шапке, см. выше,
-         и на одной странице не может быть двух элементов с одинаковыми id) --}}
-    @unless (request()->routeIs('posts.index'))
-        @php
-            $searchModalSubtitle = request()->routeIs('contacts.*')
-                ? 'Ищите контакты по хэштегам, тексту или картинке'
-                : 'Ищите по тексту';
-        @endphp
-        <div class="modal fade" id="modal-search-global" tabindex="-1" role="dialog" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-                <div class="modal-content b-search-modal">
-                    <div class="modal-header b-search-modal__header">
-                        <div class="b-search-modal__heading">
-                            <i class="fas fa-search"></i>
-                            <div>
-                                <h5 class="modal-title">Поиск</h5>
-                                <div class="b-search-modal__subtitle">{{ $searchModalSubtitle }}</div>
-                            </div>
+         всех страницах, включая "Все посты" (виджет в шапке там временно закомментирован
+         выше, поэтому дублирования id на странице больше нет) --}}
+    @php
+        $searchModalSubtitle = request()->routeIs('contacts.*')
+            ? 'Ищите контакты по хэштегам, тексту или картинке'
+            : 'Ищите по тексту';
+    @endphp
+    <div class="modal fade" id="modal-search-global" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content b-search-modal">
+                <div class="modal-header b-search-modal__header">
+                    <div class="b-search-modal__heading">
+                        <i class="fas fa-search"></i>
+                        <div>
+                            <h5 class="modal-title">Поиск</h5>
+                            <div class="b-search-modal__subtitle">{{ $searchModalSubtitle }}</div>
                         </div>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                     </div>
-                    <div class="modal-body">
-                        @include('layouts.parts.search_widget')
-                    </div>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    @include('layouts.parts.search_widget')
                 </div>
             </div>
         </div>
-    @endunless
+    </div>
 
     <!-- Content Wrapper. Contains page content -->
-    <div class="content-wrapper @if (request()->routeIs('contacts.index')) content-wrapper--contacts @endif @if (request()->routeIs('wishlists.index') || request()->routeIs('wishlists.show')) content-wrapper--wishlists @endif">
+    <div class="content-wrapper @if (request()->routeIs('contacts.index')) content-wrapper--contacts @endif @if (request()->routeIs('wishlists.index') || request()->routeIs('wishlists.show')) content-wrapper--wishlists @endif @if (request()->routeIs('posts.index') || request()->routeIs('posts.show') || request()->routeIs('posts.groups.show')) content-wrapper--posts @endif">
         @yield('content')
     </div>
     <!-- /.content-wrapper -->
@@ -401,10 +421,18 @@
 <script src="/admin/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js"></script>
 <!-- adminLTE App -->
 <script src="/admin/dist/js/adminlte.js"></script>
-<!-- AdminLTE for demo purposes -->
-<script src="/admin/dist/js/demo.js"></script>
-<!-- AdminLTE dashboard demo (This is only for demo purposes) -->
-<script src="/admin/dist/js/pages/dashboard.js"></script>
+{{-- demo.js убран: это демо-скин-переключатель из коробки AdminLTE (сам файл
+     помечен "for demo purposes only"), собирает свою панель внутри .control-sidebar
+     по стоковой разметке AdminLTE (.brand-link и т.п.), которой у нас давно нет —
+     падал в консоли с "Cannot read properties of undefined (reading 'classList')" --}}
+{{-- dashboard.js трогает конкретные id/классы (#sparkline-1..3, #world-map, .knob,
+     .connectedSortable, .todo-list) — они реально есть только на "Главной"
+     (admin/home/index.blade.php); на остальных страницах их нет, и Sparkline/vectorMap
+     падали в консоли, пытаясь инициализироваться на несуществующих элементах --}}
+@if (request()->routeIs('homeAdmin'))
+    <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
+    <script src="/admin/dist/js/pages/dashboard.js"></script>
+@endif
 
 <!-- TinyMCE (самостоятельно захостено в /admin/plugins/tinymce — было на CDN tiny.cloud,
      без интернета совсем не грузилось и рвало весь admin.js, т.к. дальше по коду

@@ -80,6 +80,10 @@ Route::middleware(['role:admin'])->prefix('admin_panel')->group(function () {
     Route::post('/posts/{post}/images/confirm-replace-duplicate', [\App\Http\Controllers\Admin\PostController::class, 'confirmReplaceDuplicate'])->name('posts.images.confirm-replace-duplicate');
     Route::post('/posts/{post}/images/confirm-add-duplicate', [\App\Http\Controllers\Admin\PostController::class, 'confirmAddDuplicate'])->name('posts.images.confirm-add-duplicate');
     Route::post('/posts/{post}/images/rename', [\App\Http\Controllers\Admin\PostController::class, 'renameImage'])->name('posts.images.rename');
+    // группа постов ("Группировать посты" при создании — см. PostController::store()/createPost());
+    // группы отдельной таблицей не заводим, group_id = id первого поста группы
+    Route::get('/posts/groups/{groupId}', [App\Http\Controllers\Admin\PostController::class, 'showGroup'])->name('posts.groups.show');
+    Route::post('/posts/groups/{groupId}/reorder', [App\Http\Controllers\Admin\PostController::class, 'reorderGroup'])->name('posts.groups.reorder');
     Route::post('/search-hashtag',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchHashtag'])->name('search.hashtag');
     Route::post('/search-hashtag-by-title',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchSameHashtag'])->name('search.hashtag-by-title');
     Route::any('/search-posts-by-hashtags',[App\Http\Controllers\Admin\Packages\SearchController::class, 'searchPostsByHashtags'])->name('search.posts-by-hashtags');

@@ -26,21 +26,27 @@
             </div>
         </div>
 
+        @php
+            // общий триггер Fancybox-галереи "Все посты" — клик открывает компактное
+            // превью поста (post_preview.blade.php) с навигацией стрелками между постами
+            // в том же порядке, что и в сетке (см. @push('footer-scripts') в index.blade.php)
+            $galleryUrl = route('posts.show', $post->id) . '?fragment=1';
+        @endphp
         <div class="b-card__content">
             @if ($post->video_url)
-                <div class="b-card__content__image b-card__content__video">
+                <a href="{{ $galleryUrl }}" data-fancybox="posts-gallery" data-type="ajax" class="b-card__content__image b-card__content__video">
                     <video src="{{ $post->video_url }}" controls preload="metadata"></video>
-                </div>
+                </a>
             @elseif (!empty($post->cover_image))
-                <div class="b-card__content__image scale">
+                <a href="{{ $galleryUrl }}" data-fancybox="posts-gallery" data-type="ajax" class="b-card__content__image scale">
                     <img src="/storage{{ $post->cover_image }}" alt="Content img">
-                </div>
+                </a>
             @endif
 
             @if (!empty($post->title) || !empty($post->content))
                 <div class="b-card__content__text">
                     @if (!empty($post->title))
-                        <a href="#" class="title">{{ $post->title }}</a>
+                        <a href="{{ $galleryUrl }}" data-fancybox="posts-gallery" data-type="ajax" class="title">{{ $post->title }}</a>
                     @endif
                     @if (!empty($post->content))
                         {!! $post->content !!}

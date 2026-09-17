@@ -228,11 +228,20 @@
 .content-wrapper.content-wrapper--wishlists {
     background: #f6f6f9 !important;
 }
+/* страница "Все посты" — тот же фон под макет, см. .content-wrapper--posts
+   в resources/views/layouts/admin_layout.blade.php */
+.content-wrapper.content-wrapper--posts {
+    background: #f6f6f9 !important;
+}
 .content-wrapper > .content {
     padding: 0 .7rem;
 }
 
-/* ==================== левое меню (светлая перевёрстка) ==================== */
+/* ==================== левое меню (современная перевёрстка) ====================
+   Фирменный акцент унифицирован с уже переверстанными страницами ("Мой список
+   подарков", "База контактов" — #7367f0/#eef0fe), пункты сгруппированы под
+   подписями-лейблами, счётчики — нейтральные пилюли (акцентные только у активного
+   пункта). См. resources/views/layouts/admin_layout.blade.php */
 .b-sidebar {
     background: #fff;
     box-shadow: none;
@@ -243,7 +252,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 16px;
+    padding: 14px 16px;
     border-bottom: 1px solid #eceef3;
     text-decoration: none;
 }
@@ -251,13 +260,13 @@
     text-decoration: none;
 }
 .b-sidebar-brand__icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: #4b3bf5;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: #7367f0;
     color: #fff;
     font-weight: 800;
-    font-size: 17px;
+    font-size: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -265,7 +274,8 @@
 }
 .b-sidebar-brand__text {
     font-weight: 800;
-    font-size: 18px;
+    font-size: 16.5px;
+    letter-spacing: -0.01em;
     color: #1f2430;
     white-space: nowrap;
 }
@@ -276,30 +286,34 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 16px 4px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #eceef3;
+    padding: 10px;
+    margin: 14px 0 14px;
+    background: #f6f6fa;
+    border-radius: 12px;
 }
 .b-sidebar-user__photo {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
 }
 .b-sidebar-user__name {
-    font-weight: 800;
-    font-size: 15px;
+    font-weight: 700;
+    font-size: 13.5px;
     color: #1f2430;
     line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .b-sidebar-user__role {
-    font-size: 13px;
+    font-size: 11.5px;
     font-weight: 600;
     color: #9099b8;
 }
 .b-sidebar-search {
-    margin-bottom: 14px;
+    margin-bottom: 16px;
 }
 .b-sidebar-search__btn {
     display: flex;
@@ -309,8 +323,8 @@
     background: #f4f6f9;
     border: none;
     border-radius: 10px;
-    padding: 11px 14px;
-    font-size: 14.5px;
+    padding: 10px 14px;
+    font-size: 14px;
     font-weight: 700;
     color: #1f2430;
 }
@@ -319,10 +333,10 @@
 }
 .b-sidebar-search__icon {
     display: block;
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
-    color: #4b3bf5;
+    color: #7367f0;
 }
 .b-sidebar-search__chevron {
     display: block;
@@ -332,12 +346,26 @@
     flex-shrink: 0;
     color: #c8cdd3;
 }
+
+/* группы пунктов меню с подписью-лейблом (Обзор / Контент / Разделы) */
+.b-sidebar-nav__section {
+    margin-bottom: 18px;
+}
+.b-sidebar-nav__section-label {
+    padding: 0 10px 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #a0a0ad;
+}
+
 .b-sidebar-nav {
     padding: 0;
     margin: 0;
 }
 .b-sidebar-nav .nav-item {
-    height: 45px;
+    height: 42px;
 }
 .b-sidebar-nav__link {
     position: relative;
@@ -352,9 +380,9 @@
     padding: 10px 10px;
     margin-bottom: 2px;
     box-sizing: border-box;
-    font-size: 15px;
-    font-weight: 700;
-    color: #1f2430;
+    font-size: 14px;
+    font-weight: 600;
+    color: #3f3f4a;
     text-align: left;
     text-decoration: none;
 }
@@ -364,9 +392,9 @@
     text-decoration: none;
 }
 .b-sidebar-nav__link.is-active {
-    background: #eee9fe;
-    color: #4b3bf5;
-    font-weight: 800;
+    background: #eef0fe;
+    color: #7367f0;
+    font-weight: 700;
 }
 .b-sidebar-nav__link.is-active::before {
     content: '';
@@ -376,26 +404,30 @@
     bottom: 6px;
     width: 3px;
     border-radius: 0 3px 3px 0;
-    background: #4b3bf5;
+    background: #7367f0;
 }
 .b-sidebar-nav__link.is-active .b-sidebar-nav__icon {
-    color: #4b3bf5;
+    color: #7367f0;
 }
 .b-sidebar-nav__icon {
     display: block;
-    width: 20px;
-    height: 20px;
+    width: 19px;
+    height: 19px;
     flex-shrink: 0;
-    color: #6b7099;
+    color: #8a8fa8;
 }
 .b-sidebar-nav__badge {
     margin-left: auto;
-    background: #06aec4;
+    background: #f0f0f5;
+    color: #7a7a86;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+.b-sidebar-nav__link.is-active .b-sidebar-nav__badge {
+    background: #7367f0;
     color: #fff;
-    font-size: 12px;
-    font-weight: 800;
-    padding: 2px 9px;
-    border-radius: 10px;
 }
 .b-sidebar-divider {
     height: 1px;
@@ -445,7 +477,7 @@
     padding: 8px 10px 8px 34px;
     border-radius: 10px;
     margin-bottom: 2px;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
     color: #565b74;
     text-decoration: none;
@@ -456,21 +488,31 @@
     text-decoration: none;
 }
 .b-sidebar-nav__sublink.is-active {
-    background: #eee9fe;
-    color: #4b3bf5;
-    font-weight: 800;
+    background: #eef0fe;
+    color: #7367f0;
+    font-weight: 700;
 }
 .b-sidebar-nav__sublink .b-sidebar-nav__icon {
     width: 16px;
     height: 16px;
 }
 .b-sidebar-nav__sublink.is-active .b-sidebar-nav__icon {
-    color: #4b3bf5;
+    color: #7367f0;
 }
 @media (min-width: 992px) {
     .sidebar-mini.sidebar-collapse .b-sidebar-nav__submenu,
     .sidebar-mini.sidebar-collapse .b-sidebar-nav__chevron {
         display: none;
+    }
+    /* лейблы групп (Обзор/Контент/Разделы) прячем в свёрнутом виде — иконки без
+       подписи достаточно самодостаточны, а раскрываются лейблы вместе с остальным
+       текстом по hover/focus (см. ниже) */
+    .sidebar-mini.sidebar-collapse .b-sidebar-nav__section-label {
+        display: none;
+    }
+    .sidebar-mini.sidebar-collapse .main-sidebar:hover .b-sidebar-nav__section-label,
+    .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused .b-sidebar-nav__section-label {
+        display: block;
     }
 }
 
@@ -735,6 +777,24 @@ text-align: center;
     padding: 4px;
     border: 1px solid #d2d2d2;
     position: relative;
+    cursor: grab;
+}
+/* карточка, которую сейчас тащат (jQuery UI добавляет класс автоматически) */
+.upload-image-section .images .image.ui-sortable-helper {
+    cursor: grabbing;
+    box-shadow: 0 6px 16px rgba(23, 23, 36, .18);
+}
+/* пустое место, куда карточка встанет при отпускании — тот же размер/float,
+   что и у .image, иначе плейсхолдер ломает раскладку (см. update: в admin.js) */
+.upload-image-section .images .image-sort-placeholder {
+    width: 116px;
+    height: 116px;
+    margin: 0 10px 10px 0;
+    float: left;
+    box-sizing: border-box;
+    border: 1px dashed #7367f0;
+    border-radius: 4px;
+    background: #f6f5ff;
 }
 
 .upload-image-section .images .image:hover {
@@ -844,6 +904,875 @@ text-align: center;
     width: 100%;
 }
 
+/* --- страница "Все посты" — шапка и панель вкладок/сортировки переверстаны по
+   макету Claude Design, взяты у "База контактов" (Manrope, фиолетовый #7367f0);
+   сама сетка карточек постов (.b-card/.grid, Masonry) не тронута --- */
+.content-header.content-header--posts {
+    padding: 20px 30px 0;
+}
+.content-header.content-header--posts h1 {
+    margin: 0;
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+.b-posts-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.b-posts-header__subtitle {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #8b8b99;
+    font-weight: 500;
+}
+.b-posts-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.b-posts-toolbar__create {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: #7367f0;
+    color: #fff;
+    font: 600 13.5px Manrope, sans-serif;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(115, 103, 240, .28);
+    transition: background-color .15s;
+}
+.b-posts-toolbar__create:hover {
+    background: #5e50ee;
+    color: #fff;
+    text-decoration: none;
+}
+.b-posts-header__btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 15px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    font: 600 13.5px Manrope, sans-serif;
+    color: #4a4a56;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background-color .15s;
+}
+.b-posts-header__btn:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-posts-header__btn--active {
+    background: #eef0fe;
+    border-color: #7367f0;
+    color: #7367f0;
+}
+
+/* --- панель вкладок по типу медиа + сортировка, над сеткой карточек --- */
+.b-posts-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 20px 15px;
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+}
+.b-posts-toolbar__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.b-posts-toolbar__tab {
+    padding: 9px 15px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a4a56;
+    white-space: nowrap;
+    transition: border-color .15s, color .15s, background-color .15s;
+}
+.b-posts-toolbar__tab:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-posts-toolbar__tab--active {
+    background: #eef0fe;
+    border-color: #7367f0;
+    color: #7367f0;
+}
+
+.b-posts-sort {
+    position: relative;
+    flex: none;
+}
+.b-posts-sort__trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 13px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a4a56;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.b-posts-sort__trigger:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+}
+.b-posts-sort__trigger i:first-child {
+    color: #8b8b99;
+    font-size: 12px;
+}
+.b-posts-sort__chevron {
+    font-size: 10px;
+    color: #8b8b99;
+    margin-left: 4px;
+    transition: transform .15s;
+}
+.b-posts-sort.is-open .b-posts-sort__chevron {
+    transform: rotate(180deg);
+}
+.b-posts-sort__list {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin: 6px 0 0;
+    padding: 6px;
+    width: 200px;
+    list-style: none;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .14);
+    z-index: 6;
+}
+.b-posts-sort.is-open .b-posts-sort__list {
+    display: block;
+}
+.b-posts-sort__option {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #2b2e33;
+    cursor: pointer;
+}
+.b-posts-sort__option:hover {
+    background: #f4f6f9;
+    text-decoration: none;
+    color: #2b2e33;
+}
+.b-posts-sort__option.is-active {
+    background: #eef0fe;
+    color: #7367f0;
+    font-weight: 600;
+}
+
+/* --- страница одного поста ("Просмотр поста") — переверстана по макету Claude
+   Design (https://claude.ai/artifact/MartNNPBmEAjb11QSXznWC), в фирменной палитре
+   проекта (#7367f0/#eef0fe, как на "Все посты"/"База контактов"). Из макета не
+   взяты декоративные блоки без реальных данных за ними — "Только вы", палитра
+   цветов картинки, источник, заметка; вместо них только то, что у поста
+   реально есть: статус, дата, количество картинок/видео, хештеги, категория. --- */
+.content-header.content-header--post-show {
+    padding: 20px 30px 0;
+}
+.b-post-show__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 15px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    font: 600 13px Manrope, sans-serif;
+    color: #4a4a56;
+    transition: border-color .15s, color .15s;
+}
+.b-post-show__back:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-post-show-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.b-post-show-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.b-post-show__btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    font: 600 13.5px Manrope, sans-serif;
+    color: #4a4a56;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background-color .15s;
+}
+.b-post-show__btn:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-post-show__btn--danger {
+    background: #fdecec;
+    border-color: #f7d6d6;
+    color: #e04f4f;
+}
+.b-post-show__btn--danger:hover {
+    border-color: #e04f4f;
+    background: #fbdede;
+    color: #e04f4f;
+}
+
+.b-post-show {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    padding: 20px 15px;
+}
+.b-post-show__card {
+    background: #fff;
+    border: 1px solid #ececf1;
+    border-radius: 18px;
+    box-shadow: 0 2px 14px rgba(23, 23, 36, .04);
+    overflow: hidden;
+}
+.b-post-show__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    align-items: stretch;
+}
+
+/* --- медиа (картинка/карусель/видео) слева --- */
+.b-post-show__media {
+    padding: 20px;
+    border-right: 1px solid #f1f1f5;
+    display: flex;
+}
+.b-post-show__media-frame {
+    position: relative;
+    flex: 1;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #20222e;
+    aspect-ratio: 4 / 5;
+    min-height: 320px;
+}
+.b-post-show__media-frame--video {
+    aspect-ratio: auto;
+    background: #000;
+    min-height: 0;
+    display: flex;
+}
+.b-post-show__media-frame--video video {
+    width: 100%;
+    max-height: 70vh;
+    margin: auto;
+}
+.b-post-show__media-slides {
+    position: absolute;
+    inset: 0;
+}
+.b-post-show__media-slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+}
+.b-post-show__media-slide.is-active {
+    display: block;
+}
+.b-post-show__media-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.b-post-show__media-actions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+}
+.b-post-show__media-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(255, 255, 255, .92);
+    color: #1f2430;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(12, 13, 20, .22);
+}
+.b-post-show__media-btn:hover {
+    color: #7367f0;
+}
+.b-post-show__media-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(255, 255, 255, .92);
+    color: #1f2430;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(12, 13, 20, .22);
+    z-index: 2;
+}
+.b-post-show__media-nav:hover {
+    color: #7367f0;
+}
+.b-post-show__media-nav--prev {
+    left: 12px;
+}
+.b-post-show__media-nav--next {
+    right: 12px;
+}
+.b-post-show__media-footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    padding: 14px;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    background: linear-gradient(transparent, rgba(12, 13, 20, .72));
+}
+.b-post-show__media-counter {
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(12, 13, 20, .6);
+    border-radius: 8px;
+    padding: 5px 9px;
+}
+.b-post-show__media-thumbs {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+.b-post-show__media-thumb {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-color: #2a2d3a;
+    background-size: cover;
+    background-position: center;
+    opacity: .7;
+    cursor: pointer;
+    padding: 0;
+}
+.b-post-show__media-thumb:hover {
+    opacity: .9;
+}
+.b-post-show__media-thumb.is-active {
+    border-color: #fff;
+    opacity: 1;
+}
+.b-post-show__media-empty {
+    flex: 1;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 14px;
+    background: #f6f6f9;
+    color: #c8cdd3;
+}
+.b-post-show__media-empty i {
+    font-size: 34px;
+}
+.b-post-show__media-empty p {
+    margin: 0;
+    font-size: 13px;
+    color: #9099b8;
+}
+
+/* --- детали справа --- */
+.b-post-show__details {
+    padding: 24px 26px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
+.b-post-show__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #6c7280;
+}
+.b-post-show__meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.b-post-show__meta-item i {
+    color: #9aa1ac;
+    font-size: 12px;
+}
+.b-post-show__meta-sep {
+    width: 1px;
+    height: 16px;
+    background: #e6e6ee;
+}
+
+.b-post-show__title {
+    margin: 0 0 10px;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: #1f2430;
+}
+/* контент поста приходит как готовый HTML ({!! $post->content !!}) — стилизуем
+   типографику внутри него по месту, без глобальных правил на p/img/h* */
+.b-post-show__prose {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: #4a4d63;
+}
+.b-post-show__prose p {
+    margin: 0 0 14px;
+}
+.b-post-show__prose img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+.b-post-show__prose h1,
+.b-post-show__prose h2,
+.b-post-show__prose h3,
+.b-post-show__prose h4 {
+    margin: 20px 0 10px;
+    font-weight: 700;
+    color: #1f2430;
+}
+.b-post-show__prose a {
+    color: #7367f0;
+}
+
+.b-post-show__empty-text {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1px dashed #d8dae6;
+    background: #fafafd;
+}
+.b-post-show__empty-text-icon {
+    width: 38px;
+    height: 38px;
+    flex: none;
+    border-radius: 11px;
+    background: #eef0fe;
+    color: #7367f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-post-show__empty-text-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #1f2430;
+}
+.b-post-show__empty-text-sub {
+    font-size: 13px;
+    color: #8b8b99;
+}
+.b-post-show__empty-text-btn {
+    margin-left: auto;
+    height: 36px;
+    padding: 0 15px;
+    border-radius: 10px;
+    background: #7367f0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+}
+.b-post-show__empty-text-btn:hover {
+    background: #5e50ee;
+    color: #fff;
+    text-decoration: none;
+}
+
+.b-post-show__divider {
+    height: 1px;
+    background: #f1f1f5;
+}
+
+.b-post-show__section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.b-post-show__section-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+.b-post-show__section-head i {
+    color: #9aa1ac;
+    font-size: 13px;
+}
+.b-post-show__section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: #8b8b99;
+}
+.b-post-show__section-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: #c0c3d2;
+}
+
+.b-post-show__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.b-post-show__tag {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 9px;
+    background: #eef0fe;
+    color: #7367f0;
+    font-size: 13px;
+    font-weight: 600;
+}
+.b-post-show__tag-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 9px;
+    border: 1px dashed #c9cbda;
+    color: #6e7285;
+    font-size: 13px;
+    font-weight: 600;
+}
+.b-post-show__tag-add:hover {
+    border-color: #7367f0;
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-post-show__category-chip {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 9px;
+    background: #f3f4f9;
+    color: #3d4056;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* --- страница "Группа постов" (/admin_panel/posts/groups/{id}) — перетаскивание
+   порядка постов внутри группы (jQuery UI Sortable, уже загружен глобально) --- */
+.b-post-group {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    padding: 20px 15px;
+    max-width: 720px;
+}
+.b-post-group__intro {
+    margin-bottom: 18px;
+}
+.b-post-group__title {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1f2430;
+}
+.b-post-group__hint {
+    margin: 0;
+    font-size: 13px;
+    color: #8b8b99;
+}
+/* обычный блочный список (не flex/grid на контейнере) — jQuery UI Sortable во время
+   перетаскивания ставит текущий элемент в position:absolute и опирается на то, что
+   остальные <li> стоят в нормальном блочном потоке; на flex-контейнере с ним
+   соседи "плывут" непредсказуемо и сортировка фактически не работает */
+.b-post-group__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.b-post-group__item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    background: #fff;
+    border: 1px solid #ececf1;
+    border-radius: 12px;
+}
+.b-post-group__item:last-child {
+    margin-bottom: 0;
+}
+.b-post-group__item.ui-sortable-helper {
+    box-shadow: 0 6px 18px rgba(23, 23, 36, .12);
+}
+.b-post-group__item.ui-sortable-placeholder {
+    visibility: visible !important;
+    border: 1px dashed #cfc4ff;
+    background: #f6f5ff;
+}
+.b-post-group__handle {
+    flex: none;
+    color: #c8cdd3;
+    cursor: grab;
+    padding: 4px;
+}
+.b-post-group__handle:hover {
+    color: #7367f0;
+}
+.b-post-group__position {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #eef0fe;
+    color: #7367f0;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-post-group__thumb {
+    flex: none;
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    background-color: #f6f6f9;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 18px;
+}
+.b-post-group__body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.b-post-group__link {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2430;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.b-post-group__link:hover {
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-post-group__date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #9aa1ac;
+}
+
+/* --- превью поста в Fancybox-галерее на "Все посты" (клик по карточке) —
+   admin/posts/parts/post_preview.blade.php. Fancybox сам оборачивает контент в
+   белую панель с padding:36px (.fancybox__content) — тут только внутренняя
+   раскладка, свой фон/рамка/радиус не нужны --- */
+.b-post-preview {
+    display: flex;
+    gap: 28px;
+    width: 960px;
+    max-width: calc(100vw - 80px);
+    height: 100%;
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+}
+
+/* --- галерея "Все посты" на всю страницу (mainClass в Fancybox.bind, см.
+   posts/index.blade.php) — панель растягивается почти на весь вьюпорт вместо
+   маленькой модалки по центру; у крестика закрытия (Fancybox добавляет его сам,
+   closeButton:"inside") свой цвет — по умолчанию белый, на белой панели невидим --- */
+.fancybox-posts-gallery .fancybox__slide {
+    padding: 24px;
+}
+.fancybox-posts-gallery .fancybox__content {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 10px;
+}
+.fancybox-posts-gallery .fancybox__content .carousel__button.is-close {
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    background: #f3f4f9;
+    color: #4a4a56;
+    border-radius: 50%;
+    transition: background-color .15s, color .15s, transform .15s;
+    --carousel-button-svg-width: 15px;
+    --carousel-button-svg-height: 15px;
+    --carousel-button-svg-stroke-width: 2;
+}
+.fancybox-posts-gallery .fancybox__content .carousel__button.is-close:hover {
+    background: #eef0fe;
+    color: #7367f0;
+    transform: scale(1.06);
+}
+@media (max-width: 900px) {
+    .fancybox-posts-gallery .fancybox__slide {
+        padding: 10px;
+    }
+}
+.b-post-preview__media {
+    position: relative;
+    flex: 1 1 55%;
+    max-width: 55%;
+    align-self: stretch;
+    display: flex;
+    border-radius: 12px;
+    overflow: hidden;
+}
+/* картинка обёрнута в <a data-fancybox="post-preview-image"> — клик открывает её
+   отдельно поверх текущего поп-апа, с зумом (см. post_preview.blade.php) */
+.b-post-preview__media a {
+    display: flex;
+    max-width: 100%;
+    max-height: 100%;
+    margin: auto;
+    cursor: zoom-in;
+}
+/* картинка целиком, без обрезки (не object-fit:cover) — это витрина поста,
+   а не миниатюра, оригинал (full), не medium, чтобы не было мыла на весь экран */
+.b-post-preview__media img,
+.b-post-preview__media video {
+    display: block;
+    margin: auto;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100vh;
+    object-fit: contain;
+}
+.b-post-preview__media-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    border-radius: 8px;
+    background: rgba(12, 13, 20, .6);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+}
+.b-post-preview__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+}
+.b-post-preview__actions {
+    margin-top: auto;
+    padding-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+/* только картинка/видео (у пина нет текста) — .b-post-preview__body в этом случае
+   вообще не выводится в блейде, тут просто даём медиа занять всю ширину панели */
+.b-post-preview--media-only .b-post-preview__media {
+    max-width: 100%;
+}
+/* только текст (у пина нет ни картинки, ни видео) — .b-post-preview__media вообще
+   не выводится, растягиваем текстовую колонку на всю ширину */
+.b-post-preview--text-only .b-post-preview__body {
+    max-width: 100%;
+}
+@media (max-width: 640px) {
+    .b-post-preview {
+        flex-direction: column;
+        width: 100%;
+    }
+    .b-post-preview__media {
+        flex: none;
+        max-width: 100%;
+    }
+}
+
 .b-list-of-posts {
     width: calc(100% - 10px);
     margin: 0 0 0 5px;
@@ -919,6 +1848,13 @@ margin: 0 0 20px 0;
 .b-card__content__image {
     cursor: pointer;
 }
+/* .b-card__content__image раньше был <div>, теперь <a> (триггер Fancybox-галереи,
+   см. post_items.blade.php) — по умолчанию inline, а видео-варианту (без .scale,
+   которая даёт inline-block картинке) нужен явный block, иначе video width:100%
+   считается не от того контейнера и пропадает ширина */
+.b-card__content__video {
+    display: block;
+}
 .b-card__content__image img{
     width: 100%;
     min-height: 100px;
@@ -944,6 +1880,7 @@ margin: 0 0 20px 0;
 
 .b-card__content__text {
     padding: 15px 15px 0;
+    line-height: 1.5;
 }
 
 .b-card__content__text .title {

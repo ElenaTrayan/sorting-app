@@ -2,21 +2,53 @@
 
 @section('title', 'Все посты')
 
+@push('navbar-breadcrumb')
+    <li class="nav-item d-flex align-items-center">
+        <ol class="breadcrumb b-navbar-breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+            <li class="breadcrumb-item active">Все посты</li>
+        </ol>
+    </li>
+@endpush
+
+@push('head-styles')
+    {{-- Manrope — шрифт макета Claude Design, тот же, что и на "База контактов"
+         (самостоятельно захостен в /admin/fonts/manrope) --}}
+    <link rel="stylesheet" href="/admin/fonts/manrope/manrope.css">
+@endpush
+
 @section('content')
+    {{-- хлебные крошки для этой страницы вынесены в верхний navbar-nav-left, см.
+         resources/views/layouts/admin_layout.blade.php --}}
+    {{-- шапка, панель вкладок/сортировки — по макету Claude Design, взяты у "База
+         контактов" (см. https://drive.google.com/file/d/1b4hWwYnDBMjNaom0xNmx7T2FbcfXWQq8);
+         сама сетка карточек постов (.b-card/.grid, Masonry) не тронута --}}
     <!-- Content Header (Page header) -->
-    <div class="content-header">
+    <div class="content-header content-header--posts">
         <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
+            <div class="b-posts-header">
+                <div>
                     <h1 class="m-0">Все посты</h1>
-                </div><!-- /.col -->
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
-                        <li class="breadcrumb-item active">Все посты</li>
-                    </ol>
-                </div><!-- /.col -->
-            </div><!-- /.row -->
+                    <div class="b-posts-header__subtitle">Управляйте контентом, просматривайте, редактируйте и публикуйте посты</div>
+                </div>
+                <div class="b-posts-header__actions">
+                    <a href="{{ route('posts.create') }}" class="b-posts-toolbar__create">
+                        <i class="fas fa-plus"></i> Добавить пост
+                    </a>
+                    @if ($withoutHashtags)
+                        <a href="{{ request()->fullUrlWithQuery(['without_hashtags' => null]) }}" class="b-posts-header__btn b-posts-header__btn--active">
+                            <i class="fas fa-times"></i> Сбросить фильтр
+                        </a>
+                    @else
+                        <a href="{{ request()->fullUrlWithQuery(['without_hashtags' => 1]) }}" class="b-posts-header__btn">
+                            <i class="fas fa-hashtag"></i> Посты без хештегов
+                        </a>
+                    @endif
+                    <button type="button" id="js-export-images-btn" class="b-posts-header__btn" data-action="{{ route('search.export-images-by-hashtags') }}">
+                        <i class="fas fa-file-export"></i> Экспорт изображений
+                    </button>
+                </div>
+            </div>
         </div><!-- /.container-fluid -->
     </div>
     <!-- /.content-header -->
@@ -41,14 +73,32 @@
 
                 @include('admin.includes.modal_delete_item')
 
-                <div class="card-header" style="display: flex; justify-content: end;">
-                    @if (!empty($withoutHashtags))
-                        <a href="{{ route('posts.index') }}" class="btn btn-outline-secondary" style="width: 200px;">Сбросить фильтр</a>
-                    @else
-                        <a href="{{ route('posts.index', ['without_hashtags' => 1]) }}" class="btn btn-outline-info" style="width: 200px;">Посты без хештегов</a>
-                    @endif
-                    <button type="button" id="js-export-images-btn" class="btn btn-outline-info" style="width: 200px;" data-action="{{ route('search.export-images-by-hashtags') }}">Экспорт изображений</button>
-                    <a href="{{ route('posts.create') }}" class="btn btn-block btn-outline-info" style="width: 160px;">Добавить пост</a>
+                @php
+                    $postsSortLabels = ['new' => 'Сначала новые', 'old' => 'Сначала старые', 'title' => 'По названию А-Я'];
+                @endphp
+                <div class="b-posts-toolbar">
+                    <div class="b-posts-toolbar__tabs">
+                        <a href="{{ request()->fullUrlWithQuery(['type' => null, 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'all') b-posts-toolbar__tab--active @endif">Все ({{ $typeCounts['all'] }})</a>
+                        <a href="{{ request()->fullUrlWithQuery(['type' => 'photo', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'photo') b-posts-toolbar__tab--active @endif">Фото ({{ $typeCounts['photo'] }})</a>
+                        <a href="{{ request()->fullUrlWithQuery(['type' => 'video', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'video') b-posts-toolbar__tab--active @endif">Видео ({{ $typeCounts['video'] }})</a>
+                        <a href="{{ request()->fullUrlWithQuery(['type' => 'carousel', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'carousel') b-posts-toolbar__tab--active @endif">Карусель ({{ $typeCounts['carousel'] }})</a>
+                    </div>
+
+                    <div class="b-posts-sort js-posts-sort">
+                        <button type="button" class="b-posts-sort__trigger js-posts-sort-trigger">
+                            <i class="fas fa-sort-amount-down"></i>
+                            <span>{{ $postsSortLabels[$activeSort] }}</span>
+                            <i class="fas fa-chevron-down b-posts-sort__chevron"></i>
+                        </button>
+                        <ul class="b-posts-sort__list js-posts-sort-list">
+                            {{-- у каждого пункта своё явное значение sort — никто не полагается на
+                                 "нет параметра = дефолт", т.к. дефолт (см. PostController::index())
+                                 это "old", а не первый пункт в списке --}}
+                            <li><a href="{{ request()->fullUrlWithQuery(['sort' => 'new', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'new') is-active @endif">Сначала новые</a></li>
+                            <li><a href="{{ request()->fullUrlWithQuery(['sort' => 'old', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'old') is-active @endif">Сначала старые</a></li>
+                            <li><a href="{{ request()->fullUrlWithQuery(['sort' => 'title', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'title') is-active @endif">По названию А-Я</a></li>
+                        </ul>
+                    </div>
                 </div>
 
 {{--            <form id="generator-form-keyword" class="row ajax-submit bind-refresh-ad" action="/hashtag/ajax-generator/" method="post" onsubmit="return false;">--}}
@@ -169,4 +219,36 @@
         </div><!-- /.container-fluid -->
     </section>
     <!-- /.content -->
+
+{{-- галерея-просмотрщик постов (клик по картинке/видео/заголовку карточки —
+     data-fancybox="posts-gallery" в post_items.blade.php) — один Fancybox.bind на
+     всю группу с делегированием, поэтому подхватывает и карточки, дозагруженные
+     бесконечным скроллом; сам биндинг делается только тут (не в post_items.blade.php),
+     чтобы не навешивать его повторно при каждой AJAX-подгрузке страницы --}}
+@push('footer-scripts')
+<script>
+    Fancybox.bind('[data-fancybox="posts-gallery"]', {
+        type: 'ajax',
+        dragToClose: false,
+        // на всю страницу вместо небольшой карточки-модалки + свой цвет крестика
+        // закрытия (иначе он белый по умолчанию — не виден на белой панели превью),
+        // см. .fancybox-posts-gallery в admin-panel.css
+        mainClass: 'fancybox-posts-gallery',
+        // лента миниатюр внизу (плагин Thumbs) — Fancybox показывает её сама, раз
+        // посты сгруппированы в одну галерею; стрелки prev/next между постами
+        // (Navigation) остаются, убираем только ленту
+        Thumbs: false,
+    });
+
+    // клик по картинке внутри поп-апа с превью поста — открывает её отдельно, поверх
+    // текущего поп-апа, в полный размер с зумом (data-fancybox="post-preview-image-{id}",
+    // свой id на каждый пост — см. комментарий в post_preview.blade.php про предзагрузку
+    // соседних слайдов); контент превью подгружается через ajax уже после загрузки
+    // страницы, поэтому тоже через делегирование, отдельным Fancybox.bind
+    Fancybox.bind('[data-fancybox^="post-preview-image-"]', {
+        dragToClose: false,
+    });
+</script>
+@endpush
+
 @endsection

@@ -100,7 +100,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      itemSelector: '.grid-item',
      //columnWidth: '.grid-item',
      gutter: 20,
-     //horizontalOrder: true,
+     // без этого Masonry пакует карточки по колонкам как удобнее (кратчайшая
+     // колонка первой), а не по порядку в DOM — при сортировке "Сначала старые"/
+     // группах постов (скриншоты одной переписки) визуальный порядок расходился
+     // с реальным, хотя сервер отдавал посты в правильном порядке
+     horizontalOrder: true,
      percentPosition: true,
      // по умолчанию Masonry анимирует перемещение карточек на новое место за 0.4s —
      // именно из-за этого раскладка выглядит так, будто карточки "заезжают" одна за другой,
@@ -345,6 +349,35 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      $.ajaxSetup({ headers: { 'csrftoken' : '{{ csrf_token() }}' } });
 
      let uploadImageSection = $('.js-upload-image-section');
+
+     // Перетаскивание уже загруженных превью местами (страница создания поста,
+     // /admin_panel/posts/create) — порядок карточек в .js-images и есть порядок,
+     // в котором потом создаются посты группы (см. submitCreationForm() ниже и
+     // PostController::store()/createPost() — sort_order при "Сгруппировать посты")
+     if ($('.js-images').length && $.fn.sortable) {
+         $('.js-images').sortable({
+             items: '.image',
+             cancel: '.js-delete-image',
+             tolerance: 'pointer',
+             placeholder: 'image-sort-placeholder',
+             forcePlaceholderSize: true,
+             update: function () {
+                 let savedImages = localStorage.getItem('images');
+                 if (!savedImages) {
+                     return;
+                 }
+                 let images = JSON.parse(savedImages);
+                 let reordered = {};
+                 $('.js-images .image').each(function () {
+                     let name = this.dataset.name;
+                     if (name in images) {
+                         reordered[name] = images[name];
+                     }
+                 });
+                 localStorage.setItem('images', JSON.stringify(reordered));
+             }
+         });
+     }
 
      // При перетаскивании файлов в форму, подсветить
      uploadImageSection.on('dragover', function (e) {
@@ -1852,9 +1885,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
          });
 
-         // Кнопка "Поиск" в меню слева: на "Все посты" виджет и так виден в шапке —
-         // прокручиваем/фокусируем его; на остальных страницах открывает поп-ап
-         // modal-search-global (см. layouts/admin_layout.blade.php)
+         // Кнопка "Поиск" в меню слева открывает поп-ап modal-search-global на всех
+         // страницах (см. layouts/admin_layout.blade.php). Ветка со scroll/focus ниже —
+         // запасной вариант на случай, если модалки на странице вдруг нет.
          const sidebarSearchBtn = document.querySelector('.js-sidebar-search-btn');
          if (sidebarSearchBtn) {
              sidebarSearchBtn.addEventListener('click', function () {
@@ -1881,6 +1914,23 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  const submenu = group.querySelector('.b-sidebar-nav__submenu');
                  const isOpen = group.classList.toggle('is-open');
                  submenu.style.display = isOpen ? 'block' : 'none';
+             });
+         }
+
+         // Дропдаун сортировки на "Все посты" (.js-posts-sort) — сами пункты обычные
+         // <a href>, ведущие на страницу с другим query-параметром sort (см.
+         // admin/posts/index.blade.php), тут только открытие/закрытие списка
+         const postsSortWrap = document.querySelector('.js-posts-sort');
+         if (postsSortWrap) {
+             const postsSortTrigger = postsSortWrap.querySelector('.js-posts-sort-trigger');
+             postsSortTrigger.addEventListener('click', function (event) {
+                 event.stopPropagation();
+                 postsSortWrap.classList.toggle('is-open');
+             });
+             document.addEventListener('click', function (event) {
+                 if (!event.target.closest('.js-posts-sort')) {
+                     postsSortWrap.classList.remove('is-open');
+                 }
              });
          }
 
@@ -2399,6 +2449,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          if (element.has('action-url')) {
              $('[data-action=delete-request]').data('actionUrl', element.get('action-url'));
          }
+
+         if (element.has('index-url')) {
+             $('[data-action=delete-request]').data('indexUrl', element.get('index-url'));
+         }
      });
 
      //получаем данные для попап окна #modal-delete-item
@@ -2421,6 +2475,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  return new Map([
                      ['element-id', elementId2],
                      ['action-url', actionUrl2],
+                 ]);
+             case "post-show":
+                 // страница одного поста (/admin_panel/posts/{id}) — id и url удаления
+                 // лежат прямо на кнопке, тут нет карточки-обёртки, как на "Все посты"
+                 return new Map([
+                     ['element-id', button.data('id')],
+                     ['action-url', button.data('url')],
+                     ['index-url', button.data('indexUrl')],
                  ]);
              case "hashtags":
                  let element3 = button.closest('[data-id]');
@@ -2445,6 +2507,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      ['sub-title', 'Вы не сможете восстановить категорию после удаления!'],
                  ]);
              case "posts":
+             case "post-show":
                  return new Map([
                      ['title', 'Вы уверены, что хотите удалить пост?'],
                      ['sub-title', 'Вы не сможете восстановить пост после удаления!'],
@@ -2527,6 +2590,42 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          toastr.error('Some error has occurred');
                      }
                  }
+             }
+         });
+     });
+
+     //удаление поста на странице /admin_panel/posts/{id} -> вызов попап окна #modal-delete-item
+     $(document).on('click touchstart', '[data-page-id=post-show][data-action=delete]', function() {
+         $('#modal-delete-item').modal('show', $(this));
+     });
+
+     //удаление поста на странице /admin_panel/posts/{id} — в отличие от "Все посты"
+     // после удаления саму страницу поста показывать больше не на чем, поэтому
+     // просто уходим на список постов
+     $(document).on('click touchstart', '#post-show [data-action=delete-request]', function() {
+         let actionUrl = $(this).data('actionUrl');
+         let indexUrl = $(this).data('indexUrl');
+
+         $.ajaxSetup({
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name = "csrf-token"]').attr('content')
+             }
+         });
+
+         $.ajax({
+             type: 'delete',
+             url: actionUrl,
+             success: function (response) {
+                 $('#modal-delete-item').modal('hide');
+
+                 if (response.status === true) {
+                     window.location.href = indexUrl;
+                 } else {
+                     toastr.error((response.message !== null && response.message !== undefined) ? response.message : 'Не удалось удалить пост');
+                 }
+             },
+             error: function () {
+                 toastr.error('Не удалось удалить пост');
              }
          });
      });
