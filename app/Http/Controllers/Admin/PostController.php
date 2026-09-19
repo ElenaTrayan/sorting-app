@@ -38,10 +38,7 @@ class PostController extends Controller
 
         $withoutHashtags = $request->boolean('without_hashtags');
         $activeType = in_array($request->get('type'), ['photo', 'video', 'carousel'], true) ? $request->get('type') : 'all';
-        // по умолчанию — сначала старые (id 1 и дальше), а не "сначала новые": при
-        // группировке постов (скриншоты одной переписки и т.п.) это даёт правильный
-        // порядок чтения без необходимости каждый раз переключать сортировку вручную
-        $activeSort = in_array($request->get('sort'), ['new', 'title'], true) ? $request->get('sort') : 'old';
+        $activeSort = in_array($request->get('sort'), ['old', 'title'], true) ? $request->get('sort') : 'new';
         $perPage = 50;
         $page = max((int) $request->get('page', 1), 1);
 
@@ -64,7 +61,7 @@ class PostController extends Controller
         // (вкладки "Фото/Видео/Карусель" в шапке). Тип медиа не хранится отдельной
         // колонкой, определяется по форме JSON в *_image (как и cover_image ниже),
         // поэтому посчитать/отфильтровать по нему можно только в PHP, не в SQL.
-        $lightPosts = Post::selectRaw('posts.id, posts.title, posts.created_at, posts.small_image, posts.medium_image, posts.original_image, posts.video')
+        $lightPosts = Post::selectRaw('posts.id, posts.title, posts.created_at, posts.group_id, posts.sort_order, posts.small_image, posts.medium_image, posts.original_image, posts.video')
             ->where('posts.user_id', 1)
             ->when($withoutHashtags, function($q) {
                 $q->whereDoesntHave('hashtags');
@@ -92,18 +89,38 @@ class PostController extends Controller
                 ->when($withoutHashtags, function($q) {
                     $q->whereDoesntHave('hashtags');
                 })
-                ->when($activeSort === 'old', function ($q) { $q->oldest(); })
                 ->when($activeSort === 'title', function ($q) { $q->orderBy('posts.title'); })
-                ->when($activeSort === 'new', function ($q) { $q->latest(); })
+                ->when($activeSort !== 'title', function ($q) use ($activeSort) {
+                    // group_id = id первого поста группы (см. createPost()), поэтому
+                    // COALESCE(group_id, id) кладёт всю группу одним блоком туда, где ей
+                    // место по общему направлению сортировки, а sort_order (тот же порядок,
+                    // что и на странице самой группы, см. showGroup()) всегда по возрастанию
+                    // расставляет посты ВНУТРИ группы — независимо от new/old, чтобы порядок
+                    // чтения группы не переворачивался при переключении сортировки ленты
+                    $direction = $activeSort === 'old' ? 'asc' : 'desc';
+                    $q->orderByRaw("COALESCE(posts.group_id, posts.id) {$direction}")
+                        ->orderBy('posts.sort_order', 'asc');
+                })
                 ->paginate($perPage);
         } else {
             // с фильтром по типу — тип уже посчитан выше в $lightPosts, дальше просто
             // сортируем/режем на страницы в PHP и подгружаем полные посты по их id
             $filtered = $lightPosts->where('media_type', $activeType);
+            // та же логика группировки, что и в SQL-ветке выше (COALESCE(group_id, id) —
+            // группа единым блоком по общему направлению, sort_order внутри неё — всегда
+            // по возрастанию), просто средствами коллекции, а не ORDER BY
+            $groupKey = fn ($post) => $post->group_id ?? $post->id;
+            $sortOrderKey = fn ($post) => $post->sort_order ?? 0;
             $filtered = match ($activeSort) {
-                'old' => $filtered->sortBy('created_at'),
                 'title' => $filtered->sortBy('title'),
-                default => $filtered->sortByDesc('created_at'),
+                'old' => $filtered->sortBy([
+                    [$groupKey, 'asc'],
+                    [$sortOrderKey, 'asc'],
+                ]),
+                default => $filtered->sortBy([
+                    [$groupKey, 'desc'],
+                    [$sortOrderKey, 'asc'],
+                ]),
             };
             $orderedIds = $filtered->pluck('id')->values();
             $pageIds = $orderedIds->forPage($page, $perPage);

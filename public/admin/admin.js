@@ -100,11 +100,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      itemSelector: '.grid-item',
      //columnWidth: '.grid-item',
      gutter: 20,
-     // без этого Masonry пакует карточки по колонкам как удобнее (кратчайшая
-     // колонка первой), а не по порядку в DOM — при сортировке "Сначала старые"/
-     // группах постов (скриншоты одной переписки) визуальный порядок расходился
-     // с реальным, хотя сервер отдавал посты в правильном порядке
-     horizontalOrder: true,
+     // было true: пакует карточки строго по порядку в DOM (1→колонка 1, 2→колонка 2...),
+     // а не в самую короткую колонку — так сохранялся порядок сервера (в т.ч. группы
+     // постов со скриншотами одной переписки не расходились по разным колонкам), но
+     // ценой этого колонки могли сильно разъезжаться по высоте, если подряд идёт
+     // несколько высоких карточек. По просьбе пользователя приоритет отдан ровным
+     // колонкам — Masonry снова сама кладёт каждую карточку в самую короткую колонку.
+     horizontalOrder: false,
      percentPosition: true,
      // по умолчанию Masonry анимирует перемещение карточек на новое место за 0.4s —
      // именно из-за этого раскладка выглядит так, будто карточки "заезжают" одна за другой,
@@ -114,6 +116,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
  };
 
  $(document).ready(function() {
+
+     // Сворачивание/разворачивание сайдбара (data-widget="pushmenu", AdminLTE) меняет
+     // ширину .content-wrapper (где стоит Masonry-сетка постов) анимацией margin-left
+     // на .main-sidebar (transition 0.3s, см. adminlte.css) — это не событие resize
+     // окна, поэтому ни Masonry, ни открытый Fancybox сами не пересчитывают раскладку
+     // под новую ширину, и карточки/попап остаются посчитаны под старую ширину.
+     // Дожидаемся конца анимации и штатно сообщаем всем, кто слушает resize.
+     $(document).on('collapsed.lte.pushmenu shown.lte.pushmenu', '[data-widget="pushmenu"]', function() {
+         setTimeout(function() {
+             window.dispatchEvent(new Event('resize'));
+         }, 350);
+     });
 
      // initialize Masonry
      // Masonry + ImagesLoaded
@@ -197,7 +211,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              console.log($(window).scrollTop());
              console.log($(window).height());
              console.log($(document).height());
-             if($(window).scrollTop() + $(window).height() + 10 >= $(document).height()) {
+             // раньше было +10 — запрос уходил, только когда пользователь долистал прямо
+             // до низа страницы, и он видел пустые "короткие" колонки, пока грузится и
+             // рендерится следующая порция; +800 запускает подгрузку заранее, пока
+             // видимая часть ещё не долистана до конца
+             if($(window).scrollTop() + $(window).height() + 800 >= $(document).height()) {
                  console.log('---scroll2---');
                  page++;
                  loadMoreData(page);
@@ -418,6 +436,17 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  //$('#add-project-form').trigger('click');
              }
          }
+     });
+
+     // Классическая загрузка файлов через input[type=file] (кнопка "Выбрать файл"
+     // в дропзоне, .js-pin-choose-file, см. /admin/pin-create.js — сам input открывает
+     // клик, здесь только реакция на выбор) — раньше в дропзоне работал только drag&drop
+     uploadImageSection.on('change', 'input[type="file"]', function () {
+         var url = $(this).closest('.js-upload-image-section').attr('data-action');
+         if (this.files && this.files.length) {
+             upload(this.files, url);
+         }
+         this.value = '';
      });
 
      //Загрузка файлов классическим образом - через модальное окно
@@ -2862,33 +2891,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      });
 
-     // Выбрать тип данных, которые будем парсить (dropdown-menu)
-     let bParseInfoDropdownMenu = $(".card-create .b-parse-info .dropdown-menu");
-     if (bParseInfoDropdownMenu !== undefined && bParseInfoDropdownMenu !== null) {
-
-         var liItems = bParseInfoDropdownMenu.find('li[data-type]');
-         console.log(liItems);
-
-         var changeTypeButton = $('#change-type-for-parsing');
-         //var liItems = $('.card-create .b-parse-info .dropdown-item[data-type]');
-
-         liItems.on('click', function(event) {
-             event.preventDefault();
-             var liText = $(this).text().trim();
-             var liDataType = $(this).data('type');
-             changeTypeButton.text(liText);
-             changeTypeButton.data('type', liDataType);
-             console.log(changeTypeButton.data('type'));
-
-             var parsingTypeBlocks = $('.b-parsing-type-blocks > div');
-             console.log('parsingTypeBlocks = ' + parsingTypeBlocks);
-
-             parsingTypeBlocks.hide();
-             let tabType = liDataType.substring(liDataType.indexOf("-") + 1).replace("-", "")
-             console.log(tabType);
-             $('#tab-' + tabType).show();
-         });
-     }
+     // Выбор типа пина на странице создания (карточки .js-pin-types) и переключение
+     // .b-parsing-type-blocks > div по этому типу — по макету Claude Design, см.
+     // /admin/pin-create.js (страница переверстана с dropdown-меню на карточки)
 
 
      $(document).on('click', '#get-parsed-post-info', function(event) {

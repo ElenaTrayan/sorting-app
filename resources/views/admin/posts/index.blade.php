@@ -247,6 +247,11 @@
     // страницы, поэтому тоже через делегирование, отдельным Fancybox.bind
     Fancybox.bind('[data-fancybox^="post-preview-image-"]', {
         dragToClose: false,
+        // свой mainClass, отдельный от 'fancybox-posts-gallery' — это чистый просмотр
+        // картинки, а не белая карточка превью, поэтому .fancybox__content там не
+        // должен получать padding:20px 36px из превью-попапа (см. .fancybox-post-zoom
+        // в admin-panel.css)
+        mainClass: 'fancybox-post-zoom',
     });
 </script>
 @endpush

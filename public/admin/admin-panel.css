@@ -1661,7 +1661,14 @@ text-align: center;
    маленькой модалки по центру; у крестика закрытия (Fancybox добавляет его сам,
    closeButton:"inside") свой цвет — по умолчанию белый, на белой панели невидим --- */
 .fancybox-posts-gallery .fancybox__slide {
-    padding: 24px;
+    /* было 48px сверху — это отступ под .fancybox__toolbar (актуально для чистого
+       просмотра картинки, см. .fancybox-post-zoom), а тут только маленькая кнопка
+       закрытия внутри самой панели (.carousel__button.is-close), ей запас сверху
+       не нужен — поэтому делаем отступы слайда одинаковыми */
+    padding: 20px 8px;
+}
+.fancybox-posts-gallery .fancybox__backdrop {
+    background: var(--fancybox-bg, rgba(24, 24, 27, 1.00));
 }
 .fancybox-posts-gallery .fancybox__content {
     width: 100%;
@@ -1669,6 +1676,7 @@ text-align: center;
     max-width: 100%;
     max-height: 100%;
     border-radius: 10px;
+    padding: 20px 36px;
 }
 .fancybox-posts-gallery .fancybox__content .carousel__button.is-close {
     top: 10px;
@@ -1688,10 +1696,36 @@ text-align: center;
     color: #7367f0;
     transform: scale(1.06);
 }
+/* на большом экране панель не должна растягиваться на всю ширину — самому контенту
+   (.b-post-preview) нужно максимум 960px + padding (36px с каждой стороны), 1100px
+   даёт немного воздуха; .fancybox__content по умолчанию align-self:center, поэтому
+   при ограничении max-width она просто центрируется в слайде */
+@media (min-width: 1200px) {
+    .fancybox-posts-gallery .fancybox__content {
+        max-width: 1100px;
+    }
+}
 @media (max-width: 900px) {
     .fancybox-posts-gallery .fancybox__slide {
         padding: 10px;
     }
+}
+
+/* --- зум картинки поверх превью поста (mainClass 'fancybox-post-zoom', см.
+   posts/index.blade.php, data-fancybox="post-preview-image-*") — чистый просмотр
+   картинки без белой карточки, поэтому .fancybox__content тут обнулён: единственный
+   источник отступа — padding самого .fancybox__slide, иначе оба паддинга складываются
+   и отступ картинки от низа вьюпорта перестаёт совпадать с отступом от тулбара --- */
+.fancybox-post-zoom .fancybox__slide {
+    /* сверху больше — иначе картинка залезает под .fancybox__toolbar (он
+       position:absolute поверх слайда, а не часть потока с собственным местом) */
+    padding: 50px 15px 15px 15px;
+}
+.fancybox-post-zoom .fancybox__content {
+    padding: 0;
+}
+.fancybox-post-zoom .fancybox__backdrop {
+    background: var(--fancybox-bg, rgba(24, 24, 27, 1.00));
 }
 .b-post-preview__media {
     position: relative;
@@ -1720,7 +1754,7 @@ text-align: center;
     width: auto;
     height: auto;
     max-width: 100%;
-    max-height: 100vh;
+    max-height: calc(100vh - 60px);
     object-fit: contain;
 }
 .b-post-preview__media-badge {
@@ -1861,7 +1895,11 @@ margin: 0 0 20px 0;
 }
 
 .scale {
-    display: inline-block; /* Строчно-блочный элемент */
+    /* был inline-block — при inline-block ширина элемента считается по контенту
+       (shrink-to-fit), и если реальное разрешение фото меньше ширины колонки
+       (например, стало 2 колонки вместо 4), img с width:100% не растягивался
+       на всю ширину .grid-item, а оставался в размер картинки */
+    display: block;
     overflow: hidden; /* Скрываем всё за контуром */
 }
 
@@ -7388,6 +7426,20 @@ margin: 0 0 20px 0;
     margin-bottom: 15px;
 }
 .grid-item--width2 { width: 400px; }
+
+/* уже (< 990px) — 2 колонки вместо 4; gutter (20px) тот же, что и в masonryOptions
+   в admin.js, один зазор между двумя колонками вместо трёх между четырьмя */
+@media (max-width: 990px) {
+    .grid-item {
+        width: calc((100% - 20px) / 2);
+    }
+}
+/* ещё уже (< 450px) — 1 колонка, зазоров между колонками нет */
+@media (max-width: 450px) {
+    .grid-item {
+        width: 100%;
+    }
+}
 
 /** Моя оценка **/
 .grid-item .b-card__content__text .my-assessment {

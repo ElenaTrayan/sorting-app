@@ -1,306 +1,353 @@
 @extends('layouts.admin_layout')
 
-@section('title', 'Добавить пост')
+@section('title', 'Добавить пин')
+
+{{-- Редизайн по макету Claude Design (артефакт 2fgoNE9x9nHsAR4vY3siPk): карточки выбора
+     типа пина вместо dropdown-меню, шаги прогресса, живой предпросмотр и чек-лист
+     готовности справа. Стили/скрипт страницы — отдельные файлы (по примеру "Мои запасы",
+     см. /admin/my-stock.css и /admin/my-stock.js), а не общий admin-panel.css/admin.js,
+     т.к. это разметка только этой страницы.
+
+     Функциональность (загрузка изображений, парсинг по ссылке, хештеги, OCR, видео,
+     "Сформировать пост" из полей фильма, отправка формы) не менялась — все id/классы,
+     на которые завязан общий admin.js (#creationform, #title, #alias, category_id,
+     .b-parsing-type-blocks > div c id="tab-*", #link-for-parsing, #get-parsed-post-info,
+     #generate-post, film-*, .js-upload-image-section, #post-video-upload,
+     #search-input-2/#add-tag/#b-selected-tags-2, numberOfPosts/group-posts,
+     #submit-creation-form, #editor) сохранены как есть. Единственное, что реально
+     поменялось в поведении — выбор типа пина теперь карточки (.js-pin-types), а не
+     dropdown, поэтому старый обработчик в admin.js заменён на /admin/pin-create.js.
+
+     В макете типы пина показывали единый набор вкладок способа добавления контента
+     (файл/ссылка/текст) как взаимоисключающие — в этом приложении для поста можно
+     одновременно добавить и картинку, и видео, и текст, поэтому здесь они показаны
+     как отдельные секции в одной карточке "Добавьте контент", а не переключаемые вкладки. --}}
+
+@push('head-styles')
+    {{-- Manrope — шрифт макета Claude Design, тот же, что и на "База контактов"/"Все посты" --}}
+    <link rel="stylesheet" href="/admin/fonts/manrope/manrope.css">
+    <link rel="stylesheet" href="/admin/pin-create.css?v={{ filemtime(public_path('admin/pin-create.css')) }}">
+@endpush
+
+@push('navbar-breadcrumb')
+    <li class="nav-item d-flex align-items-center">
+        <ol class="breadcrumb b-navbar-breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('posts.index') }}">Все посты</a></li>
+            <li class="breadcrumb-item active">Добавить пин</li>
+        </ol>
+    </li>
+@endpush
 
 @section('content')
-<!-- Content Header (Page header) -->
-<div class="content-header">
-    <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-sm-6">
-                <h1 class="m-0">Добавить пост</h1>
-            </div><!-- /.col -->
-            <div class="col-sm-6">
-                <ol class="breadcrumb float-sm-right">
-                    <li class="breadcrumb-item"><a href="{{ route('homeAdmin') }}">Главная</a></li>
-                    <li class="breadcrumb-item"><a href="{{ route('posts.index') }}">Все посты</a></li>
-                    <li class="breadcrumb-item active">Добавить пост</li>
-                </ol>
-            </div><!-- /.col -->
-        </div><!-- /.row -->
-        @if (session('success'))
-            <div class="row mb-2">
-                <div class="alert alert-success col-md-12" role="alert">
-                    <button type="button" class="close" style="margin-bottom: 0;" data-dismiss="alert" area-hidden="true">x</button>
-                    <h4><i class="icon fa fa-check"></i>{{ session('success') }}</h4>
-                </div>
-            </div>
-        @endif
-    </div><!-- /.container-fluid -->
-</div>
-<!-- /.content-header -->
+<div class="b-pin-create">
 
-<!-- Main content -->
-<section class="content">
-    <div class="container-fluid">
-        <div class="card card-primary card-create">
+    @if (session('success'))
+        @push('footer-scripts')
+            <script>
+                toastr.success('{{ session('success') }}');
+            </script>
+        @endpush
+    @endif
 
-            <div class="alert alert-dismissible hide">
-{{--                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>--}}
-                <h5><i class="icon fas fa-ban"></i> Alert!</h5>
-                <span class="message"></span>
+    <div class="content-header content-header--pin-create">
+        <div class="container-fluid">
+            <h1 class="m-0">Добавить пин</h1>
+            <p class="b-pin-create__subtitle">Сохраните идею, изображение, заметку или полезную информацию в личную коллекцию.</p>
+        </div>
+    </div>
+
+    <section class="content">
+        <div class="container-fluid">
+
+            <div class="b-pin-create__steps js-pin-steps">
+                <div class="b-pin-create__step is-done" data-step="1"><span class="b-pin-create__step-dot">1</span><span>Выберите тип пина</span></div>
+                <span class="b-pin-create__step-sep">›</span>
+                <div class="b-pin-create__step" data-step="2"><span class="b-pin-create__step-dot">2</span><span>Добавьте контент</span></div>
+                <span class="b-pin-create__step-sep">›</span>
+                <div class="b-pin-create__step" data-step="3"><span class="b-pin-create__step-dot">3</span><span>Проверьте данные</span></div>
+                <span class="b-pin-create__step-sep">›</span>
+                <div class="b-pin-create__step" data-step="4"><span class="b-pin-create__step-dot">4</span><span>Сохраните</span></div>
             </div>
 
-            <!-- form start -->
-            <form action="{{ route('posts.store') }}" method="POST" enctype="multipart/form-data" id="creationform" name="creationform">
+            <form action="{{ route('posts.store') }}" method="POST" enctype="multipart/form-data" id="creationform" name="creationform" class="b-pin-create__layout">
                 @csrf
-                <div class="card-body">
-                    <div class="card-body-block">
 
-                        <div class="b-parse-info">
-                            <div class="input-group input-group-lg mb-3">
-                                <div class="input-group-prepend">
-                                    <button type="button" id="change-type-for-parsing" class="btn btn-warning dropdown-toggle" data-toggle="dropdown" aria-expanded="false" data-type="">
-                                        Тип поста
-                                    </button>
-                                    <ul class="dropdown-menu" x-placement="bottom-start" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 48px, 0px);">
-                                        <li class="dropdown-item" data-type="text_picture"><a href="#">Текст + Изображение</a></li>
-                                        <li class="dropdown-item" data-type="image"><a href="#">Изображение</a></li>
-                                        <li class="dropdown-item" data-type="text"><a href="#" >Текст</a></li>
-                                        <li class="dropdown-item" data-type="film"><a href="#">Фильм / Сериал</a></li>
-                                        <li class="dropdown-item" data-type="recipe"><a href="#">Рецепт</a></li>
-                                        <li class="dropdown-item"><a href="#">Something else here</a></li>
-                                        <li class="dropdown-divider"></li>
-                                        <li class="dropdown-item"><a href="#">Separated link</a></li>
-                                    </ul>
-                                </div>
-                                <!-- /btn-group -->
-                                <input id="link-for-parsing" type="text" class="form-control">
+                <div class="b-pin-create__main">
+
+                    <section class="b-pin-card">
+                        <div class="b-pin-card__head">
+                            <h2>Тип пина</h2>
+                            <span class="b-pin-card__hint">Шаг 1 — определяет поля ниже</span>
+                        </div>
+                        <p class="b-pin-card__desc">Выберите, какой контент вы сохраняете.</p>
+                        <div class="b-pin-types js-pin-types">
+                            <button type="button" class="b-pin-type is-active" data-type="text_picture">
+                                <span class="b-pin-type__icon">▤</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Текст + Изображение</span>
+                                    <span class="b-pin-type__desc">Заметка с картинкой</span>
+                                </span>
+                            </button>
+                            <button type="button" class="b-pin-type" data-type="picture">
+                                <span class="b-pin-type__icon">◼</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Изображение</span>
+                                    <span class="b-pin-type__desc">Фото, картинка, GIF</span>
+                                </span>
+                            </button>
+                            <button type="button" class="b-pin-type" data-type="text">
+                                <span class="b-pin-type__icon">¶</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Текст</span>
+                                    <span class="b-pin-type__desc">Заметка, идея, текст</span>
+                                </span>
+                            </button>
+                            <button type="button" class="b-pin-type" data-type="film">
+                                <span class="b-pin-type__icon">▷</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Фильм / Сериал</span>
+                                    <span class="b-pin-type__desc">Жанры, рейтинг, описание</span>
+                                </span>
+                            </button>
+                            <button type="button" class="b-pin-type" data-type="recipe">
+                                <span class="b-pin-type__icon">☰</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Рецепт</span>
+                                    <span class="b-pin-type__desc">Пока как заметка</span>
+                                </span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="b-pin-card b-pin-parse js-pin-parse">
+                        <label class="b-pin-parse__toggle js-pin-parse-toggle">
+                            <span class="b-pin-parse__check"></span>
+                            <span class="b-pin-parse__text">
+                                <span class="b-pin-parse__title">Спарсить информацию <span class="b-pin-card__badge">необязательно</span></span>
+                                <span class="b-pin-card__desc">Автоматически заполнит доступные поля из источника — или заполните их вручную.</span>
+                            </span>
+                        </label>
+                        <div class="b-pin-parse__body b-parse-info">
+                            <div class="b-pin-parse__row">
+                                <input id="link-for-parsing" type="text" class="b-pin-input" placeholder="Вставьте ссылку на страницу…">
+                                <button type="button" class="b-pin-btn b-pin-btn--primary" id="get-parsed-post-info" data-action="{{ route('parse.get-parsed-post-info') }}">
+                                    <span>✦</span> Спарсить информацию
+                                </button>
                             </div>
-                            <button type="button" class="btn btn-info btn-flat" id="get-parsed-post-info" data-action="{{ route('parse.get-parsed-post-info') }}">Спарсить информацию</button>
+                        </div>
+                    </section>
+
+                    <div class="b-pin-create__grid2">
+                        <section class="b-pin-card">
+                            <h2>Количество</h2>
+                            <div class="b-pin-radio-group">
+                                <label class="b-pin-radio">
+                                    <input type="radio" id="one-post" name="numberOfPosts" value="one-post">
+                                    <span class="b-pin-radio__dot"></span>
+                                    <span>Один пост</span>
+                                </label>
+                                <label class="b-pin-radio">
+                                    <input type="radio" id="two-posts" name="numberOfPosts" value="two-posts" checked>
+                                    <span class="b-pin-radio__dot"></span>
+                                    <span>Несколько постов</span>
+                                </label>
+                            </div>
+                            <label class="b-pin-checkbox">
+                                <input type="checkbox" id="group-posts" name="group-posts" value="group-posts">
+                                <span class="b-pin-checkbox__box"></span>
+                                <span class="b-pin-checkbox__text">
+                                    <span>Сгруппировать посты</span>
+                                    <span class="b-pin-card__desc">Объединить несколько пинов в одну группу.</span>
+                                </span>
+                            </label>
+                        </section>
+
+                        <section class="b-pin-card">
+                            <div class="b-pin-card__head">
+                                <h2>Добавьте контент</h2>
+                            </div>
+
+                            <div class="b-pin-content-label">Изображение или видео</div>
+                            <div class="upload-image-section">
+                                <section class="js-upload-image-section" data-action="{{ route('image.upload-to-temp-directory') }}">
+                                    <div class="js-images images"></div>
+                                    <div class="title">
+                                        <figure></figure>
+                                        <p>Перетащите сюда фото или видео</p>
+                                        <button type="button" class="b-pin-btn b-pin-btn--ghost js-pin-choose-file">Выбрать файл</button>
+                                    </div>
+                                    <input type="file" name="files[]" multiple="multiple" accept="image/x-png,image/jpeg">
+                                </section>
+                                <div class="progress">
+                                    <div class="progress-bar"></div>
+                                    <div class="progress-value">0 %</div>
+                                </div>
+                                <div class="js-error-block error-block alert alert-warning alert-dismissible">
+                                    <button type="button" class="js-close-error-block close">×</button>
+                                    <i class="icon fas fa-exclamation-triangle"></i><p></p>
+                                </div>
+                            </div>
+
+                            <button type="button" class="js-get-text-from-image b-pin-btn b-pin-btn--ghost" data-action="{{ route('get-text-from-image') }}">
+                                Считать текст с изображения
+                            </button>
+
+                            <div class="b-post-video" id="post-video-upload" data-action="{{ route('video.upload-to-temp-directory') }}">
+                                <label class="b-pin-btn b-pin-btn--ghost js-post-video__add-label">
+                                    <i class="fas fa-video mr-1"></i> Добавить видео
+                                    <input type="file" class="js-post-video__add-input" accept="video/*" hidden>
+                                </label>
+                                <div class="js-post-video__preview" style="display: none;"></div>
+                            </div>
+
+                            <div class="b-pin-content-label">Текст</div>
+                            <textarea id="editor" name="content" placeholder="Введите текст пина…"></textarea>
+                        </section>
+                    </div>
+
+                    <section class="b-pin-card">
+                        <div class="b-pin-card__head">
+                            <h2>Информация о пине</h2>
                         </div>
 
-                        <div class="form-group">
-                            <label for="title">Название поста</label>
-                            <input type="text" class="form-control" name="title" id="title" placeholder="Введите название категории ..." required>
-                        </div>
-                        <div class="form-group">
-                            <label for="alias">Alias поста</label>
-                            <input type="text" class="form-control" name="alias" id="alias" placeholder="Введите alias для категории ..." required>
-                        </div>
-                        <div class="form-group">
-                            <label>Выберете категорию</label>
-                            <select class="form-control" name="category_id" id="category_id">
-                                <option value="">-</option>
-                                @foreach($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->title }}</option>
-                                @endforeach
-                            </select>
+                        <div class="b-pin-fields">
+                            <div class="b-pin-field">
+                                <label for="title">Название пина</label>
+                                <input type="text" class="b-pin-input" name="title" id="title" placeholder="Введите название пина…" required>
+                            </div>
+                            <div class="b-pin-field">
+                                <label for="alias">Alias пина</label>
+                                <input type="text" class="b-pin-input" name="alias" id="alias" placeholder="введите-alias…" required>
+                            </div>
+                            <div class="b-pin-field">
+                                <label for="category_id">Категория</label>
+                                <select class="b-pin-input" name="category_id" id="category_id">
+                                    <option value="">-</option>
+                                    @foreach($categories as $category)
+                                        <option value="{{ $category->id }}">{{ $category->title }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
 
                         <div class="b-parsing-type-blocks">
-                            <div id="tab-text_picture">
-
-                            </div>
-                            <div id="tab-picture">
-                            </div>
-
-                            <div id="tab-text">
-
-                            </div>
+                            <div id="tab-text_picture"></div>
+                            <div id="tab-picture"></div>
+                            <div id="tab-text"></div>
 
                             <div id="tab-film" style="display: none;">
-                                <div class="form-group">
-                                    <label for="film-genres">Жанры фильма:</label>
-                                    <input type="text" class="form-control" name="film-genres" id="film-genres" placeholder="">
+                                <div class="b-pin-fields">
+                                    <div class="b-pin-field">
+                                        <label for="film-genres">Жанры фильма</label>
+                                        <input type="text" class="b-pin-input" name="film-genres" id="film-genres">
+                                    </div>
+                                    <div class="b-pin-field">
+                                        <label for="imdb-rating">Рейтинг IMDb</label>
+                                        <input type="text" class="b-pin-input" name="imdb-rating" id="imdb-rating">
+                                    </div>
+                                    <div class="b-pin-field">
+                                        <label for="my-assessment">Моя оценка</label>
+                                        <select name="my-assessment" id="my-assessment" class="b-pin-input">
+                                            <option value="value0">-</option>
+                                            <option value="value10">10</option>
+                                            <option value="value9">9</option>
+                                            <option value="value8">8</option>
+                                            <option value="value7">7</option>
+                                            <option value="value6">6</option>
+                                            <option value="value5">5</option>
+                                            <option value="value4">4</option>
+                                            <option value="value3">3</option>
+                                            <option value="value2">2</option>
+                                            <option value="value1">1</option>
+                                        </select>
+                                    </div>
+                                    <div class="b-pin-field">
+                                        <label for="film-year">Год</label>
+                                        <input type="text" class="b-pin-input" name="film-year" id="film-year">
+                                    </div>
+                                    <div class="b-pin-field">
+                                        <label for="film-country">Страна</label>
+                                        <input type="text" class="b-pin-input" name="film-country" id="film-country">
+                                    </div>
+                                    <div class="b-pin-field">
+                                        <label for="film-director">Режиссер</label>
+                                        <input type="text" class="b-pin-input" name="film-director" id="film-director">
+                                    </div>
+                                    <div class="b-pin-field">
+                                        <label for="film-actors">Актёры</label>
+                                        <input type="text" class="b-pin-input" name="film-actors" id="film-actors">
+                                    </div>
+                                    <div class="b-pin-field">
+                                        <label for="film-duration">Длительность</label>
+                                        <input type="text" class="b-pin-input" name="film-duration" id="film-duration">
+                                    </div>
+                                    <div class="b-pin-field">
+                                        <label for="film-rating-mpaa">Рейтинг MPAA</label>
+                                        <input type="text" class="b-pin-input" name="film-rating-mpaa" id="film-rating-mpaa">
+                                    </div>
+                                    <div class="b-pin-field b-pin-field--wide">
+                                        <label for="film-description">Описание</label>
+                                        <textarea class="b-pin-input" name="film-description" id="film-description" rows="3"></textarea>
+                                    </div>
                                 </div>
 
-                                <div class="form-group">
-                                    <label for="imdb-rating">Рейтинг IMDb:</label>
-                                    <input type="text" class="form-control" name="imdb-rating" id="imdb-rating" placeholder="">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="my-assessment">Моя оценка:</label>
-                                    <select name="my-assessment" id="my-assessment">
-                                        <option value="value0">-</option>
-                                        <option value="value10">10</option>
-                                        <option value="value9">9</option>
-                                        <option value="value8">8</option>
-                                        <option value="value7">7</option>
-                                        <option value="value6">6</option>
-                                        <option value="value5">5</option>
-                                        <option value="value4">4</option>
-                                        <option value="value3">3</option>
-                                        <option value="value2">2</option>
-                                        <option value="value1">1</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="film-year">Год:</label>
-                                    <input type="text" class="form-control" name="film-year" id="film-year" placeholder="">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="film-country">Страна:</label>
-                                    <input type="text" class="form-control" name="film-country" id="film-country" placeholder="">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="film-director">Режиссер:</label>
-                                    <input type="text" class="form-control" name="film-director" id="film-director" placeholder="">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="film-actors">Актёры:</label>
-                                    <input type="text" class="form-control" name="film-actors" id="film-actors" placeholder="">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="film-duration">Длительность:</label>
-                                    <input type="text" class="form-control" name="film-duration" id="film-duration" placeholder="">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="film-rating-mpaa">Pейтинг MPAA:</label>
-                                    <input type="text" class="form-control" name="film-rating-mpaa" id="film-rating-mpaa" placeholder="">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="film-description">Описание:</label>
-                                    <textarea class="form-control" name="film-description" id="film-description" placeholder=""></textarea>
-                                </div>
-
+                                <button type="button" class="b-pin-btn b-pin-btn--ghost" id="generate-post" data-action="">Сформировать пост из полей фильма</button>
                             </div>
 
-                            <div id="tab-recipe">
-
-                            </div>
+                            <div id="tab-recipe"></div>
                         </div>
 
-                        <button type="button" class="btn btn-info btn-flat" id="generate-post" data-action="">Сформировать пост</button>
-
-                        <div class="b-add-tag">
-                            <div class="input-group input-group-sm add-tag">
-                                <input id="search-input-2" type="text" class="form-control" data-action="{{ route('search.hashtag') }}">
-                                <span class="input-group-append">
-                                <button type="button" class="btn btn-info btn-flat" id="add-tag" data-action="{{ route('hashtags.store') }}">Добавить тег</button>
-                            </span>
+                        <div class="b-pin-content-label">Хештеги</div>
+                        <div class="b-add-tag b-pin-tags">
+                            <ul id="b-selected-tags-2" class="b-selected-tags-2 b-pin-tags__selected"></ul>
+                            <div class="input-group input-group-sm add-tag b-pin-tags__row">
+                                <input id="search-input-2" type="text" class="b-pin-input" placeholder="Новый тег…" data-action="{{ route('search.hashtag') }}">
+                                <button type="button" class="b-pin-btn b-pin-btn--ghost" id="add-tag" data-action="{{ route('hashtags.store') }}">Добавить тег</button>
                             </div>
                             <ul id="b-search__results-2" class="b-search__results-2"></ul>
-                            {{--                        <div id="found-hashtags" class="found-hashtags"></div>--}}
-
-                            <ul id="b-selected-tags-2" class="b-selected-tags-2"></ul>
                         </div>
+                    </section>
 
-                    </div>
-
-                    <div class="card-body-block">
-                        <div>
-                            <!-- TODO -->
-                            <input type="radio" id="one-post" name="numberOfPosts" value="one-post">
-                            <label for="one-post">Один пост</label><br>
-                            <input type="radio" id="two-posts" name="numberOfPosts" value="two-posts" checked>
-                            <label for="two-posts">Несколько постов</label><br>
-                        </div>
-
-                        <div>
-                            <input type="checkbox" id="group-posts" name="group-posts" value="group-posts">
-                            <label for="vehicle1">Сгруппировать посты</label><br>
-                            <button type="button" class="js-get-text-from-image" data-action="{{ route('get-text-from-image') }}">
-                                Считать текст с изображения
-                            </button>
-                        </div>
-
-                        <div class="upload-image-section">
-                            <section class="js-upload-image-section" data-action="{{ route('image.upload-to-temp-directory') }}">
-                                <div class="js-images images"></div>
-                                <div class="title">
-                                    <figure></figure>
-                                    <p>Перетащите сюда фото или видео</p>
-                                </div>
-                                <input type="file" name="files[]" multiple="multiple" accept="image/x-png,image/jpeg">
-                            </section>
-                            <div class="progress">
-                                <div class="progress-bar"></div>
-                                <div class="progress-value">0 %</div>
-                            </div>
-                            <div class="js-error-block error-block alert alert-warning alert-dismissible">
-                                <button type="button" class="js-close-error-block close">×</button>
-                                <i class="icon fas fa-exclamation-triangle"></i><p></p>
-                            </div>
-                        </div>
-
-                        <div class="b-post-video" id="post-video-upload" data-action="{{ route('video.upload-to-temp-directory') }}">
-                            <label class="btn btn-outline-info js-post-video__add-label">
-                                <i class="fas fa-video mr-1"></i> Добавить видео
-                                <input type="file" class="js-post-video__add-input" accept="video/*" hidden>
-                            </label>
-                            <div class="js-post-video__preview" style="display: none;"></div>
+                    <div class="b-pin-create__footer">
+                        <span class="b-pin-create__footer-hint">Заполните хотя бы название или контент</span>
+                        <div class="b-pin-create__footer-actions">
+                            <a href="{{ route('posts.index') }}" class="b-pin-btn b-pin-btn--ghost">Отмена</a>
+                            <button id="submit-creation-form" type="submit" class="b-pin-btn b-pin-btn--primary"><span>✓</span> Сохранить пин</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- /.card-body -->
-                <div class="card-footer">
-                    <div class="form-group">
-                        <textarea id="editor" name="content" placeholder="Введите текст поста ..."></textarea>
+                <aside class="b-pin-create__aside">
+                    <div class="b-pin-card b-pin-preview">
+                        <div class="b-pin-card__head">
+                            <h2>Предпросмотр</h2>
+                            <span class="b-pin-preview__type js-pin-preview-type">Текст + Изображение</span>
+                        </div>
+                        <div class="b-pin-preview__card">
+                            <div class="b-pin-preview__image js-pin-preview-image" style="display:none;"></div>
+                            <div class="b-pin-preview__body">
+                                <div class="b-pin-preview__title js-pin-preview-title" style="display:none;"></div>
+                                <div class="b-pin-preview__text js-pin-preview-text" style="display:none;"></div>
+                                <div class="b-pin-preview__tags js-pin-preview-tags"></div>
+                                <div class="b-pin-preview__empty js-pin-preview-empty">Пин пока пустой.<br>Выберите тип и добавьте контент — предпросмотр обновится.</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <button id="submit-creation-form" type="submit" class="btn btn-primary">Добавить</button>
-                </div>
+                    <div class="b-pin-card b-pin-checklist">
+                        <div class="b-pin-card__head"><h2>Готовность</h2></div>
+                        <div class="b-pin-checklist__item js-check-type is-done"><span class="b-pin-checklist__dot">✓</span>Тип выбран</div>
+                        <div class="b-pin-checklist__item js-check-content"><span class="b-pin-checklist__dot">·</span>Контент не добавлен</div>
+                        <div class="b-pin-checklist__item js-check-title"><span class="b-pin-checklist__dot">·</span>Название пустое</div>
+                    </div>
+                </aside>
             </form>
-
-
-
-{{--            <div class="js-b-popup-1 b-popup-black">--}}
-{{--                <div class="b-popup-1 card card-success">--}}
-{{--                    <div class="card-header">--}}
-{{--                        <h3 class="card-title">Загрузка файлов</h3>--}}
-
-{{--                        <div class="card-tools">--}}
-{{--                            <button type="button" class="js-b-popup-1-maximize btn btn-tool">--}}
-{{--                                data-card-widget="maximize"--}}
-{{--                                <i class="fas fa-expand"></i>--}}
-{{--                            </button>--}}
-{{--                            <button type="button" class="js-b-popup-1-close btn btn-tool" data-card-widget="remove">--}}
-{{--                                <i class="fas fa-times"></i>--}}
-{{--                            </button>--}}
-{{--                        </div>--}}
-{{--                        <!-- /.card-tools -->--}}
-{{--                    </div>--}}
-{{--                    <!-- /.card-header -->--}}
-{{--                    <div class="card-body">--}}
-{{--                        <form data-action="{{ route('image.upload') }}" method="POST" enctype="multipart/form-data" id="add-project-form">--}}
-{{--                        @csrf              <!-- с версии Laravel 5.6 -->--}}
-{{--                            <!-- поле для загрузки файла -->--}}
-{{--                            --}}{{--                <input type="file" name="userfile">--}}
-
-{{--                            <div class="js-upload-image-section upload-image-section">--}}
-{{--                                <section>--}}
-{{--                                    <div class="js-images images"></div>--}}
-{{--                                    <div class="title">--}}
-{{--                                        <figure></figure>--}}
-{{--                                        <p>Перетащите сюда фото или видео</p>--}}
-{{--                                    </div>--}}
-{{--                                    <input type="file" name="files[]" multiple="multiple" accept="image/x-png,image/jpeg">--}}
-{{--                                </section>--}}
-{{--                                <div class="progress">--}}
-{{--                                    <div class="progress-bar"></div>--}}
-{{--                                    <div class="progress-value">0 %</div>--}}
-{{--                                </div>--}}
-{{--                                <div class="error"></div>--}}
-{{--                            </div>--}}
-
-{{--                            --}}{{--                <input type="submit">--}}
-{{--                            <button class="js-btn-upload-image btn btn-primary">Готово</button>--}}
-{{--                        </form>--}}
-{{--                    </div>--}}
-{{--                    <!-- /.card-body -->--}}
-{{--                </div>--}}
-{{--            </div>--}}
-
-{{--            <div class="popup-black">--}}
-{{--                <div class="popup">--}}
-{{--                    <a class="popup-close" href="#">Закрыть</a>--}}
-
-{{--                    --}}
-{{--                </div>--}}
-{{--            </div>--}}
-
         </div>
-    </div><!-- /.container-fluid -->
-</section>
-<!-- /.content -->
+    </section>
+</div>
 @endsection
+
+@push('footer-scripts')
+    <script src="/admin/pin-create.js?v={{ filemtime(public_path('admin/pin-create.js')) }}"></script>
+@endpush
