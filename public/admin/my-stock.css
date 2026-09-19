@@ -1,0 +1,797 @@
+/*
+ * "Мои запасы" — стили только для этого раздела (подключаются через
+ * @push('head-styles') на страницах admin/stock/*). Переиспользуют переменные/подход
+ * существующего дизайна (Manrope, скругления, мягкие тени, тот же акцентный
+ * цвет #4b3bf5, что и в остальной части "нового" дизайна — contacts/wishlists),
+ * ничего не переопределяют глобально.
+ */
+
+.b-stock {
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #1f2430;
+}
+
+/* ---------- Заголовок страницы ---------- */
+.b-stock-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+.b-stock-page-header__title {
+    font-size: 26px;
+    font-weight: 800;
+    margin: 0 0 4px;
+    color: #1f2430;
+}
+.b-stock-page-header__subtitle {
+    font-size: 14px;
+    color: #9099b8;
+    margin: 0;
+}
+.b-stock-page-header__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ---------- Кнопки ---------- */
+.b-stock-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.b-stock-btn:hover { text-decoration: none; }
+.b-stock-btn--primary {
+    background: #4b3bf5;
+    color: #fff;
+}
+.b-stock-btn--primary:hover { background: #3c2ed9; color: #fff; }
+.b-stock-btn--outline {
+    background: #fff;
+    color: #40444f;
+    border-color: #e2e5ee;
+}
+.b-stock-btn--outline:hover { background: #f4f6f9; color: #1f2430; }
+.b-stock-btn--sm { padding: 7px 12px; font-size: 13px; }
+.b-stock-btn:disabled { opacity: .6; cursor: default; }
+
+/* ---------- Summary cards ---------- */
+.b-stock-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.b-stock-summary__card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .06);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.b-stock-summary__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.b-stock-summary__value {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+.b-stock-summary__label {
+    font-size: 13px;
+    color: #9099b8;
+    font-weight: 600;
+}
+.b-stock-summary__card--danger .b-stock-summary__icon { background: #fdeeee; color: #dc3545; }
+.b-stock-summary__card--warning .b-stock-summary__icon { background: #fff4e5; color: #e08a00; }
+.b-stock-summary__card--info .b-stock-summary__icon { background: #eef1ff; color: #4b3bf5; }
+.b-stock-summary__card--success .b-stock-summary__icon { background: #e9f9ef; color: #1fa855; }
+
+/* ---------- Секция-карточка ---------- */
+.b-stock-section {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .06);
+    margin-bottom: 24px;
+}
+.b-stock-section__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.b-stock-section__title {
+    font-size: 17px;
+    font-weight: 800;
+    margin: 0;
+}
+.b-stock-section__link {
+    font-size: 13px;
+    font-weight: 700;
+    color: #4b3bf5;
+    text-decoration: none;
+}
+.b-stock-section__link:hover { text-decoration: underline; color: #4b3bf5; }
+.b-stock-row { display: flex; flex-wrap: wrap; gap: 24px; }
+.b-stock-row > .b-stock-col { flex: 1 1 320px; min-width: 0; }
+
+/* ---------- Категории запасов (Overview) ---------- */
+.b-stock-categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+}
+.b-stock-category-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 14px;
+    background: #f8f9fc;
+    text-decoration: none;
+    color: #1f2430;
+    transition: background .15s ease;
+}
+.b-stock-category-card:hover { background: #eee9fe; color: #1f2430; text-decoration: none; }
+.b-stock-category-card__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4b3bf5;
+    font-size: 16px;
+}
+.b-stock-category-card__name { font-size: 14px; font-weight: 700; }
+.b-stock-category-card__count { font-size: 12px; color: #9099b8; font-weight: 600; }
+
+/* ---------- Toolbar (поиск + фильтры) ---------- */
+.b-stock-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 18px;
+}
+.b-stock-toolbar__search {
+    flex: 1 1 240px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #e2e5ee;
+    border-radius: 10px;
+    padding: 9px 14px;
+}
+.b-stock-toolbar__search input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+    background: transparent;
+}
+.b-stock-toolbar__search i { color: #9099b8; }
+.b-stock-toolbar__spacer { flex: 1 1 auto; }
+
+/* ---------- Табы категорий (Мои запасы) ---------- */
+.b-stock-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+.b-stock-tabs__item {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #f4f6f9;
+    color: #565b74;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid transparent;
+}
+.b-stock-tabs__item:hover { color: #1f2430; text-decoration: none; }
+.b-stock-tabs__item.is-active {
+    background: #eee9fe;
+    color: #4b3bf5;
+    border-color: #d9d1fd;
+}
+
+/* ---------- Карточки товаров (Мои запасы / Постоянные покупки) ---------- */
+.b-stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+}
+.b-stock-item-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .06);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+}
+.b-stock-item-card__top { display: flex; gap: 12px; align-items: flex-start; }
+.b-stock-item-card__photo {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: #f4f6f9 center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+.b-stock-item-card__name { font-size: 15px; font-weight: 800; line-height: 1.25; }
+.b-stock-item-card__brand { font-size: 13px; color: #9099b8; font-weight: 600; }
+.b-stock-item-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font-size: 12.5px;
+    color: #6b7099;
+}
+.b-stock-item-card__meta span { display: inline-flex; align-items: center; gap: 5px; }
+.b-stock-item-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+}
+.b-stock-item-card__actions { margin-left: auto; }
+
+/* Статусы срока годности — единственное место, где используем "смысловой" цвет */
+.b-stock-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.b-stock-status--expired { background: #fdeeee; color: #dc3545; }
+.b-stock-status--soon { background: #fff4e5; color: #e08a00; }
+.b-stock-status--month { background: #fff9e0; color: #b7930a; }
+.b-stock-status--ok { background: #e9f9ef; color: #1fa855; }
+.b-stock-status--none { background: #f1f2f6; color: #9099b8; }
+.b-stock-item-card--expired { box-shadow: inset 0 0 0 1.5px #f6c6c9, 0 2px 10px rgba(31,36,48,.06); }
+.b-stock-item-card--soon { box-shadow: inset 0 0 0 1.5px #ffdca6, 0 2px 10px rgba(31,36,48,.06); }
+
+/* ---------- dropdown "..." для карточки ---------- */
+.b-stock-more {
+    position: relative;
+}
+.b-stock-more__btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #9099b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.b-stock-more__btn:hover { background: #f4f6f9; color: #1f2430; }
+.b-stock-more__menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 34px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 26px rgba(31, 36, 48, .16);
+    padding: 6px;
+    min-width: 190px;
+    z-index: 20;
+}
+.b-stock-more.is-open .b-stock-more__menu { display: block; }
+.b-stock-more__menu button,
+.b-stock-more__menu a {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 9px 10px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1f2430;
+    text-decoration: none;
+    cursor: pointer;
+}
+.b-stock-more__menu button:hover,
+.b-stock-more__menu a:hover { background: #f4f6f9; text-decoration: none; color: #1f2430; }
+.b-stock-more__menu .b-stock-more__danger { color: #dc3545; }
+.b-stock-more__menu .b-stock-more__danger:hover { background: #fdeeee; color: #dc3545; }
+
+/* ---------- Пустое состояние ---------- */
+.b-stock-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9099b8;
+}
+.b-stock-empty__icon { font-size: 40px; margin-bottom: 14px; color: #d5d9e6; }
+.b-stock-empty p { font-size: 15px; margin-bottom: 16px; }
+
+/* ---------- Мини-список (список покупок / скоро закончится / резерв и т.п.) ---------- */
+.b-stock-mini-list { display: flex; flex-direction: column; gap: 10px; }
+.b-stock-mini-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #f8f9fc;
+}
+.b-stock-mini-item__photo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #fff center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    flex-shrink: 0;
+}
+.b-stock-mini-item__body { flex: 1; min-width: 0; }
+.b-stock-mini-item__title { font-size: 14px; font-weight: 700; }
+.b-stock-mini-item__sub { font-size: 12.5px; color: #9099b8; }
+.b-stock-mini-item__aside { text-align: right; flex-shrink: 0; }
+
+/* ---------- Чекбоксы списка покупок ---------- */
+.b-stock-check-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #f8f9fc;
+}
+.b-stock-check-item.is-done { opacity: .55; }
+.b-stock-check-item.is-done .b-stock-check-item__title { text-decoration: line-through; }
+.b-stock-check-item__checkbox {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    border: 2px solid #d5d9e6;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.b-stock-check-item.is-done .b-stock-check-item__checkbox { background: #4b3bf5; border-color: #4b3bf5; }
+.b-stock-check-item__body { flex: 1; min-width: 0; }
+.b-stock-check-item__title { font-size: 14.5px; font-weight: 700; }
+.b-stock-check-item__sub { font-size: 12.5px; color: #9099b8; }
+
+/* ---------- Preference / статус-бейджи (постоянные покупки, магазины) ---------- */
+.b-stock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+.b-stock-badge--favorite { background: #fdeeee; color: #dc3545; }
+.b-stock-badge--normal { background: #eef1ff; color: #4b3bf5; }
+.b-stock-badge--alternative { background: #fff4e5; color: #e08a00; }
+.b-stock-badge--avoid { background: #f1f2f6; color: #9099b8; }
+.b-stock-badge--paid { background: #e9f9ef; color: #1fa855; }
+.b-stock-badge--cod { background: #fff4e5; color: #e08a00; }
+
+/* ---------- Магазины ---------- */
+.b-stock-store-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .06);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.b-stock-store-card__top { display: flex; align-items: center; gap: 12px; }
+.b-stock-store-card__logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #f4f6f9 center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: #4b3bf5;
+    flex-shrink: 0;
+}
+.b-stock-store-card__name { font-weight: 800; font-size: 15px; }
+.b-stock-store-card__type { font-size: 12.5px; color: #9099b8; }
+.b-stock-store-card__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.b-stock-chip {
+    font-size: 11.5px;
+    font-weight: 700;
+    background: #f4f6f9;
+    color: #565b74;
+    padding: 3px 9px;
+    border-radius: 999px;
+}
+.b-stock-store-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+}
+.b-stock-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+}
+.b-stock-switch input { opacity: 0; width: 0; height: 0; }
+.b-stock-switch__slider {
+    position: absolute;
+    inset: 0;
+    background: #e2e5ee;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+.b-stock-switch__slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .15s ease;
+}
+.b-stock-switch input:checked + .b-stock-switch__slider { background: #4b3bf5; }
+.b-stock-switch input:checked + .b-stock-switch__slider::before { transform: translateX(18px); }
+
+/* ---------- Акции ---------- */
+.b-stock-promo-card {
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .06);
+    display: flex;
+    flex-direction: column;
+}
+.b-stock-promo-card__image {
+    height: 110px;
+    background: #f4f6f9 center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 26px;
+    position: relative;
+}
+.b-stock-promo-card__discount {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: #dc3545;
+    color: #fff;
+    font-weight: 800;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 999px;
+}
+.b-stock-promo-card__body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.b-stock-promo-card__store { font-size: 12px; font-weight: 800; color: #4b3bf5; text-transform: uppercase; letter-spacing: .02em; }
+.b-stock-promo-card__title { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.b-stock-promo-card__prices { display: flex; align-items: baseline; gap: 8px; }
+.b-stock-promo-card__price { font-size: 19px; font-weight: 800; color: #1fa855; }
+.b-stock-promo-card__old-price { font-size: 13px; color: #9099b8; text-decoration: line-through; }
+.b-stock-promo-card__footer { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ---------- Заказы ---------- */
+.b-stock-attention-card {
+    display: flex;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #f8f9fc;
+    align-items: center;
+}
+.b-stock-attention-card__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 17px;
+}
+.b-stock-attention-card__body { flex: 1; min-width: 0; }
+.b-stock-attention-card__store { font-size: 12.5px; font-weight: 700; color: #9099b8; }
+.b-stock-attention-card__title { font-size: 14.5px; font-weight: 800; }
+.b-stock-attention-card__note { font-size: 13px; margin-top: 2px; }
+
+.b-stock-order-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr .9fr .9fr 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .06);
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: #1f2430;
+}
+.b-stock-order-row:hover { background: #fafaff; color: #1f2430; text-decoration: none; }
+.b-stock-order-row__store { font-weight: 800; font-size: 14.5px; }
+.b-stock-order-row__number { font-size: 12.5px; color: #9099b8; }
+.b-stock-order-row__amount { font-size: 16px; font-weight: 800; }
+.b-stock-order-row__label { font-size: 11px; color: #9099b8; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
+@media (max-width: 900px) {
+    .b-stock-order-row { grid-template-columns: 1fr 1fr; }
+}
+
+.b-stock-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.b-stock-status-pill--pending, .b-stock-status-pill--shipped { background: #eef1ff; color: #4b3bf5; }
+.b-stock-status-pill--ready_for_pickup { background: #fff4e5; color: #e08a00; }
+.b-stock-status-pill--delivered { background: #e9f9ef; color: #1fa855; }
+.b-stock-status-pill--returning, .b-stock-status-pill--returned { background: #fdeeee; color: #dc3545; }
+.b-stock-status-pill--cancelled { background: #f1f2f6; color: #9099b8; }
+
+/* Таймлайн статусов заказа */
+.b-stock-timeline { list-style: none; margin: 0; padding: 0; }
+.b-stock-timeline li {
+    position: relative;
+    padding: 0 0 22px 26px;
+    border-left: 2px solid #e2e5ee;
+    margin-left: 6px;
+}
+.b-stock-timeline li:last-child { border-color: transparent; padding-bottom: 0; }
+.b-stock-timeline li::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #4b3bf5;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #4b3bf5;
+}
+.b-stock-timeline .b-stock-timeline__status { font-weight: 800; font-size: 14px; }
+.b-stock-timeline .b-stock-timeline__date { font-size: 12.5px; color: #9099b8; }
+.b-stock-timeline .b-stock-timeline__note { font-size: 13px; color: #565b74; margin-top: 2px; }
+
+/* ---------- Резерв ЧС ---------- */
+.b-stock-readiness {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.b-stock-readiness__ring {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 800;
+    flex-shrink: 0;
+    background: conic-gradient(#4b3bf5 calc(var(--pct, 0) * 1%), #eceef3 0);
+}
+.b-stock-readiness__ring::after {
+    content: attr(data-pct) '%';
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-stock-reserve-item {
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #f8f9fc;
+    margin-bottom: 10px;
+}
+.b-stock-reserve-item.needs-restock { background: #fdf4f4; }
+.b-stock-reserve-item__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.b-stock-reserve-item__name { font-weight: 800; font-size: 14.5px; }
+.b-stock-reserve-item__qty { font-size: 13px; color: #565b74; }
+.b-stock-progress {
+    height: 8px;
+    border-radius: 999px;
+    background: #eceef3;
+    overflow: hidden;
+}
+.b-stock-progress__bar { height: 100%; border-radius: 999px; background: #1fa855; }
+.b-stock-reserve-item.needs-restock .b-stock-progress__bar { background: #dc3545; }
+
+/* ---------- История покупок ---------- */
+.b-stock-history-row {
+    display: grid;
+    grid-template-columns: 110px 1.3fr 1fr .8fr .8fr;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f1f2f6;
+    font-size: 13.5px;
+}
+.b-stock-history-row:first-child { border-top: 1px solid #f1f2f6; }
+@media (max-width: 900px) {
+    .b-stock-history-row { grid-template-columns: 1fr 1fr; }
+}
+.b-stock-chart-wrap { position: relative; height: 260px; }
+
+/* ---------- Форма (модалка) в стиле b-contact-form-modal ---------- */
+.b-stock-form-modal { border-radius: 18px; border: none; overflow: hidden; }
+.b-stock-form-modal__header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f2f6;
+}
+.b-stock-form-modal__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: #eef1ff;
+    color: #4b3bf5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+}
+.b-stock-form-modal__heading .modal-title { font-size: 17px; font-weight: 800; }
+.b-stock-form-modal__subtitle { font-size: 13px; color: #9099b8; }
+.b-stock-form-field { margin-bottom: 14px; }
+.b-stock-form-field label { font-size: 13px; font-weight: 700; color: #565b74; margin-bottom: 6px; display: block; }
+.b-stock-form-row { display: flex; gap: 12px; }
+.b-stock-form-row > .b-stock-form-field { flex: 1; min-width: 0; }
+.b-stock-form-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #e2e5ee;
+    border-radius: 10px;
+    padding: 9px 12px;
+    background: #fff;
+}
+.b-stock-form-input i { color: #9099b8; width: 16px; text-align: center; }
+.b-stock-form-input input,
+.b-stock-form-input select,
+.b-stock-form-input textarea {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+    background: transparent;
+}
+.b-stock-form-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid #f1f2f6;
+}
+
+/* ---------- Заголовок с иконкой в drawer-фильтрах (переиспользуем .b-filter-panel) ---------- */
+.b-stock .b-filter-panel__group-head { font-weight: 700; }
+
+/* ---------- Модалка "Лучшее предложение" ---------- */
+.b-stock-offers-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 50px 20px;
+    color: #9099b8;
+    font-weight: 700;
+}
+.b-stock-offers-loading .fa-spinner { font-size: 26px; color: #4b3bf5; }
+.b-stock-offer {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #f8f9fc;
+    margin-bottom: 10px;
+}
+.b-stock-offer--best {
+    background: #eef9f1;
+    box-shadow: inset 0 0 0 1.5px #8ee0ab;
+}
+.b-stock-offer__logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #fff center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: #4b3bf5;
+    flex-shrink: 0;
+}
+.b-stock-offer__body { flex: 1; min-width: 0; }
+.b-stock-offer__best-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #1fa855;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+}
+.b-stock-offer__store { font-weight: 800; font-size: 14.5px; }
+.b-stock-offer__title { font-size: 13px; color: #565b74; }
+.b-stock-offer__aside { text-align: right; flex-shrink: 0; }
+.b-stock-offer__price { font-size: 17px; font-weight: 800; }
+.b-stock-offer__old-price { font-size: 12.5px; color: #9099b8; text-decoration: line-through; }
+
+@media (max-width: 576px) {
+    .b-stock-page-header { flex-direction: column; }
+    .b-stock-page-header__actions { width: 100%; }
+    .b-stock-page-header__actions .b-stock-btn { flex: 1; justify-content: center; }
+    .b-stock-summary { grid-template-columns: repeat(2, 1fr); }
+}

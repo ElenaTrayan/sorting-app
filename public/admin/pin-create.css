@@ -1,0 +1,721 @@
+/* Страница "Добавить пин" (/admin_panel/posts/create) — по макету Claude Design
+   (артефакт 2fgoNE9x9nHsAR4vY3siPk). Тот же язык дизайна, что и на "Все посты"/
+   "База контактов": Manrope, фиолетовый #7367f0, карточки на светло-сером фоне.
+   Всё под .b-pin-create, чтобы не задеть остальные страницы, использующие те же
+   переиспользуемые классы (.upload-image-section, .b-post-video, .tag и т.п.). */
+
+.content-wrapper:has(.b-pin-create) {
+    background: #f5f5f8;
+}
+
+.b-pin-create,
+.b-pin-create input,
+.b-pin-create select,
+.b-pin-create textarea,
+.b-pin-create button {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    color: #1c1b25;
+}
+
+.content-header.content-header--pin-create {
+    padding: 20px 30px 0;
+}
+.content-header.content-header--pin-create h1 {
+    margin: 0;
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+.b-pin-create__subtitle {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: #6f6d80;
+    max-width: 640px;
+}
+
+.b-pin-create .content {
+    padding-bottom: 40px;
+}
+
+/* ===== Шаги ===== */
+.b-pin-create__steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 20px 15px;
+    padding: 12px 16px;
+    background: #fff;
+    border: 1px solid #e8e7ef;
+    border-radius: 14px;
+}
+.b-pin-create__step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #8b89a0;
+}
+.b-pin-create__step.is-done {
+    background: #eef0fe;
+    color: #5735d6;
+}
+.b-pin-create__step-dot {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    background: #eceaf4;
+    color: #8b89a0;
+}
+.b-pin-create__step.is-done .b-pin-create__step-dot {
+    background: #7367f0;
+    color: #fff;
+}
+.b-pin-create__step-sep {
+    color: #d6d4e2;
+    font-size: 12px;
+}
+
+/* ===== Разметка: основная колонка + сайдбар ===== */
+.b-pin-create__layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+    margin: 0 15px;
+}
+.b-pin-create__main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+    flex: 1 1 520px;
+}
+.b-pin-create__grid2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+.b-pin-create__aside {
+    position: sticky;
+    top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1 1 300px;
+    max-width: 380px;
+    min-width: 0;
+}
+
+/* ===== Карточки ===== */
+.b-pin-card {
+    background: #fff;
+    border: 1px solid #e8e7ef;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(23, 20, 50, .04);
+    padding: 18px 20px;
+}
+.b-pin-card h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 750;
+}
+.b-pin-card__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+.b-pin-card__hint {
+    font-size: 12px;
+    color: #a3a1b4;
+    white-space: nowrap;
+}
+.b-pin-card__desc {
+    margin: 0 0 14px;
+    font-size: 12.5px;
+    color: #78768a;
+}
+.b-pin-card__badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #78768a;
+    background: #f3f2f8;
+    border: 1px solid #e8e7ef;
+    padding: 2px 7px;
+    border-radius: 6px;
+}
+.b-pin-content-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #4a4859;
+    margin: 16px 0 8px;
+}
+.b-pin-content-label:first-of-type {
+    margin-top: 0;
+}
+
+/* ===== Карточки выбора типа ===== */
+.b-pin-types {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 10px;
+}
+.b-pin-type {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    text-align: left;
+    padding: 11px 12px;
+    border-radius: 11px;
+    border: 1.5px solid #e8e7ef;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color .15s, background-color .15s;
+}
+.b-pin-type:hover {
+    border-color: #c3b5f7;
+}
+.b-pin-type.is-active {
+    border-color: #7367f0;
+    background: #f7f4ff;
+    box-shadow: 0 1px 3px rgba(115, 103, 240, .18);
+}
+.b-pin-type__icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    background: #f3f2f8;
+    color: #78768a;
+}
+.b-pin-type.is-active .b-pin-type__icon {
+    background: #7367f0;
+    color: #fff;
+}
+.b-pin-type__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.b-pin-type__label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1c1b25;
+}
+.b-pin-type.is-active .b-pin-type__label {
+    color: #5735d6;
+}
+.b-pin-type__desc {
+    font-size: 11.5px;
+    color: #8b89a0;
+    line-height: 1.35;
+}
+
+/* ===== "Спарсить информацию" ===== */
+.b-pin-parse__toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    margin: 0;
+}
+.b-pin-parse__check {
+    width: 17px;
+    height: 17px;
+    margin-top: 1px;
+    flex: 0 0 17px;
+    border-radius: 5px;
+    border: 1.5px solid #c9c7d6;
+    position: relative;
+}
+.b-pin-parse.is-open .b-pin-parse__check {
+    border-color: #7367f0;
+    background: #7367f0;
+}
+.b-pin-parse.is-open .b-pin-parse__check::after {
+    content: '\2713';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 11px;
+}
+.b-pin-parse__text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.b-pin-parse__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 750;
+}
+.b-pin-parse__body {
+    display: none;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed #e8e7ef;
+}
+.b-pin-parse.is-open .b-pin-parse__body {
+    display: block;
+}
+.b-pin-parse__row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.b-pin-parse__row .b-pin-input {
+    flex: 1;
+    min-width: 240px;
+}
+
+/* ===== Инпуты / поля ===== */
+.b-pin-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px 16px;
+}
+.b-pin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+.b-pin-field--wide {
+    grid-column: 1 / -1;
+}
+.b-pin-field label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #4a4859;
+    margin: 0;
+}
+.b-pin-input,
+.b-pin-create select.b-pin-input,
+.b-pin-create textarea.b-pin-input {
+    border: 1px solid #e3e1ec;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 13.5px;
+    color: #1c1b25;
+    width: 100%;
+    background: #fff;
+}
+.b-pin-create textarea.b-pin-input {
+    resize: vertical;
+    line-height: 1.5;
+}
+.b-pin-input:focus {
+    outline: 2px solid #ded3ff;
+    outline-offset: 0;
+    border-color: #7367f0;
+}
+.b-pin-input::placeholder {
+    color: #a3a1b4;
+}
+
+/* tinymce (#editor) обёрнут отдельным блоком tox-tinymce — подгоняем только рамку/радиус,
+   сам редактор инициализируется в admin.js (tinymce.init) */
+.b-pin-create .tox-tinymce {
+    border-radius: 10px !important;
+    border-color: #e3e1ec !important;
+}
+
+/* ===== Количество / группировка ===== */
+.b-pin-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.b-pin-radio {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    cursor: pointer;
+    padding: 9px 11px;
+    border-radius: 10px;
+    border: 1.5px solid #e8e7ef;
+    font-size: 13.5px;
+    font-weight: 600;
+    margin: 0;
+}
+.b-pin-radio input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+.b-pin-radio__dot {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    border-radius: 50%;
+    border: 1.5px solid #c9c7d6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.b-pin-radio__dot::after {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #7367f0;
+    display: none;
+}
+.b-pin-radio input:checked + .b-pin-radio__dot {
+    border-color: #7367f0;
+}
+.b-pin-radio input:checked + .b-pin-radio__dot::after {
+    display: block;
+}
+.b-pin-radio:has(input:checked) {
+    border-color: #7367f0;
+    background: #f7f4ff;
+}
+
+.b-pin-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    cursor: pointer;
+    margin: 12px 0 0;
+    padding-top: 12px;
+    border-top: 1px dashed #e8e7ef;
+}
+.b-pin-checkbox input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+.b-pin-checkbox__box {
+    width: 16px;
+    height: 16px;
+    margin-top: 1px;
+    flex: 0 0 16px;
+    border-radius: 5px;
+    border: 1.5px solid #c9c7d6;
+    position: relative;
+}
+.b-pin-checkbox input:checked + .b-pin-checkbox__box {
+    background: #7367f0;
+    border-color: #7367f0;
+}
+.b-pin-checkbox input:checked + .b-pin-checkbox__box::after {
+    content: '\2713';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 11px;
+}
+.b-pin-checkbox__text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+/* ===== Кнопки ===== */
+.b-pin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    cursor: pointer;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 15px;
+    border: 1px solid #e3e1ec;
+    background: #fff;
+    color: #3d3b4a;
+    white-space: nowrap;
+    transition: border-color .15s, color .15s, background-color .15s;
+}
+.b-pin-btn:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+    text-decoration: none;
+}
+.b-pin-btn--primary {
+    border: none;
+    background: #7367f0;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(115, 103, 240, .4);
+}
+.b-pin-btn--primary:hover {
+    background: #5e50ee;
+    color: #fff;
+}
+.b-pin-btn--ghost {
+    margin: 6px 0 0;
+}
+
+/* ===== Дропзона ===== */
+.b-pin-create .upload-image-section {
+    height: auto;
+    margin: 0;
+}
+.b-pin-create .upload-image-section section {
+    height: auto;
+    min-height: 160px;
+    border: 1.5px dashed #d6d3e6;
+    border-radius: 12px;
+    background: #fbfbfd;
+    padding: 24px 20px;
+}
+.b-pin-create .upload-image-section section:hover,
+.b-pin-create .upload-image-section section.dd {
+    border-color: #7367f0;
+    color: #7367f0;
+    background-color: #f7f4ff;
+}
+.b-pin-create .upload-image-section figure {
+    display: none;
+}
+.b-pin-create .upload-image-section .title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: auto;
+}
+.b-pin-create .upload-image-section .title::before {
+    content: '\2193';
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: #f1edfe;
+    color: #7367f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+.b-pin-create .upload-image-section p {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 700;
+}
+/* картинки уже добавлены — прячем плейсхолдер дропзоны, показываем только превью */
+.b-pin-create .upload-image-section .images:has(.image) ~ .title {
+    display: none;
+}
+.b-pin-create .upload-image-section .images .image {
+    border-radius: 9px;
+}
+
+.b-pin-create .b-post-video {
+    margin-top: 10px;
+}
+
+/* ===== Хештеги ===== */
+.b-pin-tags__selected {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+    min-height: 0;
+}
+.b-pin-create .b-pin-tags__selected .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1edfe;
+    border: 1px solid #e0d7fd;
+    color: #5735d6;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 7px;
+}
+.b-pin-create .b-pin-tags__selected .tag .close {
+    color: #9e8ae0;
+    cursor: pointer;
+}
+.b-pin-tags__row {
+    display: flex;
+    gap: 8px;
+}
+.b-pin-create .b-search__results-2 {
+    position: relative;
+    margin: 6px 0 0;
+    list-style: none;
+    padding: 0;
+}
+.b-pin-create .b-search__results-2:not(:empty) {
+    border: 1px solid #e8e7ef;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.b-pin-create .b-search__results-2 li {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.b-pin-create .b-search__results-2 li:hover {
+    background: #f7f4ff;
+    color: #5735d6;
+}
+
+/* ===== Футер формы ===== */
+.b-pin-create__footer {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    background: rgba(255, 255, 255, .94);
+    backdrop-filter: blur(6px);
+    border: 1px solid #e8e7ef;
+    border-radius: 14px;
+    padding: 12px 16px;
+    box-shadow: 0 -1px 3px rgba(23, 20, 50, .05);
+}
+.b-pin-create__footer-hint {
+    font-size: 12px;
+    color: #8b89a0;
+}
+.b-pin-create__footer-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+}
+
+/* ===== Предпросмотр ===== */
+.b-pin-preview__type {
+    font-size: 11px;
+    font-weight: 600;
+    color: #7367f0;
+    background: #f1edfe;
+    padding: 2px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.b-pin-preview__card {
+    border: 1px solid #eeecf6;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(23, 20, 50, .06);
+}
+.b-pin-preview__image {
+    height: 176px;
+    background-color: #efedf7;
+    background-size: cover;
+    background-position: center;
+    background-image: repeating-linear-gradient(135deg, #e4e0f3 0 6px, #f4f2fb 6px 12px);
+}
+.b-pin-preview__body {
+    padding: 13px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.b-pin-preview__title {
+    font-size: 15px;
+    font-weight: 750;
+    line-height: 1.3;
+    word-break: break-word;
+}
+.b-pin-preview__text {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #3d3b4a;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.b-pin-preview__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-pin-preview__tag {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #5735d6;
+}
+.b-pin-preview__empty {
+    padding: 26px 6px;
+    text-align: center;
+    color: #a3a1b4;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+/* ===== Чек-лист готовности ===== */
+.b-pin-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+.b-pin-checklist__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: #a3a1b4;
+}
+.b-pin-checklist__item.is-done {
+    color: #3d3b4a;
+}
+.b-pin-checklist__dot {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    background: #f3f2f8;
+    color: #a3a1b4;
+}
+.b-pin-checklist__item.is-done .b-pin-checklist__dot {
+    background: #eafaf2;
+    color: #1f9d6a;
+}
+
+@media (max-width: 900px) {
+    .b-pin-create__aside {
+        position: static;
+        max-width: none;
+    }
+}
