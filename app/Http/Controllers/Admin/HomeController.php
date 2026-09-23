@@ -3,88 +3,56 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Post;
-use Illuminate\Http\Request;
+use App\Models\User;
+use App\Models\UserService;
+use App\Services\Integrations\IntegrationManager;
 
+/**
+ * Главная админ-панели: сводка по пользователям, подписке и внешним API.
+ */
 class HomeController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function index()
+    public function index(IntegrationManager $integrations)
     {
-        $post_count = Post::all()->count();
+        $usersTotal = User::count();
+        $usersBlocked = User::whereNotNull('blocked_at')->count();
+
+        // сколько пользователей пользуются каждым сервисом сейчас (не истёк срок)
+        $activeCounts = UserService::where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->selectRaw('service, count(*) as total')
+            ->groupBy('service')
+            ->pluck('total', 'service');
+
+        $services = [];
+        foreach (config('subscription.services') as $key => $service) {
+            $services[$key] = $service + ['subscribers' => (int) ($activeCounts[$key] ?? 0)];
+        }
+
+        $integrationRows = [];
+        foreach ($integrations->definitions() as $key => $definition) {
+            $missing = [];
+            foreach ($definition['fields'] as $field => $meta) {
+                if ($integrations->credential($key, $field) === null) {
+                    $missing[] = $meta['label'];
+                }
+            }
+            $integrationRows[$key] = [
+                'name' => $definition['name'],
+                'enabled' => $integrations->isEnabled($key),
+                'missing' => $missing,
+            ];
+        }
 
         return view('admin.home.index', [
-            'post_count' => $post_count
+            'usersTotal' => $usersTotal,
+            'usersBlocked' => $usersBlocked,
+            'usersActive' => $usersTotal - $usersBlocked,
+            'usersNew' => User::where('created_at', '>=', now()->subDays(7))->count(),
+            'latestUsers' => User::orderByDesc('id')->limit(5)->get(),
+            'services' => $services,
+            'integrations' => $integrationRows,
         ]);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
     }
 }

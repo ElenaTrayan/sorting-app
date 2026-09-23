@@ -17,12 +17,13 @@ class HomeController extends Controller
     }
 
     /**
-     * Show the application dashboard.
+     * Точка входа после логина (RouteServiceProvider::HOME): админа отправляем в админку,
+     * всех остальных — в их кабинет.
      *
-     * @return \Illuminate\Contracts\Support\Renderable
+     * @return \Illuminate\Http\RedirectResponse
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('home');
+        return redirect()->route($request->user()->isAdmin() ? 'admin.dashboard' : 'cabinet.home');
     }
 }

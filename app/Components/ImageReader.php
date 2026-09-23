@@ -2,12 +2,15 @@
 
 namespace App\Components;
 
+use App\Services\Integrations\IntegrationManager;
+
 /**
  * Распознавание текста на изображении через OCR.space (https://ocr.space/ocrapi) —
  * бесплатный сервис (до 25 000 запросов/месяц на бесплатном ключе, без привязки карты),
  * используется вместо Google Cloud Vision, для которого на проекте не был включён
- * биллинг. Ключ — services.ocr_space.key (см. config/services.php), берётся из
- * .env: OCR_SPACE_API_KEY (получить свой бесплатный ключ: https://ocr.space/ocrapi/freekey).
+ * биллинг. Ключ — из админки (раздел "Внешние API"), а если там не задан — services.ocr_space.key
+ * (см. config/services.php), берётся из .env: OCR_SPACE_API_KEY (получить свой бесплатный
+ * ключ: https://ocr.space/ocrapi/freekey). См. App\Services\Integrations\IntegrationManager.
  */
 class ImageReader
 {
@@ -21,9 +24,15 @@ class ImageReader
      */
     public function recognizeText(string $imageContent): string
     {
-        $apiKey = config('services.ocr_space.key');
+        // ключ и флаг "включено" — из админки (раздел "Внешние API"), ключ по умолчанию — из .env
+        $integrations = app(IntegrationManager::class);
+        if (!$integrations->isEnabled('ocr_space')) {
+            throw new \RuntimeException('Интеграция OCR.space отключена администратором');
+        }
+
+        $apiKey = $integrations->credential('ocr_space', 'key');
         if (empty($apiKey)) {
-            throw new \RuntimeException('Не задан OCR_SPACE_API_KEY в .env (бесплатный ключ: https://ocr.space/ocrapi/freekey)');
+            throw new \RuntimeException('Не задан OCR_SPACE_API_KEY в .env или в админке, раздел "Внешние API" (бесплатный ключ: https://ocr.space/ocrapi/freekey)');
         }
 
         // OCR.space принимает файл через multipart — проще всего отдать через CURLFile,

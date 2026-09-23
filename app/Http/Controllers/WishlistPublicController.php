@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Admin\WishlistController;
+use App\Http\Controllers\User\WishlistController;
 use App\Models\Wishlist;
 use App\Models\WishlistItem;
 use Illuminate\Http\Request;

@@ -2,7 +2,7 @@
 
 namespace App\Parsers;
 
-use App\Http\Controllers\Admin\Packages\UploadImageController;
+use App\Http\Controllers\User\Packages\UploadImageController;
 use Illuminate\Support\Facades\Http;
 
 class SweetTvParser extends BaseParser

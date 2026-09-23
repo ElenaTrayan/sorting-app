@@ -26,8 +26,13 @@ abstract class BaseParser
     protected function getPageContent(): void
     {
         //dd($this->url);
-        $response = Http::get($this->url);
-        $html = $response->body();
+        // многие сайты отдают заглушку/403 запросам без браузерного User-Agent
+        $response = Http::withHeaders([
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language' => 'ru-RU,ru;q=0.9,uk;q=0.8,en;q=0.7',
+        ])->timeout(20)->get($this->url);
+        $html = $this->toHtmlEntities($response->body(), $response->header('Content-Type'));
         //dd($html);
 
 //        $client = new Client();
@@ -59,6 +64,34 @@ abstract class BaseParser
         $this->pElements = $this->dom->getElementsByTagName('p');
         //dd($this->pElements);
         $this->divElements = $this->dom->getElementsByTagName('div');
+    }
+
+    /**
+     * DOMDocument::loadHTML без явной кодировки читает страницу как ISO-8859-1, и кириллица превращается
+     * в кракозябры. Поэтому переводим страницу в UTF-8, а все не-ASCII символы — в числовые сущности (&#1046;):
+     * так результат не зависит от того, какую кодировку libxml решит использовать.
+     *
+     * @param string $html
+     * @param string $contentType - заголовок Content-Type ответа
+     * @return string
+     */
+    protected function toHtmlEntities(string $html, string $contentType = ''): string
+    {
+        $charset = '';
+        if (preg_match('~charset=["\']?([\w-]+)~i', $contentType, $matches)
+            || preg_match('~<meta[^>]+charset=["\']?([\w-]+)~i', $html, $matches)) {
+            $charset = strtoupper($matches[1]);
+        }
+
+        if ($charset === '' || !in_array($charset, array_map('strtoupper', mb_list_encodings()), true)) {
+            $charset = mb_check_encoding($html, 'UTF-8') ? 'UTF-8' : 'Windows-1251';
+        }
+
+        if ($charset !== 'UTF-8') {
+            $html = mb_convert_encoding($html, 'UTF-8', $charset);
+        }
+
+        return mb_encode_numericentity($html, [0x80, 0x10FFFF, 0, 0x1FFFFF], 'UTF-8');
     }
 
     /**

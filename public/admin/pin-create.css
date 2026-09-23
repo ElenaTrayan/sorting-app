@@ -1,4 +1,4 @@
-/* Страница "Добавить пин" (/admin_panel/posts/create) — по макету Claude Design
+/* Страница "Добавить пин" (/cabinet/posts/create) — по макету Claude Design
    (артефакт 2fgoNE9x9nHsAR4vY3siPk). Тот же язык дизайна, что и на "Все посты"/
    "База контактов": Manrope, фиолетовый #7367f0, карточки на светло-сером фоне.
    Всё под .b-pin-create, чтобы не задеть остальные страницы, использующие те же
@@ -102,12 +102,6 @@
     min-width: 0;
     flex: 1 1 520px;
 }
-.b-pin-create__grid2 {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    gap: 20px;
-    align-items: start;
-}
 .b-pin-create__aside {
     position: sticky;
     top: 15px;
@@ -128,7 +122,7 @@
     padding: 18px 20px;
 }
 .b-pin-card h2 {
-    margin: 0;
+    margin: 0 0 15px 0;
     font-size: 15px;
     font-weight: 750;
 }
@@ -138,7 +132,7 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 4px;
+    margin-bottom: 0;
 }
 .b-pin-card__hint {
     font-size: 12px;
@@ -163,10 +157,17 @@
     font-size: 12px;
     font-weight: 700;
     color: #4a4859;
-    margin: 16px 0 8px;
+    margin: 0px 0 8px;
 }
 .b-pin-content-label:first-of-type {
     margin-top: 0;
+}
+.b-pin-content-label.b-pin-content-label--spaced {
+    margin-top: 15px;
+}
+.b-pin-content-label.b-pin-content-label--text {
+    font-size: 14px;
+    margin: 20px 0 8px;
 }
 
 /* ===== Карточки выбора типа ===== */
@@ -267,6 +268,9 @@
     flex-direction: column;
     gap: 3px;
 }
+.b-pin-parse__text .b-pin-card__desc {
+    margin: 0;
+}
 .b-pin-parse__title {
     display: flex;
     flex-wrap: wrap;
@@ -327,6 +331,26 @@
     width: 100%;
     background: #fff;
 }
+/* своя стрелка вместо системной — та прижимается к самому краю и не зависит от padding */
+.b-pin-create select.b-pin-input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%2378768a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 12px 8px;
+    cursor: pointer;
+}
+.b-pin-create select.b-pin-input.b-pin-input--half {
+    width: 50%;
+}
+@media (max-width: 575px) {
+    .b-pin-create select.b-pin-input.b-pin-input--half {
+        width: 100%;
+    }
+}
 .b-pin-create textarea.b-pin-input {
     resize: vertical;
     line-height: 1.5;
@@ -348,11 +372,37 @@
 }
 
 /* ===== Количество / группировка ===== */
+/* "Количество": радиокнопки — в левой колонке, чекбокс группировки — в правой */
+.b-pin-count {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+.b-pin-count .b-pin-checkbox {
+    margin: 0;
+    padding-top: 0;
+    border-top: 0;
+}
+@media (max-width: 575px) {
+    .b-pin-count {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+    .b-pin-count .b-pin-checkbox {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px dashed #e8e7ef;
+    }
+}
 .b-pin-radio-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-bottom: 12px;
+}
+.b-pin-count .b-pin-radio-group {
+    margin-bottom: 0;
 }
 .b-pin-radio {
     display: flex;
@@ -447,6 +497,106 @@
     font-weight: 600;
 }
 
+/* ===== Фильм: достоинства/недостатки (чипы) ===== */
+.b-pin-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-pin-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border: 1px solid #e3e1ec;
+    border-radius: 999px;
+    background: #fff;
+    color: #4a4859;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background-color .15s;
+}
+.b-pin-chip:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+}
+.b-pin-chip:focus-visible {
+    outline: 2px solid #ded3ff;
+    outline-offset: 1px;
+}
+/* вайбы — группами с заголовками (PostFilm::VIBE_GROUPS); у достоинств/недостатков группа одна */
+.b-pin-chips--grouped {
+    flex-direction: column;
+    gap: 12px;
+}
+.b-pin-chips__group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.b-pin-chips__group-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #8b8b99;
+}
+.b-pin-chips__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-pin-chip__emoji {
+    font-size: 14px;
+    line-height: 1;
+}
+/* выбранный вайб — цветом, без галочки: рядом и так эмодзи */
+.b-pin-chips--vibes .b-pin-chip.is-active {
+    background: #f1edfe;
+    border-color: #b9a8fb;
+    color: #5735d6;
+}
+.b-pin-chips--pros .b-pin-chip.is-active {
+    background: #e9f7ef;
+    border-color: #b5e2c6;
+    color: #1d7a45;
+}
+.b-pin-chips--pros .b-pin-chip.is-active::before {
+    content: '✓';
+}
+.b-pin-chips--cons .b-pin-chip.is-active {
+    background: #fdeeee;
+    border-color: #f3c4c4;
+    color: #b9322a;
+}
+.b-pin-chips--cons .b-pin-chip.is-active::before {
+    content: '✕';
+}
+.b-pin-chips__add {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    max-width: 420px;
+}
+.b-pin-chips__add .b-pin-btn--ghost {
+    margin: 0;
+}
+
+/* страница редактирования поста: те же поля фильма в сворачиваемом блоке */
+.b-post-film {
+    padding: 4px 0;
+}
+.b-post-film__summary {
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+.b-post-film:not([open]) .b-post-film__summary {
+    margin-bottom: 0;
+}
+
 /* ===== Кнопки ===== */
 .b-pin-btn {
     display: inline-flex;
@@ -532,18 +682,61 @@
     font-weight: 700;
 }
 /* картинки уже добавлены — прячем плейсхолдер дропзоны, показываем только превью */
-.b-pin-create .upload-image-section .images:has(.image) ~ .title {
+.b-pin-create .upload-image-section .images:has(.image, .b-pin-video) ~ .title {
     display: none;
 }
 .b-pin-create .upload-image-section .images .image {
     border-radius: 9px;
 }
 
-.b-pin-create .b-post-video {
-    margin-top: 10px;
+/* превью видео — в одном ряду с картинками (.image), но не сортируется и не удаляется как картинка;
+   иконка-крестик стилизуется общим правилом ".upload-image-section .images i" */
+.b-pin-create .upload-image-section .images .b-pin-video {
+    position: relative;
+    float: left;
+    width: 116px;
+    height: 116px;
+    margin: 0 10px 10px 0;
+    padding: 4px;
+    box-sizing: border-box;
+    border: 1px solid #d2d2d2;
+    border-radius: 9px;
+    background: #fff;
+}
+.b-pin-create .upload-image-section .images .b-pin-video:hover {
+    border-color: #428bcb;
+}
+.b-pin-create .upload-image-section .images .b-pin-video video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #1f2430;
+}
+.b-pin-create .upload-image-section .images .b-pin-video__badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border-radius: 50%;
+    background: rgba(31, 36, 48, .65);
+    color: #fff;
+    font-size: 13px;
+    line-height: 30px;
+    text-align: center;
+    pointer-events: none;
+}
+.b-pin-create .upload-image-section .images .b-pin-video .js-post-video__remove {
+    cursor: pointer;
 }
 
 /* ===== Хештеги ===== */
+.b-pin-create .b-add-tag {
+    margin: 10px 0 0;
+}
 .b-pin-tags__selected {
     display: flex;
     flex-wrap: wrap;
@@ -564,6 +757,7 @@
     font-weight: 600;
     padding: 4px 8px;
     border-radius: 7px;
+    margin: 0;
 }
 .b-pin-create .b-pin-tags__selected .tag .close {
     color: #9e8ae0;
@@ -571,10 +765,30 @@
 }
 .b-pin-tags__row {
     display: flex;
+    flex-flow: row;
+    justify-content: space-between;
+    align-items: center;
     gap: 8px;
 }
+/* кнопка в строке с полем — без верхнего отступа, который .b-pin-btn--ghost даёт остальным */
+.b-pin-create #add-tag {
+    margin: 0;
+}
+/* общий .b-add-tag .add-tag (admin-panel.css) даёт строке margin-bottom: 15px — подсказки
+   должны стоять вплотную под полем, поэтому здесь отступ снизу задаёт сам список */
+.b-pin-create .b-add-tag .add-tag {
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 0;
+}
+/* общий .b-search__results-2 (admin-panel.css) — absolute + top: 38px + width: 300px;
+   для position: relative этот top сдвигал бы список на 38px вниз от поля */
 .b-pin-create .b-search__results-2 {
     position: relative;
+    top: auto;
+    width: 400px;
+    max-width: 100%;
+    max-height: 240px;
     margin: 6px 0 0;
     list-style: none;
     padding: 0;
@@ -582,7 +796,15 @@
 .b-pin-create .b-search__results-2:not(:empty) {
     border: 1px solid #e8e7ef;
     border-radius: 10px;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+.b-pin-create .b-pin-tags__selected:not(:empty) {
+    margin-top: 12px;
+}
+/* общий .b-selected-tags-2 (admin-panel.css) даёт height: 100px — тут высоту определяют сами теги */
+.b-pin-create .b-selected-tags-2 {
+    height: auto;
 }
 .b-pin-create .b-search__results-2 li {
     padding: 8px 12px;

@@ -1529,7 +1529,160 @@ text-align: center;
     font-weight: 600;
 }
 
-/* --- страница "Группа постов" (/admin_panel/posts/groups/{id}) — перетаскивание
+/* --- карточка фильма/сериала (post_films) на странице поста и в превью,
+   resources/views/user/posts/parts/film_card.blade.php --- */
+.b-post-film-card__status {
+    margin-left: auto;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #eef0fe;
+    color: #7367f0;
+    font-size: 12px;
+    font-weight: 700;
+}
+.b-post-film-card__original {
+    margin-top: -4px;
+    font-size: 14px;
+    font-style: italic;
+    color: #8b8b99;
+}
+.b-post-film-card__badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.b-post-film-card__badge,
+.b-post-film-card__imdb,
+.b-post-film-card__my-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+.b-post-film-card__badge {
+    background: #f3f4f9;
+    color: #3d4056;
+}
+.b-post-film-card__imdb {
+    background: #fff4d1;
+    color: #6b4e00;
+}
+.b-post-film-card__imdb b {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #f5c518;
+    color: #000;
+    font-size: 11px;
+    font-weight: 800;
+}
+.b-post-film-card__my-rating {
+    font-weight: 700;
+}
+.b-post-film-card__my-rating small {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: .7;
+}
+.b-post-film-card__my-rating--high {
+    background: #e9f7ef;
+    color: #1d7a45;
+}
+.b-post-film-card__my-rating--mid {
+    background: #fff1e0;
+    color: #a35a00;
+}
+.b-post-film-card__my-rating--low {
+    background: #fdeeee;
+    color: #b9322a;
+}
+.b-post-film-card__vibes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-post-film-card__vibe {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 20px;
+    background: #f1edfe;
+    color: #5735d6;
+    font-size: 12px;
+    font-weight: 600;
+}
+.b-post-film-card__vibe--more {
+    background: #f3f4f9;
+    color: #8b8b99;
+}
+.b-post-film-card__facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 14px;
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+.b-post-film-card__facts dt {
+    font-weight: 600;
+    color: #8b8b99;
+}
+.b-post-film-card__facts dd {
+    margin: 0;
+    color: #3d4056;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.b-post-film-card__description {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #4a4d63;
+}
+.b-post-film-card__verdict {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px 20px;
+}
+.b-post-film-card__verdict-title {
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #3d4056;
+}
+.b-post-film-card__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #4a4d63;
+}
+.b-post-film-card__list li {
+    position: relative;
+    padding-left: 20px;
+    margin-bottom: 3px;
+}
+.b-post-film-card__list li::before {
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+}
+.b-post-film-card__list--pros li::before {
+    content: '✓';
+    color: #1d7a45;
+}
+.b-post-film-card__list--cons li::before {
+    content: '✕';
+    color: #b9322a;
+}
+
+/* --- страница "Группа постов" (/cabinet/posts/groups/{id}) — перетаскивание
    порядка постов внутри группы (jQuery UI Sortable, уже загружен глобально) --- */
 .b-post-group {
     font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
@@ -1936,6 +2089,54 @@ margin: 0 0 20px 0;
 
 .b-card__footer {
     margin: 10px 15px 0;
+}
+
+/* сводка фильма на карточке "Все посты" (parts/film_summary.blade.php);
+   бейджи IMDb/оценки — .b-post-film-card__* (см. карточку фильма ниже) */
+.b-card__film {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 10px 15px 0;
+    line-height: 1.4;
+}
+.b-card__film-meta {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #6e7285;
+}
+.b-card__film-meta i {
+    margin-right: 3px;
+    color: #9aa1ac;
+}
+.b-card__film-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-card__film-badges .b-post-film-card__imdb,
+.b-card__film-badges .b-post-film-card__my-rating {
+    height: 24px;
+    padding: 0 8px;
+    font-size: 12px;
+}
+.b-card__film-status {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 20px;
+    background: #eef0fe;
+    color: #7367f0;
+    font-size: 12px;
+    font-weight: 700;
+}
+.b-card__film-genres {
+    font-size: 12.5px;
+    color: #8b8b99;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .b-card__footer .btn {
@@ -2494,7 +2695,7 @@ margin: 0 0 20px 0;
     border-color: #5e50e0;
 }
 
-/* Страница /admin_panel/hashtags — список хештегов по алфавиту */
+/* Страница /cabinet/hashtags — список хештегов по алфавиту */
 .b-hashtags-index {
     padding: 20px 25px 40px;
 }
@@ -2655,13 +2856,13 @@ margin: 0 0 20px 0;
     }
 }
 
-/* Виджет "Связанные хештеги" на странице /admin_panel/hashtags/{id}/edit */
+/* Виджет "Связанные хештеги" на странице /cabinet/hashtags/{id}/edit */
 .b-hashtags-edit__related-field {
     position: relative;
     max-width: 500px;
 }
 
-/* Панель "Изображения поста" на странице /admin_panel/posts/{id}/edit */
+/* Панель "Изображения поста" на странице /cabinet/posts/{id}/edit */
 .b-post-images__list {
     display: flex;
     flex-wrap: wrap;
@@ -5883,7 +6084,7 @@ margin: 0 0 20px 0;
 }
 
 /* ============ Мой список подарков (My Gift List) ============ */
-/* Вёрстка страницы списка (/admin_panel/wishlists) — по макету Claude Design
+/* Вёрстка страницы списка (/cabinet/wishlists) — по макету Claude Design
    (тот же язык, что и "База контактов": Manrope, фиолетовый #7367f0, карточки
    со скруглением и мягкой тенью на hover). Страница одного вишлиста
    (wishlists/show.blade.php) сюда не относится — там свой, более ранний стиль. */
@@ -7183,7 +7384,7 @@ margin: 0 0 20px 0;
 }
 
 /* Поп-ап выбора имени архива при экспорте изображений (см. #modal-export-images
-   на странице /admin_panel/posts) */
+   на странице /cabinet/posts) */
 .js-export-images__suggestions {
     display: flex;
     flex-wrap: wrap;
@@ -7205,7 +7406,7 @@ margin: 0 0 20px 0;
 }
 
 /* Поп-ап выбора при найденном дубликате изображения меньшего размера в другом посте
-   (см. #modal-duplicate-image-choice на странице /admin_panel/posts/{id}/edit) */
+   (см. #modal-duplicate-image-choice на странице /cabinet/posts/{id}/edit) */
 .b-duplicate-choice__compare {
     display: flex;
     gap: 20px;

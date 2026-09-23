@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Http\Controllers\Admin\Packages\UploadImageController;
+use App\Http\Controllers\User\Packages\UploadImageController;
 use App\Models\Post;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;

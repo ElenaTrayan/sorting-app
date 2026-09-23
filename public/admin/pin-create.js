@@ -1,4 +1,4 @@
-// Страница "Добавить пин" (/admin_panel/posts/create) — по макету Claude Design
+// Страница "Добавить пин" (/cabinet/posts/create) — по макету Claude Design
 // (артефакт 2fgoNE9x9nHsAR4vY3siPk). Здесь только то, что реально новое в этой
 // вёрстке: карточки выбора типа (замена dropdown-меню из admin.js), сворачивание
 // секции парсинга, кнопка "Выбрать файл" в дропзоне, живой предпросмотр и
@@ -20,14 +20,19 @@
     };
 
     // ===== Тип пина: карточки вместо старого dropdown-меню =====
-    // Тип нигде не сохраняется на сервере (в таблице posts нет такого поля) —
-    // как и раньше, он только переключает видимость доп. полей (сейчас это
-    // только блок фильма, #tab-film) и подписывает предпросмотр.
+    // Сам тип в таблице posts не хранится — он переключает видимость доп. полей
+    // (сейчас это только блок фильма, #tab-film), подписывает предпросмотр и уходит
+    // с формой скрытым pin_type: для "film" сервер сохраняет поля фильма (post_films).
     var typeButtons = root.querySelectorAll('.js-pin-types .b-pin-type');
     var tabBlocks = root.querySelectorAll('.b-parsing-type-blocks > div');
     var previewTypeEl = root.querySelector('.js-pin-preview-type');
+    var pinTypeInput = document.getElementById('pin-type');
 
     function selectType(type) {
+        // уходит с формой: для "film" PostController сохраняет поля фильма в post_films
+        if (pinTypeInput) {
+            pinTypeInput.value = type;
+        }
         typeButtons.forEach(function (btn) {
             btn.classList.toggle('is-active', btn.getAttribute('data-type') === type);
         });

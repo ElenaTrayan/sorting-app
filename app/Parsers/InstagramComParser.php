@@ -2,7 +2,7 @@
 
 namespace App\Parsers;
 
-use App\Http\Controllers\Admin\Packages\UploadImageController;
+use App\Http\Controllers\User\Packages\UploadImageController;
 use Illuminate\Support\Facades\Http;
 
 class InstagramComParser extends BaseParser
@@ -42,13 +42,13 @@ class InstagramComParser extends BaseParser
             //dd($imgElement);
             $test[] = $imgElement->getAttribute('src');
         }
-        dd($test);
+        //dd($test);
 
         //dd($this->divElements);
         foreach ($this->divElements as $divElement) {
             if ($divElement->hasAttribute('class') && strripos($divElement->getAttribute('class'), '_aagv') !== false) {
                 $elements = $divElement->getElementsByTagName('img');
-                dd($elements);
+                //dd($elements);
 //                foreach ($elements as $element) {
 //                    if ($element->hasAttribute('class') && strripos($element->getAttribute('class'), 'film-left__flex') !== false) {
 //                        // Парсим MPAA рейтинг фильма

@@ -69,6 +69,16 @@ class Post extends Model
         return $this->belongsToMany(Hashtag::class, 'hashtag_post', 'post_id', 'hashtag_id');
     }
 
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     *
+     * Данные фильма/сериала (только у пинов типа "Фильм / Сериал")
+     */
+    public function film()
+    {
+        return $this->hasOne(PostFilm::class, 'post_id');
+    }
+
     public function uploadImage()
     {
         $path = $request->file('avatar')->storeAs(

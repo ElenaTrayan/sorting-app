@@ -70,7 +70,8 @@ class RegisterController extends Controller
             'password' => Hash::make($data['password']),
         ]);
 
-        $user->assignRole('user');
+        $user->assignRole(User::ROLE_USER);
+        $user->grantDefaultServices();
 
         return $user;
     }

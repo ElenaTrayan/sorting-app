@@ -45,7 +45,7 @@
     </div>
 
     <div class="wp-items js-wp-items">
-        @include('admin.wishlists.parts.item_cards', ['items' => $wishlist->items, 'isOwner' => false])
+        @include('user.wishlists.parts.item_cards', ['items' => $wishlist->items, 'isOwner' => false])
     </div>
 
     @if ($wishlist->items->isEmpty())
