@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\User\Packages;
 
+use App\Components\AvifImage;
 use App\Http\Controllers\User\DevHelpersContoller;
 use App\Http\Controllers\Controller;
 use App\Models\Post;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
 use App\Models\PostsCategory;
 use Jenssegers\ImageHash\Hash;
@@ -23,6 +25,12 @@ class UploadImageController extends Controller
 {
     const TEMP_IMAGE_PATH = 'app/public/temp_directory/'; //temporary image path
     const IMAGE_PATH = 'images/';
+
+    // метка временного имени: "photo--k3x9q2" — файл с таким же именем уже лежит во временной папке (другая
+    // вкладка с формой), см. stageFileToTempDirectory(). "--" в обычных именах не бывает (str_slug схлопывает
+    // дефисы), поэтому метку можно безошибочно убрать при сохранении в пост (resolveFreeTargetNames)
+    private const TEMP_NAME_MARKER = '--';
+    private const TEMP_NAME_MARKER_PATTERN = '/--[a-z0-9]{6}$/';
 
     private const MAX_IMAGE_MEDIUM_WIDTH = '800';
     private const MAX_IMAGE_MEDIUM_HEIGHT = '800';
@@ -46,8 +54,6 @@ class UploadImageController extends Controller
 
     /* Error messages */
     private const EM_ERROR_LOADING_IMAGE = 'Ошибка при загрузке изображения.';
-    private const EM_FILE_EXIST_IN_TEMP_DERICTORY = 'Невозможно завершить операцию. ' .
-    'Файл с таким именем уже существует во временной папке. Пожалуйста, переименуйте текущий файл.';
     private const EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY = 'Ошибка при сохранении изображения во временную папку.';
     private const EM_NO_FILES_PROVIDED_FOR_UPLOAD = 'No files were provided for upload.';
     //получить размер изображения - Storage::size($path);
@@ -63,7 +69,7 @@ class UploadImageController extends Controller
     {
         try {
             request()->validate([
-                'files.*' => 'mimes:jpeg,png,jpg,gif,svg,webp',
+                'files.*' => 'mimes:jpeg,png,jpg,gif,svg,webp,avif',
             ]);
 
             if (!request()->has('files')) {
@@ -71,13 +77,37 @@ class UploadImageController extends Controller
             }
 
             $images = [];
+            // картинки, уже загруженные на форме этой вкладки (её sessionStorage "images") — только их файлы
+            // можно переиспользовать при повторной загрузке, см. stageFileToTempDirectory()
+            $ownStagedNames = array_values(array_filter((array)request()->input('staged_names', []), 'is_string'));
+
+            // Картинку, похожая на которую уже стоит на этой же форме (ещё не сохранённую), на форму не пускаем.
+            // Дубли среди картинок уже добавленных постов ищутся при сохранении поста (PostController::store)
+            $rejected = [];
+            $formHashes = $this->stagedImageHashes($ownStagedNames);
 
             foreach (request()->file('files') as $file) {
-                $imageName = $this->stageFileToTempDirectory($file);
-                $images[$imageName['name']] = $imageName['data'];
+                $staged = $this->stageFileToTempDirectory($file, $ownStagedNames);
+
+                // тот же файл повторно загрузили на эту же форму — он уже проверен и стоит на ней
+                if (!in_array($staged['name'], $ownStagedNames, true)) {
+                    $reason = $this->stagedDuplicateReason($staged['data'], $formHashes);
+                    if ($reason !== null) {
+                        $this->deleteStagedImage($staged['data']);
+                        $rejected[] = ['file' => $file->getClientOriginalName()] + $reason;
+                        continue;
+                    }
+                }
+
+                $images[$staged['name']] = $staged['data'];
             }
 
-            return response()->json(['status' => true, 'images' => $images]);
+            return response()->json([
+                'status' => true,
+                // (object): пустой список должен уйти как {}, а не [] — форма складывает его со своим объектом картинок
+                'images' => (object)$images,
+                'rejected' => $rejected,
+            ]);
 
         } catch (Exception $exception) {
             //TODO - Переопределить Exception, как в Praxis
@@ -93,16 +123,152 @@ class UploadImageController extends Controller
     }
 
     /**
+     * Хеши и размеры картинки для сравнения "та же ли это картинка" (см. DUPLICATE_*_THRESHOLD)
+     *
+     * @param string $absolutePath
+     * @return array|null ['phash', 'perceptual', 'width', 'height']; null — не картинка или хеш не посчитать
+     */
+    private function imageFingerprint(string $absolutePath): ?array
+    {
+        $size = file_exists($absolutePath) ? @getimagesize($absolutePath) : false;
+        if (!$size || empty($size[0]) || empty($size[1])) {
+            return null;
+        }
+
+        try {
+            return [
+                'phash' => self::computeImageHash($absolutePath),
+                'perceptual' => self::computePerceptualHash($absolutePath),
+                'width' => $size[0],
+                'height' => $size[1],
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Отпечатки картинок, уже стоящих на форме создания (их файлы — во временной папке пользователя)
+     *
+     * @param string[] $stagedNames имена картинок формы
+     * @return array[] см. imageFingerprint()
+     */
+    private function stagedImageHashes(array $stagedNames): array
+    {
+        if (!$stagedNames) {
+            return [];
+        }
+
+        $disk = Storage::disk('local');
+        $hashes = [];
+        foreach ($disk->files('temp_directory/' . Auth::id()) as $path) {
+            // оригинал называется ровно как картинка на форме; у small/medium копий в имени ещё и размер
+            if (!in_array(pathinfo($path, PATHINFO_FILENAME), $stagedNames, true)) {
+                continue;
+            }
+            $fingerprint = $this->imageFingerprint($disk->path($path));
+            if ($fingerprint !== null) {
+                $hashes[] = $fingerprint;
+            }
+        }
+
+        return $hashes;
+    }
+
+    /**
+     * Почему только что загруженную на форму создания картинку нельзя на ней оставить: такая уже стоит
+     * на этой же форме. С картинками уже добавленных постов здесь не сравниваем — это делается при
+     * сохранении поста (PostController::findDuplicatesBeforeCreate), там пользователь и выбирает, что делать.
+     * Картинку, которая проверку прошла, запоминает в $formHashes — следующие файлы той же загрузки
+     * сравниваются и с ней
+     *
+     * @param array $image данные загруженной картинки (image_path, ...)
+     * @param array[] $formHashes отпечатки картинок формы, см. stagedImageHashes()
+     * @return array|null ['message' => ...]; null — картинка новая
+     */
+    private function stagedDuplicateReason(array $image, array &$formHashes): ?array
+    {
+        $fingerprint = $this->imageFingerprint(Storage::disk('local')->path('/' . $image['image_path']));
+        if ($fingerprint === null) {
+            return null; // хеш не посчитать — как и при сохранении поста, загрузку из-за этого не блокируем
+        }
+
+        foreach ($formHashes as $other) {
+            if ($this->isSameImage($fingerprint, $other)) {
+                return ['message' => 'такая картинка уже добавлена на эту форму'];
+            }
+        }
+
+        $formHashes[] = $fingerprint;
+
+        return null;
+    }
+
+    /**
+     * Те же условия "это одна и та же картинка", что и в findDuplicateByHash(): похожие пропорции и оба хеша
+     *
+     * @param array $a см. imageFingerprint()
+     * @param array $b
+     * @return bool
+     */
+    private function isSameImage(array $a, array $b): bool
+    {
+        $aspectA = $a['width'] / $a['height'];
+        $aspectB = $b['width'] / $b['height'];
+        if (max($aspectA, $aspectB) / min($aspectA, $aspectB) > self::DUPLICATE_MAX_ASPECT_RATIO) {
+            return false;
+        }
+
+        return Hash::fromBits($a['phash'])->distance(Hash::fromBits($b['phash'])) <= self::DUPLICATE_DIFF_HASH_THRESHOLD
+            && Hash::fromBits($a['perceptual'])->distance(Hash::fromBits($b['perceptual'])) <= self::DUPLICATE_PERCEPTUAL_HASH_THRESHOLD;
+    }
+
+    /**
+     * Удаляет из временной папки картинку, которую на форму не пустили, вместе с её small/medium копиями
+     *
+     * @param array $image данные загруженной картинки (image_name, ...)
+     * @return void
+     */
+    private function deleteStagedImage(array $image): void
+    {
+        if (empty($image['image_name'])) {
+            return;
+        }
+
+        $disk = Storage::disk('local');
+        // оригинал называется как сама картинка, копии — "<имя>_<ширина>_<высота>"; ищем по имени в своей
+        // временной папке, а не по путям из данных: у копий там лежит папка, а не путь к файлу
+        $own = '/^' . preg_quote($image['image_name'], '/') . '(_\d+_\d+)?$/u';
+        foreach ($disk->files('temp_directory/' . Auth::id()) as $path) {
+            if (preg_match($own, pathinfo($path, PATHINFO_FILENAME))) {
+                $disk->delete($path);
+            }
+        }
+    }
+
+    /**
      * Сохраняет один загруженный файл во временную папку пользователя и генерирует
      * для него small/medium копии. Вынесено из uploadImagesToTempDirectory(), чтобы
      * этой же логикой мог пользоваться и одиночный "загрузить и сразу привязать к посту".
      *
+     * Временная папка у пользователя одна на все вкладки, поэтому файл с тем же именем может принадлежать
+     * форме в другой вкладке (или остаться после неудачного создания поста). Переиспользуем его только если
+     * это тот же файл, уже загруженный на этой же форме ($ownStagedNames) — тогда превью не задваивается.
+     * Иначе — новое имя с временной меткой ("photo--k3x9q2"), чтобы вкладки не перезаписывали и не удаляли
+     * файлы друг друга; при сохранении в пост метка убирается (resolveFreeTargetNames)
+     *
      * @param UploadedFile $file
+     * @param string[] $ownStagedNames - имена картинок, уже загруженных на форме этой вкладки
      * @return array{name: string, data: array}
      * @throws Exception
      */
-    public function stageFileToTempDirectory(UploadedFile $file): array
+    public function stageFileToTempDirectory(UploadedFile $file, array $ownStagedNames = []): array
     {
+        // AVIF сразу конвертируем в WebP (почему — см. AvifImage) и дальше работаем с ним как с обычным .webp
+        if (AvifImage::isAvif($file)) {
+            $file = AvifImage::toWebp($file);
+        }
+
         //Returns the original file name
         $originalImageName = $file->getClientOriginalName();
 
@@ -118,23 +284,19 @@ class UploadImageController extends Controller
         $imageNameWithExtension = $imageName . '.' . $path_info['extension'];
         $tempPathForImage = 'temp_directory' . '/' . $this->userId;
 
-        /* проверяем есть ли уже файл с таким именем в папке */
-        /* exists возвращает true/false */
-        if (Storage::disk('local')->exists($tempPathForImage . '/' . $imageNameWithExtension)) {
-            //get uploaded file size in bytes
-            $uploadedFileSize = filesize($file);
+        $disk = Storage::disk('local');
+        if ($disk->exists($tempPathForImage . '/' . $imageNameWithExtension)) {
+            // тот же файл повторно загрузили на этой же форме — перезаписываем его тем же содержимым
+            // под тем же именем, на форме превью не задваивается
+            $sameFileOnThisForm = in_array($imageName, $ownStagedNames, true)
+                && filesize($file) === $disk->size($tempPathForImage . '/' . $imageNameWithExtension);
 
-            //get the size of an existing file in bytes
-            $existingFileSize = Storage::disk('local')->size(
-                $tempPathForImage . '/' . $imageNameWithExtension
-            );
-
-            if ($uploadedFileSize === $existingFileSize) {
-                throw new Exception(self::EM_FILE_EXIST_IN_TEMP_DERICTORY);
-            } else {
-                //TODO Возвращаем ответ на форму и показываем пользователю существующий файл с таким же именем
-                $imageName = $imageName . '-' . time();
-                $imageNameWithExtension = $imageName . '.' . $path_info['extension'];
+            if (!$sameFileOnThisForm) {
+                $baseName = $imageName;
+                do {
+                    $imageName = $baseName . self::TEMP_NAME_MARKER . strtolower(Str::random(6));
+                    $imageNameWithExtension = $imageName . '.' . $path_info['extension'];
+                } while ($disk->exists($tempPathForImage . '/' . $imageNameWithExtension));
             }
         }
 
@@ -445,57 +607,61 @@ class UploadImageController extends Controller
     }
 
     /**
-     * удаление изображений из временной папки
+     * Удаление файла из временной папки пользователя (temp_directory/{userId}) — крестик на превью
+     * формы создания поста, отмена при найденном дубликате, убранное видео. Вместе с картинкой удаляются
+     * её уменьшенные копии (name_350_438.jpg, name_800_1000.jpg).
      *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse|void
+     * Раньше файлы искались по шаблону temp_directory/name.ext — без папки пользователя, куда они на самом
+     * деле сохраняются, — ничего не находилось, ответ был "успешно удалено", а файлы копились.
+     *
+     * @param Request $request JSON {name, extension}
+     * @return \Illuminate\Http\JsonResponse
      */
     public function deleteDownloadFile(Request $request)
     {
         try {
-            $content = $request->getContent();
-            $json = json_decode($content);
+            $json = json_decode($request->getContent());
+            $name = (string)($json->name ?? '');
+            $extension = (string)($json->extension ?? '');
 
-            if (!empty($json->name) && !empty($json->extension)) {
-                $name = $json->name;
-                $extension = $json->extension;
-                $pattern = '/^temp_directory\/'. $name . '\.' . $extension . '$/';
-                $pattern2 = '/^temp_directory\/'. $name . '+\_[0-9]{2,6}+\_[0-9]{2,6}+\.' . $extension . '$/';
-
-                //получаем все файлы из папки temp_directory
-                $files = Storage::allFiles('temp_directory');
-
-                $images = 0;
-                $deletedImages = 0;
-                foreach ($files as $file) {
-                    if (preg_match($pattern, $file) || preg_match($pattern2, $file)) {
-                        //var_dump('Проверка пройдена успешно!');
-                        $images += 1;
-
-                        if (Storage::delete($file) === true) {
-                            $deletedImages += 1;
-                            //var_dump('Изображение удалено');
-                        } else {
-                            //var_dump('Ошибка при удалении изображения');
-                        }
-
-                    }
-//                    else {
-//                        var_dump('Проверка не пройдена!');
-//                    }
-                }
-
-                if ($images === $deletedImages) {
-                    return response()->json(['status' => true, 'msg' => "Изображение успешно удалено"]);
-                } else {
-                    return response()->json(['status' => false, 'msg' => "Ошибка при удалении изображения"]);
-                }
-
+            // имя — только сам файл, без путей: удалить можно лишь своё и лишь во временной папке
+            if ($name === '' || $extension === '' || preg_match('/[\/\\\\]|\.\./', $name . $extension)) {
+                return response()->json(['status' => false, 'msg' => 'Ошибка при удалении изображения']);
             }
 
-        } catch (Throwable $e) {
-            return response()->json(['status' => false, 'msg' => "Ошибка при удалении изображения"]);
+            if (!self::deleteStagedImageFiles($name, $extension, (int)Auth::id())) {
+                return response()->json(['status' => false, 'msg' => 'Ошибка при удалении изображения']);
+            }
+
+            // файла уже нет (например, почищен temp:clean) — для формы это тоже успех
+            return response()->json(['status' => true, 'msg' => 'Изображение успешно удалено']);
+        } catch (\Throwable $e) {
+            return response()->json(['status' => false, 'msg' => 'Ошибка при удалении изображения']);
         }
+    }
+
+    /**
+     * Удаляет из временной папки пользователя загруженную картинку со всеми её размерами
+     * (<имя>.jpg, <имя>_350_465.jpg, <имя>_800_1063.jpg). Имя и расширение — только сам файл,
+     * без путей (проверяет вызывающий код).
+     *
+     * @param string $name
+     * @param string $extension
+     * @param int $userId
+     * @return bool false — какой-то из файлов не удалился; файлов уже нет — тоже true
+     */
+    public static function deleteStagedImageFiles(string $name, string $extension, int $userId): bool
+    {
+        $pattern = '/^' . preg_quote($name, '/') . '(_\d{2,6}_\d{2,6})?\.' . preg_quote($extension, '/') . '$/';
+        $disk = Storage::disk('local');
+
+        foreach ($disk->files('temp_directory/' . $userId) as $file) {
+            if (preg_match($pattern, basename($file)) && !$disk->delete($file)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -511,8 +677,13 @@ class UploadImageController extends Controller
             return 'Ошибка при перемещении файла: файл ' . $oldPath . ' не существует';
         }
 
-        if (Storage::move($oldPath, $newPath) === true) {
-            return true;
+        try {
+            if (Storage::move($oldPath, $newPath) === true) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // Flysystem бросает FileExistsException, если файл назначения уже есть
+            return 'Ошибка при перемещении файла: ' . $e->getMessage();
         }
 
         return 'Ошибка при перемещении файла: не удалось переместить файл' . $oldPath . ' в ' . $newPath;
@@ -550,43 +721,54 @@ class UploadImageController extends Controller
     }
 
     /**
-     * @param $imageName
-     * @param $imageExtension
-     * @param $originalOldPath
-     * @param $originalNewPath
-     * @return false|string[]
+     * Подбирает имена для переноса картинки из временной папки в постоянную так, чтобы ни один
+     * из размеров не наткнулся на уже существующий файл: "116" → "116-1" → "116-2"...
+     * Суффикс один на весь комплект: "116_800_800" → "116-1_800_800".
+     *
+     * Раньше на этом месте был checkIfFileExists(): при совпадении имени он переносил временный
+     * оригинал в корень temp_directory, а результат не использовался — оригинал терялся,
+     * medium/small переносились без него, а повторная попытка падала с FileExistsException.
+     *
+     * @param array $image элемент images формы (image_name, image_extension, m_image_name, s_image_name)
+     * @param $userId
+     * @param $categoryId
+     * @return array ['image_name' => ..., 'm_image_name' => ..., 's_image_name' => ...] — без префикса категории
      */
-    private function checkIfFileExists($imageName, $imageExtension, $originalOldPath, $originalNewPath)
+    private function resolveFreeTargetNames(array $image, $userId, $categoryId): array
     {
-        if (Storage::disk('local')->exists($originalNewPath)) {
-            $existsFileSize = Storage::size($originalNewPath);
-            $fileSize = Storage::size($originalOldPath);
+        // временную метку ("photo--k3x9q2", см. stageFileToTempDirectory) в пост не переносим —
+        // в постоянной папке занятость имени решают суффиксы ниже
+        $stagedName = $image['image_name'];
+        $baseName = preg_replace(self::TEMP_NAME_MARKER_PATTERN, '', $stagedName);
+        $disk = Storage::disk('local');
 
-            if ($existsFileSize === $fileSize) {
-                return [
-                    'error' => 'Файл уже существует!'
-                ];
-            } else {
-                //добавляем к имени файла время Unix
-                $imageName =  time() . '_'. $imageName;
-                $newImagePath = '/temp_directory/' . $imageName . '.' . $imageExtension;
+        for ($i = 0; ; $i++) {
+            $suffix = $i === 0 ? '' : '-' . $i;
+            $names = ['image_name' => $baseName . $suffix];
 
-                $moveImage = $this->moveImage($originalOldPath, $newImagePath);
+            foreach (['m_image_name', 's_image_name'] as $key) {
+                if (empty($image[$key])) {
+                    continue;
+                }
+                // "116_800_800" → "116-1_800_800", "116--k3x9q2_800_800" → "116_800_800"
+                $names[$key] = strpos($image[$key], $stagedName) === 0
+                    ? $baseName . $suffix . substr($image[$key], strlen($stagedName))
+                    : $image[$key] . $suffix;
+            }
 
-                if ($moveImage) {
-                    return [
-                        'image_name' => $imageName,
-                        'new_image_path' => $newImagePath
-                    ];
-                } elseif (is_string($moveImage)) {
-                    return [
-                        'error' => $moveImage
-                    ];
+            $taken = false;
+            foreach ($names as $name) {
+                $target = self::generateImageNameAndPath($name, $image['image_extension'], $userId, $categoryId);
+                if ($disk->exists($target['image_path'] . '/' . $target['image_name'])) {
+                    $taken = true;
+                    break;
                 }
             }
-        }
 
-        return false;
+            if (!$taken) {
+                return $names;
+            }
+        }
     }
 
 //    /**
@@ -784,7 +966,7 @@ class UploadImageController extends Controller
             // === проверка на визуальный дубликат уже существующих изображений ===
             if (!$forceAdd) {
                 if ($phash !== null && $perceptualHash !== null) {
-                    $duplicate = self::findDuplicateByHash($phash, $perceptualHash, $newWidth, $newHeight);
+                    $duplicate = self::findDuplicateByHash($phash, $perceptualHash, $newWidth, $newHeight, (int)$userId);
 
                     if ($duplicate !== null) {
                         $duplicateArea = $duplicate->width * $duplicate->height;
@@ -830,26 +1012,21 @@ class UploadImageController extends Controller
             }
             // === конец проверки на дубликат ===
 
+            // имена в постоянной папке: если там уже есть файл с таким именем (другая картинка
+            // с тем же именем, загруженная сегодня), берём "<имя>-1", "<имя>-2"... — сразу для
+            // всех размеров, чтобы original/medium/small остались одним комплектом.
+            // Пути во временной папке ($image[...]) при этом не меняются.
+            $targetNames = $this->resolveFreeTargetNames($image, $userId, $categoryId);
+
             //user_id / category parent_id / category parent_id - category_id - image_title - image_size - расширение файла
             $originalNewPath = self::generateImageNameAndPath(
-                $image['image_name'],
+                $targetNames['image_name'],
                 $image['image_extension'],
                 $userId,
                 $categoryId,
             );
             //["image_name"]=> string(29) "0_0_faceapp-1684793403208.jpg"
             // ["image_path"]=> string(22) "/images/1/0/2024-06-01"
-
-            //var_dump($originalOldPath);
-            //var_dump($originalNewPath['image_path'] . '/' . $originalNewPath['image_name']);
-
-            //проверяем есть ли уже файл с таким именем в папке
-            $checkIfOriginalFileExists = $this->checkIfFileExists(
-                $originalNewPath['image_name'],
-                $image['image_extension'],
-                $originalOldPath,
-                $originalNewPath['image_path'] . '/' . $originalNewPath['image_name']
-            );
 
 //            if (!empty($checkIfOriginalFileExists)) {
 //                if (!empty($checkIfOriginalFileExists['new_image_path']) &&
@@ -884,7 +1061,7 @@ class UploadImageController extends Controller
                 // иначе он не совпадает с тем, куда uploadImagesToTempDirectory реально его сохраняет
                 $mediumOldPath = '/temp_directory/' . $userId . '/' . $image['m_image_name'] . '.' . $image['image_extension'];
                 $mediumNewPath = self::generateImageNameAndPath(
-                    $image['m_image_name'],
+                    $targetNames['m_image_name'],
                     $image['image_extension'],
                     $userId,
                     $categoryId,
@@ -894,13 +1071,6 @@ class UploadImageController extends Controller
 //                    . $categoryParentId . '/' . $categoryParentId . '_'
 //                    . $categoryId . '_' . $image['m_image_name'] . '.' . $image['image_extension'];
 //                $mediumOldPath = '/' . $image['m_image_path']; // '/temp_directory/' . $image['m_image_name'] . '.' . $image['image_extension'];
-
-                $checkIfMediumFileExists = $this->checkIfFileExists(
-                    $mediumNewPath['image_name'],
-                    $image['image_extension'],
-                    $mediumOldPath,
-                    $mediumNewPath['image_path'] . '/' . $mediumNewPath['image_name']
-                );
 
 //                if (!empty($checkIfMediumFileExists)) {
 //                    if (!empty($checkIfMediumFileExists['new_image_path'])
@@ -934,19 +1104,12 @@ class UploadImageController extends Controller
             //OLD - if (!empty($image['small_name'])) {
             if (!empty($image['s_image_name'])) {
                 $smallNewPath = self::generateImageNameAndPath(
-                    $image['s_image_name'],
+                    $targetNames['s_image_name'],
                     $image['image_extension'],
                     $userId,
                     $categoryId,
                 );
                 $smallOldPath = '/temp_directory/' . $userId . '/' . $image['s_image_name']  . '.' . $image['image_extension'];
-
-                $checkIfSmallFileExists = $this->checkIfFileExists(
-                    $smallNewPath['image_name'],
-                    $image['image_extension'],
-                    $smallOldPath,
-                    $smallNewPath['image_path'] . '/' . $smallNewPath['image_name']
-                );
 
 //                if (!empty($checkIfSmallFileExists)) {
 //                    if (!empty($checkIfSmallFileExists['new_image_path'])
@@ -1272,9 +1435,11 @@ class UploadImageController extends Controller
      * @param string $perceptualHash
      * @param int $width
      * @param int $height
+     * @param int $userId ищем только среди постов этого пользователя — чужие картинки
+     *        не должны ни блокировать загрузку, ни показываться (номер чужого поста)
      * @return object|null объект {id, post_id, image_name, path, width, height, phash, perceptual_hash, distance} либо null
      */
-    public static function findDuplicateByHash(string $diffHash, string $perceptualHash, int $width, int $height)
+    public static function findDuplicateByHash(string $diffHash, string $perceptualHash, int $width, int $height, int $userId)
     {
         $needleDiff = Hash::fromBits($diffHash);
         $needlePerceptual = Hash::fromBits($perceptualHash);
@@ -1283,7 +1448,15 @@ class UploadImageController extends Controller
         $closest = null;
         $closestDistance = null;
 
-        foreach (DB::table('image_hashes')->get() as $candidate) {
+        $candidates = DB::table('image_hashes')
+            ->join('posts', 'posts.id', '=', 'image_hashes.post_id')
+            ->where('posts.user_id', $userId)
+            // картинки постов из корзины дубликатами не считаем: такой пост не открыть и не сравнить
+            ->whereNull('posts.deleted_at')
+            ->select('image_hashes.*')
+            ->get();
+
+        foreach ($candidates as $candidate) {
             // старые записи без второго хеша (до бэкфилла) в сравнении не участвуют —
             // одного хеша недостаточно, см. комментарий у констант
             if (empty($candidate->perceptual_hash) || empty($candidate->width) || empty($candidate->height)) {
@@ -1350,6 +1523,112 @@ class UploadImageController extends Controller
     }
 
     /**
+     * Проверка загруженной во временную папку картинки на дубликат — без побочных эффектов
+     * (файл остаётся на месте, в отличие от saveImageForPost(), который сразу переносит
+     * картинку в постоянную папку). Нужна при создании поста, чтобы сначала спросить
+     * пользователя обо всех совпадениях и только потом что-то сохранять.
+     *
+     * @param array $image элемент из images формы создания (image_name, image_path, ...)
+     * @param int $userId
+     * @return array|null ['duplicate' => object (см. findDuplicateByHash), 'width', 'height', 'file_size'] либо null
+     */
+    public static function findDuplicateForStagedImage(array $image, int $userId): ?array
+    {
+        if (empty($image['image_path'])) {
+            return null;
+        }
+
+        $absolutePath = Storage::disk('local')->path('/' . $image['image_path']);
+        $size = file_exists($absolutePath) ? getimagesize($absolutePath) : false;
+        if (!$size) {
+            return null;
+        }
+
+        try {
+            $phash = self::computeImageHash($absolutePath);
+            $perceptualHash = self::computePerceptualHash($absolutePath);
+        } catch (\Throwable $e) {
+            return null; // не смогли посчитать хеш — как и в saveImageForPost(), не блокируем загрузку
+        }
+
+        $duplicate = self::findDuplicateByHash($phash, $perceptualHash, $size[0], $size[1], $userId);
+        if ($duplicate === null) {
+            return null;
+        }
+
+        return [
+            'duplicate' => $duplicate,
+            'width' => $size[0],
+            'height' => $size[1],
+            'file_size' => filesize($absolutePath) ?: 0,
+        ];
+    }
+
+    /**
+     * Заменяет (или просто удаляет, если $saved = null) одну картинку поста вместе со всеми её
+     * размерами: файлы старой удаляются с диска, новая встаёт на её место в original/medium/small
+     * (порядок важен — первая картинка это обложка), хеш в image_hashes переписывается.
+     * В отличие от deletePostImages(), понимает и старый формат "одна картинка" ({name, path}).
+     *
+     * @param Post $post
+     * @param string $oldName ключ картинки в original_image (он же image_name в image_hashes)
+     * @param array|null $saved результат saveImageForPost() для новой картинки
+     * @return void
+     */
+    public function swapPostImage(Post $post, string $oldName, ?array $saved): void
+    {
+        // medium/small лежат под ключами вида "<имя>_800_1063" / "<имя>_350_465.jpg"
+        $baseName = pathinfo($oldName, PATHINFO_FILENAME);
+        $isOldEntry = function ($key, $column) use ($oldName, $baseName) {
+            if ($column === 'original_image') {
+                return $key === $oldName;
+            }
+            return (bool)preg_match('/^' . preg_quote($baseName, '/') . '(_\d+_\d+)?(\.\w+)?$/u', $key);
+        };
+
+        foreach (['original_image', 'medium_image', 'small_image'] as $column) {
+            $items = self::normalizeImages($post->getAttribute($column));
+            $newEntry = $saved[$column] ?? null;
+
+            $result = [];
+            $inserted = false;
+            foreach ($items as $key => $item) {
+                if (!$isOldEntry((string)$key, $column)) {
+                    $result[$key] = $item;
+                    continue;
+                }
+                if (!empty($item['path'])) {
+                    $this->deleteImageByPath($item['path']);
+                }
+                if ($newEntry && !$inserted) {
+                    $result[$newEntry['name']] = $newEntry;
+                    $inserted = true;
+                }
+            }
+            if ($newEntry && !$inserted) {
+                $result[$newEntry['name']] = $newEntry;
+            }
+
+            $post->setAttribute($column, empty($result) ? null : json_encode($result));
+        }
+
+        $post->save();
+
+        self::deleteImageHash($post->id, $oldName);
+        if (!empty($saved['phash'])) {
+            self::storeImageHash(
+                $post->id,
+                $saved['original_image']['name'],
+                $saved['original_image']['path'],
+                $saved['width'],
+                $saved['height'],
+                $saved['phash'],
+                $saved['perceptual_hash'] ?? null
+            );
+        }
+    }
+
+    /**
      * Удаляет запись о хеше изображения (при удалении изображения у поста).
      *
      * @param int $postId
@@ -1362,6 +1641,38 @@ class UploadImageController extends Controller
             ->where('post_id', $postId)
             ->where('image_name', $imageName)
             ->delete();
+    }
+
+    /**
+     * Пересчитывает хеши и размеры изображения после того, как его содержимое изменилось
+     * (поворот/отражение на странице редактирования) — имя и путь те же.
+     *
+     * @param int $postId
+     * @param string $imageName
+     * @param string $absolutePath
+     * @return void
+     */
+    public static function refreshImageHash(int $postId, string $imageName, string $absolutePath): void
+    {
+        try {
+            $size = getimagesize($absolutePath);
+            if (!$size) {
+                return;
+            }
+
+            DB::table('image_hashes')
+                ->where('post_id', $postId)
+                ->where('image_name', $imageName)
+                ->update([
+                    'width' => $size[0],
+                    'height' => $size[1],
+                    'phash' => self::computeImageHash($absolutePath),
+                    'perceptual_hash' => self::computePerceptualHash($absolutePath),
+                    'updated_at' => now(),
+                ]);
+        } catch (\Throwable $e) {
+            // не смогли посчитать хеш — как и при загрузке, на саму картинку это не влияет
+        }
     }
 
     /**

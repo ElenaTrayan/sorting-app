@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Services\Integrations\IntegrationManager;
 use App\Services\Stock\MockPriceOfferProvider;
 use App\Services\Stock\PriceOfferProviderInterface;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -32,6 +33,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        //
+        // @checked(...) / @selected(...) появились только в Laravel 9, а проект на 8.x — без этого
+        // шаблоны ("Мои запасы", "Настройки ИИ") печатали их как текст и ничего не отмечали
+        Blade::directive('checked', function ($condition) {
+            return "<?php if ({$condition}): echo 'checked'; endif; ?>";
+        });
+        Blade::directive('selected', function ($condition) {
+            return "<?php if ({$condition}): echo 'selected'; endif; ?>";
+        });
     }
 }

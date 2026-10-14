@@ -32,6 +32,20 @@
             </a>
 
             <div class="b-post-show-header__actions">
+                {{-- пин "Одежда" — в "Мой гардероб": форма новой вещи с картинкой поста или уже добавленная вещь
+                     (Wardrobe\ItemController::index, ?from_post / ?edit_item) --}}
+                @if ($post->type === \App\Models\Post::TYPE_CLOTHES && auth()->user()->hasService('wardrobe'))
+                    @php $wardrobeItem = $post->wardrobeItems()->first(['id']); @endphp
+                    @if ($wardrobeItem)
+                        <a href="{{ route('wardrobe.items.index', ['edit_item' => $wardrobeItem->id]) }}" class="b-post-show__btn b-post-show__btn--done">
+                            <i class="fas fa-check"></i> В гардеробе
+                        </a>
+                    @else
+                        <a href="{{ route('wardrobe.items.index', ['from_post' => $post->id]) }}" class="b-post-show__btn b-post-show__btn--accent">
+                            <i class="fas fa-tshirt"></i> В гардероб
+                        </a>
+                    @endif
+                @endif
                 <a href="{{ route('posts.edit', $post->id) }}" class="b-post-show__btn">
                     <i class="fas fa-pencil-alt"></i> Редактировать
                 </a>
@@ -149,7 +163,7 @@
                                     <div class="b-post-show__prose">{!! $post->content !!}</div>
                                 @endif
                             </div>
-                        @elseif (!$post->film)
+                        @elseif (!$post->film && !$post->clothes)
                             <div class="b-post-show__empty-text">
                                 <div class="b-post-show__empty-text-icon"><i class="fas fa-align-left"></i></div>
                                 <div>
@@ -163,6 +177,16 @@
                         @if ($post->film)
                             <div class="b-post-show__divider"></div>
                             @include('user.posts.parts.film_card', ['film' => $post->film])
+                        @endif
+
+                        @if ($post->clothes)
+                            <div class="b-post-show__divider"></div>
+                            @include('user.posts.parts.clothes_card', ['clothes' => $post->clothes])
+                        @endif
+
+                        @if (!empty($post->palette))
+                            <div class="b-post-show__divider"></div>
+                            @include('user.posts.parts.palette', ['palette' => $post->palette, 'postId' => $post->id])
                         @endif
 
                         <div class="b-post-show__divider"></div>
@@ -197,6 +221,24 @@
                             </div>
                         @endif
 
+                        {{-- пост прикреплён к фильму как кадр/промо/видео (блок "Материалы" на странице фильма) --}}
+                        @if ($post->filmPost)
+                            <div class="b-post-show__divider"></div>
+
+                            <div class="b-post-show__section">
+                                <div class="b-post-show__section-head">
+                                    <i class="fas fa-film"></i>
+                                    <span class="b-post-show__section-label">Фильм</span>
+                                </div>
+                                <div class="b-post-show__tags">
+                                    <a href="{{ route('posts.show', $post->filmPost->id) }}" class="b-post-show__film-chip">
+                                        {{ $post->filmPost->title ?: 'Без названия' }}
+                                        <small>{{ \App\Models\Post::MATERIAL_SECTION_LABELS[$post->filmMaterialSection()] }}</small>
+                                    </a>
+                                </div>
+                            </div>
+                        @endif
+
                         @if ($groupCount > 1)
                             <div class="b-post-show__divider"></div>
 
@@ -208,7 +250,7 @@
                                 </div>
                                 <div class="b-post-show__tags">
                                     <a href="{{ route('posts.groups.show', $post->group_id) }}" class="b-post-show__tag-add">
-                                        <i class="fas fa-arrows-alt-v"></i> Управлять порядком
+                                        <i class="fas fa-layer-group"></i> Открыть группу
                                     </a>
                                 </div>
                             </div>
@@ -217,6 +259,11 @@
 
                 </div>
             </div>
+
+            {{-- пин "Фильм / Сериал" — прикреплённые к нему посты (кадры, промо, видео) --}}
+            @if ($filmMaterials !== null)
+                @include('user.posts.parts.film_materials', ['film' => $post, 'sections' => $filmMaterials])
+            @endif
 
         </div>
     </div><!-- /.container-fluid -->
@@ -230,6 +277,38 @@
 <script>
     Fancybox.bind('[data-fancybox="post-gallery"]', {
         infinite: false
+    });
+
+    // палитра: клик по цвету копирует HEX. navigator.clipboard есть только на https/localhost —
+    // на http://sorting.local его нет, поэтому запасной вариант через скрытое поле и execCommand
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('.js-copy-color');
+        if (!button) {
+            return;
+        }
+        var hex = button.getAttribute('data-hex');
+        var done = function () {
+            toastr.success('Скопировано: ' + hex);
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(hex).then(done);
+            return;
+        }
+        var field = document.createElement('textarea');
+        field.value = hex;
+        field.setAttribute('readonly', '');
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        try {
+            if (document.execCommand('copy')) {
+                done();
+            }
+        } finally {
+            field.remove();
+        }
     });
 
     (function () {

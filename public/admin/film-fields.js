@@ -44,7 +44,7 @@
         }
 
         // ===== Вайб -> хештег поста =====
-        // Выбранные хештеги формы — #b-selected-tags-2 + localStorage "hashtags2" ({id: title}), их ведёт
+        // Выбранные хештеги формы — #b-selected-tags-2 + sessionStorage "hashtags2" ({id: title}), их ведёт
         // admin.js (там же они уходят на сервер при сохранении). Разметку тега и хранилище повторяем
         // здесь — функции admin.js спрятаны в его замыкании.
         var SELECTED_TAGS_SELECTOR = '#b-selected-tags-2';
@@ -56,7 +56,7 @@
 
         function readStoredTags() {
             try {
-                var stored = JSON.parse(localStorage.getItem(TAGS_STORAGE_KEY));
+                var stored = JSON.parse(sessionStorage.getItem(TAGS_STORAGE_KEY));
                 return stored && typeof stored === 'object' ? stored : {};
             } catch (e) {
                 return {};
@@ -65,9 +65,9 @@
 
         function writeStoredTags(tags) {
             try {
-                localStorage.setItem(TAGS_STORAGE_KEY, JSON.stringify(tags));
+                sessionStorage.setItem(TAGS_STORAGE_KEY, JSON.stringify(tags));
             } catch (e) {
-                // без localStorage хештег не уйдёт с формой — admin.js берёт выбранные именно оттуда
+                // без sessionStorage хештег не уйдёт с формой — admin.js берёт выбранные именно оттуда
             }
         }
 

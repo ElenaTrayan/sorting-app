@@ -1,0 +1,270 @@
+/*
+ * Список принтов одежды с образцами (wardrobe/parts/print_select.blade.php) — поле "Принт" в форме вещи
+ * "Моего гардероба" и в полях пина "Одежда". Подключается самим partial'ом. Образец .b-print-swatch
+ * используется и в админке (admin/wardrobe-prints).
+ */
+
+.b-print-select { position: relative; }
+
+.b-print-select__toggle {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 7px 12px 7px 8px;
+    border: 1px solid #e2e5ee;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 14px;
+    color: #1f2430;
+    text-align: left;
+    cursor: pointer;
+}
+.b-print-select__toggle:focus-visible,
+.b-print-select.is-open .b-print-select__toggle { outline: none; border-color: #4b3bf5; }
+.b-print-select__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.b-print-select.is-empty .b-print-select__label { color: #9099b8; }
+.b-print-select__chevron { font-size: 11px; color: #9099b8; }
+
+.b-print-select__dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 30;
+    min-width: 260px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 26px rgba(31, 36, 48, .18);
+    overflow: hidden;
+}
+.b-print-select__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f2f6;
+    color: #9099b8;
+}
+.b-print-select__search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    background: transparent;
+}
+.b-print-select__list { max-height: 300px; overflow-y: auto; padding: 6px; }
+.b-print-select__group-title {
+    padding: 10px 8px 4px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: #9099b8;
+}
+.b-print-select__option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    font-size: 13.5px;
+    color: #1f2430;
+    text-align: left;
+    cursor: pointer;
+}
+.b-print-select__option:hover,
+.b-print-select__option:focus-visible { background: #f4f6f9; outline: none; }
+.b-print-select__option.is-selected { background: #eee9fe; color: #4b3bf5; font-weight: 700; }
+.b-print-select__option--new { margin-top: 4px; border-top: 1px solid #f1f2f6; border-radius: 0 0 8px 8px; padding-top: 10px; font-weight: 700; color: #4b3bf5; }
+.b-print-select__own {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    color: #9099b8;
+}
+.b-print-select__empty { padding: 14px 8px; font-size: 13.5px; color: #9099b8; }
+.b-print-select__new {
+    width: 100%;
+    margin-top: 8px;
+    padding: 9px 12px;
+    border: 1px solid #e2e5ee;
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+}
+.b-print-select__new:focus { border-color: #4b3bf5; }
+/* атрибут hidden должен побеждать display из классов */
+.b-print-select [hidden] { display: none !important; }
+
+/* ---------- образец принта ---------- */
+.b-print-swatch {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    box-shadow: inset 0 0 0 1px rgba(31, 36, 48, .1);
+    background-color: #f4f6f9;
+    background-position: center;
+    background-repeat: repeat;
+    color: #9099b8;
+    font-size: 11px;
+}
+/* загруженный образец (style="background-image") — картинка целиком, поверх узора группы */
+.b-print-swatch.has-image { background-size: cover !important; background-repeat: no-repeat; }
+.b-print-swatch--lg { width: 44px; height: 44px; border-radius: 10px; }
+
+/* условные узоры групп — пока у принта нет своей картинки */
+.b-print-swatch--none { background: #f4f6f9; }
+.b-print-swatch--plain { background: #c9cfe0; }
+.b-print-swatch--stripes { background-image: repeating-linear-gradient(0deg, #2b3350 0 4px, #f7f8fb 4px 8px); }
+.b-print-swatch--checks {
+    background-color: #f7f8fb;
+    background-image:
+        linear-gradient(0deg, rgba(190, 40, 60, .55) 50%, transparent 50%),
+        linear-gradient(90deg, rgba(190, 40, 60, .55) 50%, transparent 50%);
+    background-size: 10px 10px;
+}
+.b-print-swatch--dots {
+    background-color: #2b3350;
+    background-image: radial-gradient(#fff 2px, transparent 2.5px);
+    background-size: 8px 8px;
+}
+.b-print-swatch--floral {
+    background-color: #fdeef2;
+    background-image:
+        radial-gradient(circle at 30% 30%, #e0567a 2.5px, transparent 3px),
+        radial-gradient(circle at 72% 68%, #f2a03d 2.5px, transparent 3px),
+        radial-gradient(circle at 70% 22%, #5aa469 1.8px, transparent 2.3px);
+    background-size: 14px 14px;
+}
+.b-print-swatch--animal {
+    background-color: #d9a45b;
+    background-image:
+        radial-gradient(ellipse at 30% 35%, #3a2a1a 2px, transparent 3px),
+        radial-gradient(ellipse at 72% 70%, #3a2a1a 2.5px, transparent 3.5px);
+    background-size: 12px 11px;
+}
+.b-print-swatch--geometric {
+    background-color: #f7f8fb;
+    background-image:
+        linear-gradient(135deg, #4b3bf5 25%, transparent 25%),
+        linear-gradient(225deg, #4b3bf5 25%, transparent 25%);
+    background-size: 10px 10px;
+}
+.b-print-swatch--ethnic {
+    background-color: #8c2f39;
+    background-image:
+        linear-gradient(45deg, #f2c14e 25%, transparent 25%, transparent 75%, #f2c14e 75%),
+        linear-gradient(45deg, #f2c14e 25%, transparent 25%, transparent 75%, #f2c14e 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+}
+.b-print-swatch--nature {
+    background-color: #e6f4ea;
+    background-image:
+        radial-gradient(ellipse at 35% 40%, #2f8f4e 3px, transparent 3.5px),
+        radial-gradient(ellipse at 75% 75%, #6cbf84 2.5px, transparent 3px);
+    background-size: 13px 13px;
+}
+.b-print-swatch--abstract { background-image: linear-gradient(135deg, #ff8a5c 0%, #f5c04b 35%, #5cc9c1 68%, #6a67f0 100%); }
+.b-print-swatch--text,
+.b-print-swatch--novelty,
+.b-print-swatch--other { background: #eef1ff; color: #4b3bf5; font-weight: 800; font-size: 13px; }
+.b-print-swatch--text::before { content: 'Aa'; }
+.b-print-swatch--novelty::before { content: '★'; }
+.b-print-swatch--other::before { content: '…'; }
+.b-print-swatch.has-image::before { content: none; }
+
+/* размер (parts/size_select): без образцов, размеры раздела — плитками в несколько колонок */
+.b-print-select__icon { width: 28px; text-align: center; color: #9099b8; }
+.b-print-select__sizes { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 4px; }
+.b-print-select__option--size {
+    width: auto;
+    min-width: 52px;
+    justify-content: center;
+    padding: 6px 10px;
+    border: 1px solid #e2e5ee;
+}
+.b-print-select__option--size.is-selected { border-color: #4b3bf5; }
+
+/* цвет (parts/color_select): сам цвет приходит в style образца; здесь — только то, что без него */
+.b-print-swatch--c-multi { background-image: conic-gradient(#e5383b, #f5c04b, #57b65f, #2d9cdb, #7b3fa0, #e5383b); }
+.b-print-swatch--c-other { color: #9099b8; font-weight: 800; font-size: 13px; }
+.b-print-swatch--c-other:not([style*="background"])::before { content: '?'; }
+.b-print-select__new-color {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 8px 0 0;
+    font-size: 13.5px;
+    font-weight: 400;
+    color: #5b6178;
+    cursor: pointer;
+}
+.b-print-select__new-color input {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid #e2e5ee;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+}
+
+/* бренд (parts/brand_select): логотип целиком на белом, без обрезки; без логотипа — пустая плашка */
+.b-print-swatch--brand { width: 44px; background: #f4f6f9; }
+.b-print-swatch--brand.has-image {
+    background-color: #fff;
+    background-size: contain !important;
+    background-origin: content-box;
+    padding: 3px;
+}
+
+/* условные узоры групп материалов (WardrobeMaterial::GROUPS, приставка m-) */
+.b-print-swatch--m-plant {
+    background-color: #efe6d3;
+    background-image:
+        linear-gradient(0deg, rgba(160, 130, 80, .28) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(160, 130, 80, .28) 1px, transparent 1px);
+    background-size: 4px 4px;
+}
+.b-print-swatch--m-animal {
+    background-color: #d8c3a5;
+    background-image: repeating-linear-gradient(60deg, rgba(120, 90, 60, .3) 0 1px, transparent 1px 5px);
+}
+.b-print-swatch--m-artificial { background-image: linear-gradient(135deg, #f6f1fb 0%, #cdb9ea 50%, #f6f1fb 100%); }
+.b-print-swatch--m-synthetic { background-image: linear-gradient(135deg, #e7f3fb 0%, #8ec5e8 45%, #e7f3fb 60%, #a9d4ee 100%); }
+.b-print-swatch--m-woven {
+    background-color: #4a6fa5;
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .28) 0 1.5px, transparent 1.5px 4px);
+}
+.b-print-swatch--m-knit {
+    background-color: #c9cfe0;
+    background-image:
+        repeating-linear-gradient(90deg, rgba(31, 36, 48, .16) 0 2px, transparent 2px 6px),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, .5) 0 1px, transparent 1px 4px);
+}
+.b-print-swatch--m-leather {
+    background-color: #6b3f2a;
+    background-image: radial-gradient(rgba(255, 255, 255, .16) 1px, transparent 1.5px);
+    background-size: 5px 5px;
+}
+.b-print-swatch--m-filling {
+    background-color: #f1f4f9;
+    background-image:
+        linear-gradient(45deg, rgba(120, 135, 165, .35) 1px, transparent 1px),
+        linear-gradient(-45deg, rgba(120, 135, 165, .35) 1px, transparent 1px);
+    background-size: 10px 10px;
+}
+.b-print-swatch--m-hard { background-image: linear-gradient(135deg, #8d939e 0%, #f3f4f6 45%, #a3a8b3 60%, #e5e7eb 100%); }
+.b-print-swatch--m-other { background: #eef1ff; color: #4b3bf5; font-weight: 800; font-size: 13px; }
+.b-print-swatch--m-other::before { content: '…'; }

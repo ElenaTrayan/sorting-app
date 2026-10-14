@@ -88,6 +88,33 @@
                         </div>
                         <small class="form-text text-muted">Связь двусторонняя — добавленный хештег тоже будет ссылаться на этот.</small>
                     </div>
+
+                    {{-- направление связей (hashtag_relations.auto_add) — что делать на форме поста, когда выбрали
+                         один из хештегов пары: добавить второй к посту сразу или только предложить.
+                         Строки для новых связей добавляет admin.js (той же разметкой) --}}
+                    <div class="b-hashtag-relations__wrap js-hashtag-relations-wrap" @if ($relatedHashtags->isEmpty()) hidden @endif>
+                        <label class="mb-1">Направление связей</label>
+                        <p class="b-hashtag-relations__hint">
+                            Отмечено — при выборе хештега на форме поста связанный добавляется к посту сам,
+                            не отмечено — только предлагается в подсказках.
+                            Обычно общий хештег добавляют к конкретному («Самара Уивинг» → «актриса»), а не наоборот.
+                        </p>
+                        <ul class="b-hashtag-relations js-hashtag-relations" data-hashtag-title="{{ $hashtag->title }}">
+                            @foreach ($relatedHashtags as $relatedHashtag)
+                                <li class="b-hashtag-relations__item" data-id="{{ $relatedHashtag->id }}">
+                                    <div class="b-hashtag-relations__title">#{{ $relatedHashtag->title }}</div>
+                                    <label class="b-hashtag-relations__switch">
+                                        <input type="checkbox" class="js-hashtag-relation-auto" data-direction="forward" {{ $relatedHashtag->pivot->auto_add ? 'checked' : '' }}>
+                                        <span>выбрали «{{ $hashtag->title }}» → добавлять «{{ $relatedHashtag->title }}»</span>
+                                    </label>
+                                    <label class="b-hashtag-relations__switch">
+                                        <input type="checkbox" class="js-hashtag-relation-auto" data-direction="back" {{ !empty($autoAddBack[$relatedHashtag->id]) ? 'checked' : '' }}>
+                                        <span>выбрали «{{ $relatedHashtag->title }}» → добавлять «{{ $hashtag->title }}»</span>
+                                    </label>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div><!-- /.container-fluid -->

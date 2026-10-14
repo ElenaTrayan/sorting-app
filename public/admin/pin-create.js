@@ -16,13 +16,14 @@
         picture: 'Изображение',
         text: 'Текст',
         film: 'Фильм / Сериал',
-        recipe: 'Рецепт'
+        recipe: 'Рецепт',
+        clothes: 'Одежда'
     };
 
     // ===== Тип пина: карточки вместо старого dropdown-меню =====
-    // Сам тип в таблице posts не хранится — он переключает видимость доп. полей
-    // (сейчас это только блок фильма, #tab-film), подписывает предпросмотр и уходит
-    // с формой скрытым pin_type: для "film" сервер сохраняет поля фильма (post_films).
+    // Тип уходит с формой скрытым pin_type: фильм/рецепт/одежду сервер сохраняет в posts.type как есть,
+    // остальные типы определяет по содержимому (Post::booted); для "film" ещё и поля фильма (post_films).
+    // Здесь он переключает видимость доп. полей (сейчас это только блок фильма, #tab-film) и подписывает предпросмотр.
     var typeButtons = root.querySelectorAll('.js-pin-types .b-pin-type');
     var tabBlocks = root.querySelectorAll('.b-parsing-type-blocks > div');
     var previewTypeEl = root.querySelector('.js-pin-preview-type');

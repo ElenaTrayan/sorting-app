@@ -28,6 +28,25 @@ return [
         ],
     ],
 
+    'anthropic' => [
+        'name' => 'Claude (Anthropic)',
+        'description' => 'Подсказки хештегов по картинке при создании пина',
+        'url' => 'https://console.anthropic.com',
+        'fields' => [
+            'key' => ['label' => 'API-ключ', 'secret' => true, 'config' => 'services.anthropic.key'],
+            'model' => ['label' => 'Модель', 'secret' => false, 'config' => 'services.anthropic.tags_model'],
+        ],
+    ],
+
+    // ключи здесь не задаются: каждый пользователь подключает свой ключ OpenAI в "Настройках ИИ"
+    // (UserAiSetting) и платит за запросы сам; админ может только выключить OpenAI для всех
+    'openai' => [
+        'name' => 'OpenAI (ключи пользователей)',
+        'description' => 'Подсказки хештегов по картинке через личный ключ OpenAI пользователя (Настройки ИИ в кабинете)',
+        'url' => 'https://platform.openai.com',
+        'fields' => [],
+    ],
+
     'photon' => [
         'name' => 'Photon (Komoot)',
         'description' => 'Геокодинг на данных OSM — подсказки города проживания в контактах',

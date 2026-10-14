@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\User\Packages;
 
+use App\Components\CollectionColors;
+use App\Components\ColorMatch;
 use App\Http\Controllers\User\DevHelpersContoller;
 use App\Http\Controllers\User\Packages\UploadImageController;
 use App\Http\Controllers\Controller;
@@ -137,8 +139,14 @@ class SearchController extends Controller
             $hashtagsIds = array_keys($hashtags);
             $excludeHashtagsIds = !empty($excludeHashtags) ? array_keys($excludeHashtags) : [];
 
+            // группа — одна карточка-стопка, как в ленте "Все посты" (хештеги у группы общие); снята галочка
+            // "Свернуть группы" — как и в ленте, посты групп отдельными карточками
+            $groupsExpanded = Post::feedGroupsExpanded();
             $posts = $this->buildHashtagFilteredPostsQuery($hashtagsIds, $excludeHashtagsIds, $user->id)
-                ->with(['hashtags', 'film'])
+                ->when(!$groupsExpanded, function ($q) use ($user) {
+                    $q->collapsedGroups((int)$user->id);
+                })
+                ->with(['hashtags', 'film', 'wardrobeItems:id,post_id', 'filmPost:id,title'])
                 ->latest()
                 ->paginate(20);
 
@@ -156,17 +164,12 @@ class SearchController extends Controller
 //                ->latest()
 //                ->paginate(20);
 
+            // coverImagePath() понимает и одну картинку {path}, и карусель {name: {path}}
             foreach ($posts as $post) {
-                if (!empty($post->small_image) && isJson($post->small_image)) {
-                    $smallImage = json_decode($post->small_image, true);
-                    $post['cover_image'] = $smallImage['path'];
-                } elseif (!empty($post->medium_image) && isJson($post->medium_image)) {
-                    $mediumImage = json_decode($post->medium_image, true);
-                    $post['cover_image'] = $mediumImage['path'];
-                } elseif (!empty($post->original_image) && isJson($post->original_image)) {
-                    $originalImage = json_decode($post->original_image, true);
-                    $post['cover_image'] = $originalImage['path'];
-                }
+                $post['cover_image'] = $post->coverImagePath();
+            }
+            if (!$groupsExpanded) {
+                Post::fillGroupCounts($posts);
             }
 
             if ($request->ajax()) {
@@ -181,6 +184,84 @@ class SearchController extends Controller
         }
 
         return response()->json(['status' => false]);
+    }
+
+    /**
+     * Цвета коллекции для вкладки "Поиск по цвету": оттенки из палитр постов пользователя
+     * с числом постов по каждому (App\Components\CollectionColors, кешируется). Грузится,
+     * когда вкладку открывают, а не вместе со страницей — поп-ап поиска есть на каждой странице.
+     *
+     * @return JsonResponse
+     */
+    public function collectionColors(): JsonResponse
+    {
+        return response()->json([
+            'status' => true,
+            'colors' => CollectionColors::forUser(auth()->id()),
+        ]);
+    }
+
+    /**
+     * Посты, в палитре обложки которых есть цвет, похожий на искомый (вкладка "Поиск по цвету").
+     * Сначала те, где этот цвет занимает больше картинки (App\Components\ColorMatch::score).
+     * Вместе с хэштегами из поп-апа: include[] — у поста должны быть все, exclude[] — ни одного
+     * (то же, что в поиске по хэштегам, buildHashtagFilteredPostsQuery).
+     * Постов у пользователя сотни-тысячи, палитра — 2-6 цветов, поэтому считаем в PHP по всем сразу.
+     * Отдаёт карточки (post_items), следующие страницы — ?page=N (бесконечная прокрутка в admin.js),
+     * общее число найденных — в заголовке X-Total-Count.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\Response
+     */
+    public function searchPostsByColor(Request $request)
+    {
+        $request->validate([
+            'hex' => ['required', 'regex:/^#?[0-9a-fA-F]{6}$/'],
+            'include' => 'array',
+            'include.*' => 'integer',
+            'exclude' => 'array',
+            'exclude.*' => 'integer',
+        ]);
+
+        $targetLab = ColorMatch::hexToLab($request->input('hex'));
+
+        $scores = [];
+        $candidates = $this->buildHashtagFilteredPostsQuery(
+            array_map('intval', $request->input('include', [])),
+            array_map('intval', $request->input('exclude', [])),
+            auth()->id()
+        )
+            ->whereNotNull('palette')
+            ->get(['id', 'palette']);
+        foreach ($candidates as $candidate) {
+            $score = ColorMatch::score($candidate->palette, $targetLab);
+            if ($score >= ColorMatch::MIN_SCORE) {
+                $scores[$candidate->id] = $score;
+            }
+        }
+        // по оценке, при равной — новые выше
+        uksort($scores, function ($a, $b) use ($scores) {
+            return [$scores[$b], $b] <=> [$scores[$a], $a];
+        });
+
+        $perPage = 20;
+        $page = max(1, (int)$request->input('page', 1));
+        $pageIds = array_slice(array_keys($scores), ($page - 1) * $perPage, $perPage);
+
+        $posts = Post::whereIn('id', $pageIds)
+            ->with(['hashtags', 'film', 'wardrobeItems:id,post_id', 'filmPost:id,title'])
+            ->get()
+            ->sortBy(function ($post) use ($pageIds) {
+                return array_search($post->id, $pageIds);
+            })
+            ->values()
+            ->each(function ($post) {
+                $post['cover_image'] = $post->coverImagePath();
+            });
+
+        return response()
+            ->view('user.posts.parts.post_items', ['posts' => $posts])
+            ->header('X-Total-Count', count($scores));
     }
 
     /**

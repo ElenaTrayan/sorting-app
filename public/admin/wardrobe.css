@@ -1,0 +1,845 @@
+/*
+ * "Мой гардероб" — стили только для этого раздела (подключаются через @push('head-styles')
+ * на страницах user/wardrobe/*, вместе с my-stock.css: шапка, кнопки, вкладки, модалки и
+ * секции — общие с "Моими запасами", .b-stock-*). Здесь — только своё: карточки вещей и образов,
+ * поля-переключатели, конструктор образа, окно выбора картинок из постов.
+ */
+
+/* ---------- Переключатель подстраниц: Одежда / Образы ---------- */
+.b-wardrobe-sections {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: #f1f2f6;
+    margin-bottom: 18px;
+}
+.b-wardrobe-sections__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #565b74;
+    text-decoration: none;
+}
+.b-wardrobe-sections__item:hover { color: #1f2430; text-decoration: none; }
+.b-wardrobe-sections__item.is-active {
+    background: #fff;
+    color: #4b3bf5;
+    box-shadow: 0 1px 4px rgba(31, 36, 48, .1);
+}
+
+.b-wardrobe-count {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #9099b8;
+}
+.b-wardrobe-count--accent {
+    background: #4b3bf5;
+    color: #fff;
+    border-radius: 999px;
+    padding: 1px 7px;
+}
+
+/* ---------- Сетка и карточка вещи ---------- */
+.b-wardrobe-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+.b-wardrobe-grid--outfits { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+
+.b-wardrobe-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .06);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+.b-wardrobe-card--wishlist { box-shadow: inset 0 0 0 1.5px #d9d1fd, 0 2px 10px rgba(31, 36, 48, .06); }
+.b-wardrobe-card__photo {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border: none;
+    padding: 0;
+    border-radius: 16px 16px 0 0;
+    background: #f4f6f9 center/cover no-repeat;
+    color: #c8cdd3;
+    font-size: 40px;
+    cursor: pointer;
+}
+.b-wardrobe-card__badges {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-wardrobe-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 800;
+    line-height: 1.4;
+}
+.b-wardrobe-badge--wishlist { background: #4b3bf5; color: #fff; }
+.b-wardrobe-badge--repair { background: #fff4e5; color: #e08a00; }
+
+.b-wardrobe-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px 14px;
+}
+.b-wardrobe-card__head { display: flex; gap: 6px; align-items: flex-start; }
+.b-wardrobe-card__name {
+    font-size: 14.5px;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #1f2430;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.b-wardrobe-card__sub { font-size: 12.5px; color: #9099b8; font-weight: 600; }
+.b-wardrobe-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 12.5px;
+    color: #6b7099;
+}
+.b-wardrobe-card__meta span { display: inline-flex; align-items: center; gap: 5px; }
+.b-wardrobe-card__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.b-wardrobe-chip--type { background: #eee9fe; color: #4b3bf5; }
+
+/* ---------- Места хранения ---------- */
+.b-wardrobe-storage-photo {
+    display: block;
+    height: 170px;
+    border-radius: 12px;
+    background: #f4f6f9 center/cover no-repeat;
+}
+.b-wardrobe-photo--square { aspect-ratio: 1 / 1; }
+.b-wardrobe-storage-note { font-size: 13px; color: #565b74; line-height: 1.45; word-break: break-word; }
+
+/* ---------- Карточка образа ---------- */
+.b-wardrobe-outfit-card {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .06);
+    color: #1f2430;
+    text-decoration: none;
+    transition: box-shadow .15s ease;
+}
+.b-wardrobe-outfit-card:hover {
+    color: #1f2430;
+    text-decoration: none;
+    box-shadow: 0 6px 20px rgba(31, 36, 48, .12);
+}
+.b-wardrobe-outfit-card__cover { position: relative; display: block; aspect-ratio: 1 / 1; background: #f4f6f9; cursor: zoom-in; }
+/* обложка — галерея (wardrobe.js), название и данные — ссылка на страницу образа */
+.b-wardrobe-outfit-card__link,
+.b-wardrobe-outfit-card__link:hover {
+    color: #1f2430;
+    text-decoration: none;
+}
+.b-wardrobe-outfit-card__link:hover .b-wardrobe-card__name { color: #7367f0; }
+.b-wardrobe-outfit-card__photo {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f6f9 center/cover no-repeat;
+    color: #c8cdd3;
+    font-size: 40px;
+}
+.b-wardrobe-collage {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 2px;
+}
+.b-wardrobe-collage__cell { background: #f4f6f9 center/cover no-repeat; }
+.b-wardrobe-collage--1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+.b-wardrobe-collage--2 { grid-template-rows: 1fr; }
+.b-wardrobe-collage--3 .b-wardrobe-collage__cell:first-child { grid-row: span 2; }
+
+/* ---------- Фильтры списка образов ---------- */
+.b-wardrobe-outfit-filters .b-stock-toolbar__search { flex: 1 1 200px; }
+.b-wardrobe-select {
+    border: 1px solid #e2e5ee;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 14px;
+    background: #fff;
+    color: #40444f;
+    outline: none;
+}
+.b-wardrobe-temp {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    border: 1px solid #e2e5ee;
+    border-radius: 10px;
+    padding: 9px 12px;
+    background: #fff;
+    color: #9099b8;
+    font-weight: 400;
+}
+.b-wardrobe-temp input {
+    width: 120px;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    background: transparent;
+}
+.b-wardrobe-reset { font-size: 13px; font-weight: 700; color: #9099b8; }
+
+/* ---------- Форма вещи ---------- */
+.b-wardrobe-form { display: flex; gap: 20px; }
+.b-wardrobe-form__photo {
+    flex: 0 0 190px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.b-wardrobe-form__fields { flex: 1; min-width: 0; }
+.b-wardrobe-form__photo-btn { justify-content: center; margin: 0; }
+.b-wardrobe-form__photo-remove {
+    border: none;
+    background: none;
+    padding: 2px 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #dc3545;
+    cursor: pointer;
+}
+/* галерея фото в форме вещи (wardrobe.js, initItemGallery): обложка — крупно, остальные — сеткой под ней */
+.b-wardrobe-gallery__empty {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    border: 1.5px dashed #d5d9e6;
+    background: #f8f9fc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 34px;
+}
+.b-wardrobe-gallery__empty[hidden] { display: none; }
+.b-wardrobe-gallery__list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+.b-wardrobe-gallery__list:empty { display: none; }
+.b-wardrobe-gallery__item {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    background: #f4f6f9;
+    overflow: hidden;
+    cursor: grab;
+    transition: opacity .15s, box-shadow .15s;
+}
+.b-wardrobe-gallery__item.is-cover {
+    grid-column: 1 / -1;
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+}
+/* сама картинка — отдельным слоем: её поворачивают/отражают кнопками (transform задаёт wardrobe.js) */
+.b-wardrobe-gallery__img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    background: center/cover no-repeat;
+    pointer-events: none;
+}
+/* повёрнута на 90° — у обложки (3:4) слой берёт размеры плитки "наоборот", чтобы после поворота закрыть её целиком */
+.b-wardrobe-gallery__item.is-cover .b-wardrobe-gallery__img.is-sideways {
+    width: 133.34%;
+    height: 75%;
+}
+.b-wardrobe-gallery__item.is-dragging { opacity: .4; }
+.b-wardrobe-gallery__item.is-drop-target { box-shadow: 0 0 0 2px #7367f0; }
+.b-wardrobe-gallery__badge {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(31, 36, 48, .7);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+.b-wardrobe-gallery__btn {
+    position: absolute;
+    top: 4px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .92);
+    color: #4a4a56;
+    font-size: 10px;
+    line-height: 22px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(31, 36, 48, .2);
+}
+.b-wardrobe-gallery__btn--remove { right: 4px; }
+.b-wardrobe-gallery__btn--remove:hover { color: #dc3545; }
+.b-wardrobe-gallery__btn--cover { left: 4px; }
+.b-wardrobe-gallery__btn--cover:hover { color: #e0a800; }
+.b-wardrobe-gallery__item.is-cover .b-wardrobe-gallery__btn { top: 8px; }
+.b-wardrobe-gallery__item.is-cover .b-wardrobe-gallery__btn--remove { right: 8px; }
+/* повернуть / отразить — в правом нижнем углу плитки */
+.b-wardrobe-gallery__item .b-wardrobe-gallery__btn--rotate,
+.b-wardrobe-gallery__item .b-wardrobe-gallery__btn--flip {
+    top: auto;
+    bottom: 4px;
+}
+.b-wardrobe-gallery__btn--rotate { right: 4px; }
+.b-wardrobe-gallery__btn--flip { right: 30px; }
+.b-wardrobe-gallery__btn--rotate:hover,
+.b-wardrobe-gallery__btn--flip:hover { color: #7367f0; }
+.b-wardrobe-gallery__item.is-cover .b-wardrobe-gallery__btn--rotate,
+.b-wardrobe-gallery__item.is-cover .b-wardrobe-gallery__btn--flip {
+    top: auto;
+    bottom: 8px;
+}
+.b-wardrobe-gallery__item.is-cover .b-wardrobe-gallery__btn--rotate { right: 8px; }
+.b-wardrobe-gallery__item.is-cover .b-wardrobe-gallery__btn--flip { right: 36px; }
+.b-wardrobe-gallery__hint {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: #9099b8;
+}
+
+/* фото карточки — ссылка на превью в галерее (data-fancybox="wardrobe-gallery") */
+a.b-wardrobe-card__photo,
+a.b-wardrobe-card__photo:hover {
+    text-decoration: none;
+    color: #c8cdd3;
+    cursor: zoom-in;
+}
+/* "N фото" на карточке вещи — поверх обложки, справа сверху (значки статуса — слева) */
+.b-wardrobe-card__photos {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 10px;
+    background: rgba(31, 36, 48, .65);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* превью вещи в галерее (parts/item_preview.blade.php) — поверх стилей превью пина (.b-post-preview*):
+   крупное фото и под ним миниатюры остальных */
+.b-wardrobe-preview__media {
+    flex-direction: column;
+    gap: 10px;
+}
+.b-wardrobe-preview__stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+.b-post-preview__media .b-wardrobe-preview__photo[hidden] { display: none; }
+.b-wardrobe-preview__media img {
+    max-height: calc(100vh - 150px);
+    border-radius: 12px;
+}
+.b-wardrobe-preview__thumbs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.b-wardrobe-preview__thumb {
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    background: #f4f6f9 center/cover no-repeat;
+    cursor: pointer;
+    opacity: .7;
+    transition: opacity .15s, border-color .15s;
+}
+.b-wardrobe-preview__thumb:hover { opacity: 1; }
+.b-wardrobe-preview__thumb.is-active {
+    border-color: #7367f0;
+    opacity: 1;
+}
+.b-wardrobe-preview__sub {
+    margin-top: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #8b89a0;
+}
+/* вещи образа в его превью (outfits/preview.blade.php) */
+.b-wardrobe-preview__items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.b-wardrobe-preview__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px;
+    border: 1px solid #eeecf6;
+    border-radius: 12px;
+}
+.b-wardrobe-preview__item-photo {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 9px;
+    background: #f4f6f9 center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+}
+.b-wardrobe-preview__item-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.b-wardrobe-preview__item-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.b-wardrobe-preview__item-sub {
+    font-size: 12px;
+    color: #8b89a0;
+}
+.b-wardrobe-preview__item a.b-wardrobe-badge { text-decoration: none; }
+.b-wardrobe-preview__note {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f7f7fa;
+    font-size: 13.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.b-wardrobe-photo {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    border: 1.5px dashed #d5d9e6;
+    background: #f8f9fc center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+    font-size: 34px;
+}
+/* сама картинка — отдельным слоем (его создаёт wardrobe.js, initPhotoField): её поворачивают/отражают кнопками */
+.b-wardrobe-photo { position: relative; overflow: hidden; }
+.b-wardrobe-photo__img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    background: center/cover no-repeat;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+/* повёрнута на 90° — у рамки 3:4 слой берёт её размеры "наоборот", чтобы после поворота закрыть её целиком */
+.b-wardrobe-photo__img.is-sideways { width: 133.34%; height: 75%; }
+.b-wardrobe-photo--square .b-wardrobe-photo__img.is-sideways { width: 100%; height: 100%; }
+.b-wardrobe-form__photo-tools { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
+.b-wardrobe-form__photo-tool {
+    border: none;
+    background: none;
+    padding: 2px 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #7367f0;
+    cursor: pointer;
+}
+.b-wardrobe-form__photo-tool:hover { color: #5e50ee; }
+.b-wardrobe-photo.has-image { border-style: solid; border-color: transparent; }
+.b-wardrobe-photo.has-image i { display: none; }
+.b-wardrobe-photo--small { width: 110px; flex-shrink: 0; font-size: 24px; }
+.b-wardrobe-outfit-photo { display: flex; gap: 14px; align-items: flex-start; }
+.b-wardrobe-hint { font-size: 12.5px; color: #9099b8; margin-top: 6px; }
+
+/* чипы-переключатели: статус (radio), стиль / кому подходит / сезон (checkbox) */
+.b-wardrobe-choice { display: flex; gap: 6px; }
+.b-wardrobe-choice--wrap { flex-wrap: wrap; }
+.b-wardrobe .b-wardrobe-choice__item,
+.b-stock-form-modal .b-wardrobe-choice__item { margin: 0; cursor: pointer; }
+.b-wardrobe-choice__item input { position: absolute; opacity: 0; pointer-events: none; }
+.b-wardrobe-choice__item span {
+    display: inline-block;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1px solid #e2e5ee;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    color: #565b74;
+    white-space: nowrap;
+}
+.b-wardrobe-choice__item input:checked + span {
+    background: #eee9fe;
+    border-color: #d9d1fd;
+    color: #4b3bf5;
+}
+.b-wardrobe-choice__item input:focus-visible + span { box-shadow: 0 0 0 2px rgba(75, 59, 245, .25); }
+
+/* особенности ухода в форме вещи: разделы с пунктами для отметки, раздел раскрывается кликом */
+.b-wardrobe-care { border: 1px solid #e2e5ee; border-radius: 10px; background: #fff; }
+.b-wardrobe-care__group + .b-wardrobe-care__group { border-top: 1px solid #f1f2f6; }
+.b-wardrobe-care__title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2430;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.b-wardrobe-care__title::-webkit-details-marker { display: none; }
+.b-wardrobe-care__chevron { width: 10px; font-size: 11px; color: #9099b8; transition: transform .15s; }
+.b-wardrobe-care__group[open] .b-wardrobe-care__chevron { transform: rotate(90deg); }
+.b-wardrobe-care__count {
+    margin-left: auto;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #eee9fe;
+    color: #4b3bf5;
+    font-size: 12px;
+    font-weight: 700;
+}
+.b-wardrobe-care__count[hidden] { display: none; }
+.b-wardrobe-care__group .b-wardrobe-choice { padding: 2px 12px 12px; }
+
+.b-stock-form-field .b-wardrobe-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 14px;
+    color: #1f2430;
+    cursor: pointer;
+}
+.b-wardrobe-check input { width: 16px; height: 16px; }
+
+/* ---------- Конструктор образа ---------- */
+.b-wardrobe-builder {
+    display: grid;
+    grid-template-columns: minmax(320px, 440px) 1fr;
+    gap: 24px;
+    align-items: start;
+}
+.b-wardrobe-builder__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+.b-wardrobe-builder .b-stock-form-row > .b-stock-form-input { flex: 1; min-width: 0; }
+
+.b-wardrobe-selected { display: flex; flex-wrap: wrap; gap: 8px; }
+.b-wardrobe-selected__empty { font-size: 13px; color: #9099b8; }
+.b-wardrobe-selected__item {
+    position: relative;
+    width: 76px;
+}
+.b-wardrobe-selected__photo {
+    width: 76px;
+    height: 96px;
+    border-radius: 10px;
+    background: #f4f6f9 center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8cdd3;
+}
+.b-wardrobe-selected__item.is-wishlist .b-wardrobe-selected__photo { box-shadow: inset 0 0 0 2px #4b3bf5; }
+.b-wardrobe-selected__name {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #565b74;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 3px;
+}
+.b-wardrobe-selected__remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: #1f2430;
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+/* "с чем сочетается" в форме вещи (wardrobe.js, initItemCompat): выбранные — те же плитки, что у вещей образа,
+   под кнопкой — раскрывающийся список остальных вещей раздела */
+.b-wardrobe-compat__selected { margin-bottom: 8px; }
+.b-wardrobe-compat__selected:empty { display: none; }
+.b-wardrobe-compat__picker {
+    margin-top: 8px;
+    padding: 10px;
+    border: 1px solid #e6e9f2;
+    border-radius: 12px;
+    background: #f8f9fc;
+}
+.b-wardrobe-compat__picker[hidden] { display: none; }
+.b-wardrobe-compat__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 250px;
+    margin-top: 10px;
+    overflow-y: auto;
+}
+.b-wardrobe-compat__option {
+    padding: 0;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+}
+.b-wardrobe-compat__option:hover .b-wardrobe-selected__photo { box-shadow: 0 0 0 2px #7367f0; }
+/* вещи "с чем сочетается" в превью вещи (parts/item_preview.blade.php) — ссылки на их превью */
+.b-wardrobe-preview__compat { display: flex; flex-direction: column; gap: 6px; }
+.b-wardrobe-preview__compat-title { font-size: 12px; font-weight: 700; color: #8b8b99; }
+a.b-wardrobe-selected__item,
+a.b-wardrobe-selected__item:hover { text-decoration: none; }
+
+.b-wardrobe-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+}
+.b-wardrobe-tiles__empty { font-size: 14px; color: #9099b8; padding: 24px 0; text-align: center; }
+.b-wardrobe-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+    border: none;
+    background: none;
+    text-align: left;
+    min-width: 0;
+}
+button.b-wardrobe-tile { cursor: pointer; }
+.b-wardrobe-tile__photo {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 12px;
+    background: #f4f6f9 center/cover no-repeat;
+    color: #c8cdd3;
+    font-size: 26px;
+}
+/* фото вещи на странице образа — открывается в галерее с зумом (outfits/show.blade.php) */
+a.b-wardrobe-tile__photo--zoom,
+a.b-wardrobe-tile__photo--zoom:hover { cursor: zoom-in; text-decoration: none; }
+.b-wardrobe-tile__photo .b-wardrobe-badge { position: absolute; top: 6px; left: 6px; }
+.b-wardrobe-tile__photo .b-wardrobe-badge--repair { left: auto; right: 6px; }
+.b-wardrobe-tile__check {
+    display: none;
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #4b3bf5;
+    color: #fff;
+    font-size: 12px;
+    align-items: center;
+    justify-content: center;
+}
+.b-wardrobe-tile.is-selected .b-wardrobe-tile__photo { box-shadow: 0 0 0 3px #4b3bf5; }
+.b-wardrobe-tile.is-selected .b-wardrobe-tile__check { display: flex; }
+.b-wardrobe-tile__name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2430;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.b-wardrobe-tile__sub { font-size: 12px; color: #9099b8; }
+.b-wardrobe-tile__link { font-size: 12px; font-weight: 700; color: #4b3bf5; }
+.b-wardrobe-tiles--static { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+/* ---------- Страница образа ---------- */
+.b-stock-row > .b-wardrobe-outfit-main { flex: 2 1 420px; }
+.b-wardrobe-outfit-image { display: block; margin-bottom: 18px; }
+.b-wardrobe-outfit-image img {
+    display: block;
+    max-width: 100%;
+    max-height: 520px;
+    margin: 0 auto;
+    border-radius: 14px;
+}
+.b-wardrobe-facts { margin: 0; }
+.b-wardrobe-facts dt {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #9099b8;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.b-wardrobe-facts dd { font-size: 14.5px; font-weight: 600; margin: 2px 0 14px; }
+.b-wardrobe-facts dd:last-child { margin-bottom: 0; }
+.b-wardrobe-wear-form { margin-bottom: 14px; }
+.b-wardrobe-wear-form .b-stock-form-field { margin-bottom: 10px; }
+.b-wardrobe-wear-form .b-stock-form-row > .b-wardrobe-wear-form__date { flex: 0 0 170px; }
+.b-wardrobe-wear-form__submit { align-self: flex-start; }
+
+/* ---------- Окно "Выбрать из постов" ---------- */
+.b-wardrobe-picker {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.b-wardrobe-picker__backdrop { position: absolute; inset: 0; background: rgba(31, 36, 48, .55); }
+.b-wardrobe-picker__window {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 880px;
+    max-height: 100%;
+    background: #fff;
+    border-radius: 18px;
+    overflow: hidden;
+}
+.b-wardrobe-picker__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 12px;
+}
+.b-wardrobe-picker__title { font-size: 17px; font-weight: 800; color: #1f2430; }
+.b-wardrobe-picker__close {
+    border: none;
+    background: none;
+    color: #9099b8;
+    font-size: 16px;
+    cursor: pointer;
+}
+.b-wardrobe-picker__search { flex: 0 0 auto; margin: 0 22px 12px; }
+.b-wardrobe-picker__body {
+    padding: 4px 22px 22px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+.b-wardrobe-picker__grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+}
+.b-wardrobe-picker__image {
+    aspect-ratio: 3 / 4;
+    border: none;
+    padding: 0;
+    border-radius: 12px;
+    background: #f4f6f9 center/cover no-repeat;
+    cursor: pointer;
+}
+/* режим пинов ("Импорт из пина"): подпись с названием пина и отметка "В гардеробе" */
+.b-wardrobe-picker__image--pin { position: relative; overflow: hidden; }
+.b-wardrobe-picker__caption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 18px 8px 7px;
+    background: linear-gradient(transparent, rgba(31, 36, 48, .78));
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.b-wardrobe-picker__image--pin .b-wardrobe-badge { position: absolute; top: 6px; left: 6px; }
+.b-wardrobe-badge--done { background: #e9f9ef; color: #1fa855; }
+.b-wardrobe-picker__image:hover,
+.b-wardrobe-picker__image:focus-visible { box-shadow: 0 0 0 3px #4b3bf5; outline: none; }
+.b-wardrobe-picker__status { font-size: 14px; color: #9099b8; }
+.b-wardrobe-picker__status:empty { display: none; }
+
+@media (max-width: 992px) {
+    .b-wardrobe-builder { grid-template-columns: 1fr; }
+}
+@media (max-width: 576px) {
+    .b-wardrobe-form { flex-direction: column; }
+    .b-wardrobe-form__photo { flex-basis: auto; width: 190px; margin: 0 auto; }
+    .b-wardrobe-grid { grid-template-columns: repeat(2, 1fr); }
+    .b-wardrobe-wear-form .b-stock-form-row { flex-wrap: wrap; }
+}

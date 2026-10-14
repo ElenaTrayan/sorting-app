@@ -161,12 +161,18 @@ class HashtagController extends Controller
             ])
             ->get();
 
+        // pivot->auto_add — "выбрали этот хештег — добавлять связанный"; обратное направление — в строках,
+        // где этот хештег связанный
         $relatedHashtags = $hashtag->relatedHashtags()->orderBy('title', 'asc')->get();
+        $autoAddBack = DB::table('hashtag_relations')
+            ->where('related_hashtag_id', $hashtag->id)
+            ->pluck('auto_add', 'hashtag_id');
 
         return view('user.hashtags.edit', [
             'hashtag' => $hashtag,
             'hashtags' => $hashtags,
             'relatedHashtags' => $relatedHashtags,
+            'autoAddBack' => $autoAddBack,
         ]);
     }
 
@@ -294,7 +300,45 @@ class HashtagController extends Controller
                 'id' => $relatedHashtag->id,
                 'title' => $relatedHashtag->title,
             ],
+            // направление, которое получила связь (по умолчанию — Hashtag::defaultAutoAdd) — для строки
+            // "Направление связей" на странице хештега
+            'auto_add' => $this->relationAutoAdd($hashtag->id, $relatedHashtag->id),
+            'auto_add_back' => $this->relationAutoAdd($relatedHashtag->id, $hashtag->id),
         ]);
+    }
+
+    /**
+     * Направление связи со страницы хештега: direction = forward — "выбрали $hashtag — добавлять
+     * $relatedHashtag к посту сразу", back — наоборот; auto_add = 1 — добавлять, 0 — только предлагать
+     *
+     * @param Request $request
+     * @param Hashtag $hashtag
+     * @param Hashtag $relatedHashtag
+     * @return JsonResponse
+     */
+    public function updateRelated(Request $request, Hashtag $hashtag, Hashtag $relatedHashtag)
+    {
+        // оба хештега — только текущего пользователя (привязка {hashtag}/{relatedHashtag} в RouteServiceProvider)
+        [$from, $to] = $request->input('direction') === 'back'
+            ? [$relatedHashtag, $hashtag]
+            : [$hashtag, $relatedHashtag];
+
+        $from->setRelatedAutoAdd($to->id, $request->boolean('auto_add'));
+
+        return response()->json(['status' => true]);
+    }
+
+    /**
+     * @param int $hashtagId
+     * @param int $relatedHashtagId
+     * @return bool
+     */
+    private function relationAutoAdd(int $hashtagId, int $relatedHashtagId): bool
+    {
+        return (bool)DB::table('hashtag_relations')
+            ->where('hashtag_id', $hashtagId)
+            ->where('related_hashtag_id', $relatedHashtagId)
+            ->value('auto_add');
     }
 
     /**
@@ -306,6 +350,7 @@ class HashtagController extends Controller
      */
     public function detachRelated(Hashtag $hashtag, Hashtag $relatedHashtag)
     {
+        // оба хештега — только текущего пользователя (привязка {hashtag}/{relatedHashtag} в RouteServiceProvider)
         $hashtag->detachRelated($relatedHashtag->id);
 
         return response()->json(['status' => true]);
@@ -331,17 +376,24 @@ class HashtagController extends Controller
 
         // связи в hashtag_relations хранятся симметрично (см. Hashtag::attachRelated()) —
         // для каждой пары A↔B есть обе строки (A,B) и (B,A), поэтому достаточно
-        // одного whereIn по hashtag_id, чтобы получить связанные в любом направлении
-        $relatedIds = DB::table('hashtag_relations')
+        // одного whereIn по hashtag_id, чтобы получить связанные в любом направлении.
+        // auto_add строки (выбранный, связанный) — направление связи со страницы хештега:
+        // добавить связанный к посту сразу (форма поста, admin.js) или только предложить
+        $autoAddByRelatedId = DB::table('hashtag_relations')
             ->whereIn('hashtag_id', $selectedIds)
-            ->pluck('related_hashtag_id')
-            ->unique();
+            ->select('related_hashtag_id', DB::raw('max(auto_add) as auto_add'))
+            ->groupBy('related_hashtag_id')
+            ->pluck('auto_add', 'related_hashtag_id');
 
         $related = Hashtag::where('user_id', $user->id)
-            ->whereIn('id', $relatedIds)
+            ->whereIn('id', $autoAddByRelatedId->keys())
             ->whereNotIn('id', $selectedIds)
             ->orderBy('title', 'asc')
             ->get(['id', 'title']);
+
+        $related->each(function (Hashtag $hashtag) use ($autoAddByRelatedId) {
+            $hashtag->setAttribute('auto', (bool)$autoAddByRelatedId[$hashtag->id]);
+        });
 
         return response()->json(['status' => true, 'hashtags' => $related]);
     }

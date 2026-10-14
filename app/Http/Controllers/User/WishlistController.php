@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\User;
 
+use App\Components\AvifImage;
 use App\Http\Controllers\Controller;
 use App\Models\Wishlist;
 use App\Models\WishlistItem;
@@ -480,7 +481,7 @@ class WishlistController extends Controller
             'category' => 'nullable|string|max:100',
             'priority' => 'nullable|string|max:50',
             'image_url' => 'nullable|string|max:2000',
-            'image' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp',
+            'image' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,avif',
         ]);
 
         $imageVariants = null;
@@ -1225,6 +1226,13 @@ class WishlistController extends Controller
             return null; // не картинка (например, страница с ошибкой вместо og:image)
         }
 
+        // магазин отдал AVIF — конвертируем в WebP, иначе не сделать уменьшенную версию (см. AvifImage);
+        // не получилось — сохраняем как есть
+        if (($imageInfo['mime'] ?? '') === 'image/avif' && ($webpBytes = AvifImage::bytesToWebp($bytes)) !== null) {
+            $bytes = $webpBytes;
+            $imageInfo['mime'] = 'image/webp';
+        }
+
         $extension = $this->extensionFromMime($imageInfo['mime'] ?? 'image/jpeg');
         $name = Str::random(20);
         $relativeDir = 'wishlist/' . Auth::id();
@@ -1251,6 +1259,9 @@ class WishlistController extends Controller
      */
     private function storeUploadedImage($file): array
     {
+        // AVIF сразу конвертируем в WebP (см. AvifImage)
+        $file = AvifImage::normalize($file);
+
         $extension = $file->getClientOriginalExtension() ?: 'jpg';
         $name = Str::random(20);
         $relativeDir = 'wishlist/' . Auth::id();

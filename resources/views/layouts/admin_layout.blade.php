@@ -81,6 +81,36 @@
                                 <span>Внешние API</span>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.wardrobe-categories.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('admin.wardrobe-categories.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'hanger', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Категории одежды</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.wardrobe-brands.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('admin.wardrobe-brands.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'hanger', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Бренды одежды</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.wardrobe-colors.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('admin.wardrobe-colors.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'grid', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Цвета одежды</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.wardrobe-prints.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('admin.wardrobe-prints.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'grid', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Принты одежды</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.wardrobe-materials.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('admin.wardrobe-materials.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'box', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Материалы одежды</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
 

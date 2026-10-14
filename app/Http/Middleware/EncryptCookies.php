@@ -12,6 +12,7 @@ class EncryptCookies extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        // галочка "Свернуть группы" в ленте — cookie ставится из JS (см. Post::FEED_UNGROUPED_COOKIE)
+        'posts_ungrouped',
     ];
 }

@@ -282,7 +282,7 @@
                     </ul>
                 </div>
 
-                @if (array_intersect(['wishlists', 'contacts', 'stock'], $userServices))
+                @if (array_intersect(['wishlists', 'contacts', 'stock', 'wardrobe'], $userServices))
                 <div class="b-sidebar-nav__section">
                     <div class="b-sidebar-nav__section-label">Разделы</div>
                     <ul class="nav b-sidebar-nav flex-column" role="menu">
@@ -329,6 +329,16 @@
                             </ul>
                         </li>
                         @endif
+
+                        @if (in_array('wardrobe', $userServices))
+                        {{-- подстраницы раздела (Одежда / Образы) — вкладками на самой странице --}}
+                        <li class="nav-item">
+                            <a href="{{ route('wardrobe.items.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('wardrobe.*')) is-active @endif">
+                                @include('layouts.parts.sidebar_icon', ['name' => 'hanger', 'class' => 'b-sidebar-nav__icon'])
+                                <span>Мой гардероб</span>
+                            </a>
+                        </li>
+                        @endif
                     </ul>
                 </div>
                 @endif
@@ -336,6 +346,12 @@
                 <div class="b-sidebar-divider"></div>
 
                 <ul class="nav b-sidebar-nav flex-column">
+                    <li class="nav-item">
+                        <a href="{{ route('ai-settings.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('ai-settings.*')) is-active @endif">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'settings', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Настройки ИИ</span>
+                        </a>
+                    </li>
                     @if (Auth::user()->isAdmin())
                         <li class="nav-item">
                             <a href="{{ route('admin.dashboard') }}" class="b-sidebar-nav__link">

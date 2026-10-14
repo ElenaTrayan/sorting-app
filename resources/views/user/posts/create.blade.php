@@ -119,6 +119,14 @@
                                     <span class="b-pin-type__desc">Пока как заметка</span>
                                 </span>
                             </button>
+                            {{-- пин "Одежда" потом можно добавить в "Мой гардероб" (кнопка на странице поста) --}}
+                            <button type="button" class="b-pin-type" data-type="clothes">
+                                <span class="b-pin-type__icon">👗</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Одежда</span>
+                                    <span class="b-pin-type__desc">Одежда, обувь, аксессуары</span>
+                                </span>
+                            </button>
                         </div>
                     </section>
 
@@ -145,12 +153,12 @@
                         <div class="b-pin-count">
                             <div class="b-pin-radio-group">
                                 <label class="b-pin-radio">
-                                    <input type="radio" id="one-post" name="numberOfPosts" value="one-post" checked>
+                                    <input type="radio" id="one-post" name="numberOfPosts" value="one-post">
                                     <span class="b-pin-radio__dot"></span>
                                     <span>Один пост</span>
                                 </label>
                                 <label class="b-pin-radio">
-                                    <input type="radio" id="two-posts" name="numberOfPosts" value="two-posts">
+                                    <input type="radio" id="two-posts" name="numberOfPosts" value="two-posts" checked>
                                     <span class="b-pin-radio__dot"></span>
                                     <span>Несколько постов</span>
                                 </label>
@@ -160,7 +168,7 @@
                                 <span class="b-pin-checkbox__box"></span>
                                 <span class="b-pin-checkbox__text">
                                     <span>Сгруппировать посты</span>
-                                    <span class="b-pin-card__desc">Объединить несколько пинов в одну группу.</span>
+                                    <span class="b-pin-card__desc">Объединить несколько пинов в одну группу. Только для пинов из одних изображений — с текстом пины создаются без группы.</span>
                                 </span>
                             </label>
                         </div>
@@ -180,7 +188,7 @@
                                     <p>Перетащите сюда фото или видео</p>
                                     <button type="button" class="b-pin-btn b-pin-btn--ghost js-pin-choose-file">Выбрать файл</button>
                                 </div>
-                                <input type="file" name="files[]" multiple="multiple" accept="image/x-png,image/jpeg,video/*">
+                                <input type="file" name="files[]" multiple="multiple" accept="image/x-png,image/jpeg,image/avif,video/*">
                             </section>
                             <div id="post-video-upload" data-action="{{ route('video.upload-to-temp-directory') }}" hidden></div>
                             <div class="progress">
@@ -238,6 +246,12 @@
                             </div>
 
                             <div id="tab-recipe"></div>
+
+                            <div id="tab-clothes" style="display: none;">
+                                {{-- поля сохраняются в post_clothes (только у типа "Одежда") и показываются карточкой
+                                     на странице поста (parts/clothes_card.blade.php); "В гардероб" переносит их в вещь --}}
+                                @include('user.posts.parts.clothes_fields')
+                            </div>
                         </div>
 
                         <div class="b-pin-content-label b-pin-content-label--spaced">Хештеги</div>
@@ -247,7 +261,16 @@
                                 <button type="button" class="b-pin-btn b-pin-btn--ghost" id="add-tag" data-action="{{ route('hashtags.store') }}">Добавить тег</button>
                             </div>
                             <ul id="b-search__results-2" class="b-search__results-2"></ul>
-                            <ul id="b-selected-tags-2" class="b-selected-tags-2 b-pin-tags__selected"></ul>
+                            {{-- data-related-action — связанные хештеги выбранного тега добавляются сами (admin.js) --}}
+                            <ul id="b-selected-tags-2" class="b-selected-tags-2 b-pin-tags__selected" data-related-action="{{ route('search.related-hashtags') }}"></ul>
+
+                            {{-- подсказки из существующих тегов по загруженным картинкам (HashtagSuggester) — клик добавляет тег;
+                                 data-auto — режим "Добавлять сразу" из Настроек ИИ: admin.js сам жмёт кнопку после загрузки картинки --}}
+                            <button type="button" class="js-suggest-hashtags b-pin-btn b-pin-btn--ghost" data-action="{{ route('posts.suggest-hashtags') }}"
+                                    data-auto="{{ \App\Models\UserAiSetting::forUser(auth()->id())->autoApplyTags() ? 1 : 0 }}">
+                                Подобрать хештеги по картинке
+                            </button>
+                            <ul id="b-suggested-tags-2" class="b-selected-tags-2 b-pin-tags__selected b-suggested-tags" title="Нажмите на тег, чтобы добавить"></ul>
                         </div>
                     </section>
 
@@ -287,6 +310,30 @@
             </form>
         </div>
     </section>
+
+    {{-- окно сравнения с уже существующим постом, в котором нашлась такая же картинка
+         (заполняет askAboutDuplicate() в admin.js). Вне формы — иначе его радиокнопки
+         попадут в serializeArray() формы создания --}}
+    <div class="modal fade b-dup-merge" id="modal-duplicate-merge" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="b-dup-merge__head">
+                    <div>
+                        <h5 class="b-dup-merge__title js-dup-merge-title"></h5>
+                        <a class="b-dup-merge__link js-dup-merge-link" href="#" target="_blank" rel="noopener"></a>
+                    </div>
+                    <span class="b-dup-merge__counter js-dup-merge-counter"></span>
+                </div>
+                <div class="b-dup-merge__body js-dup-merge-body"></div>
+                <div class="b-dup-merge__footer">
+                    <button type="button" class="b-pin-btn b-pin-btn--ghost js-dup-merge-cancel">Отмена</button>
+                    <span class="b-dup-merge__footer-gap"></span>
+                    <button type="button" class="b-pin-btn b-pin-btn--ghost js-dup-merge-separate"></button>
+                    <button type="button" class="b-pin-btn b-pin-btn--primary js-dup-merge-apply"></button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
 

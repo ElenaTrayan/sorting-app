@@ -36,11 +36,11 @@
                         <i class="fas fa-plus"></i> Добавить пост
                     </a>
                     @if ($withoutHashtags)
-                        <a href="{{ request()->fullUrlWithQuery(['without_hashtags' => null]) }}" class="b-posts-header__btn b-posts-header__btn--active">
+                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'without_hashtags' => null]) }}" class="b-posts-header__btn b-posts-header__btn--active">
                             <i class="fas fa-times"></i> Сбросить фильтр
                         </a>
                     @else
-                        <a href="{{ request()->fullUrlWithQuery(['without_hashtags' => 1]) }}" class="b-posts-header__btn">
+                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'without_hashtags' => 1]) }}" class="b-posts-header__btn">
                             <i class="fas fa-hashtag"></i> Посты без хештегов
                         </a>
                     @endif
@@ -78,10 +78,70 @@
                 @endphp
                 <div class="b-posts-toolbar">
                     <div class="b-posts-toolbar__tabs">
-                        <a href="{{ request()->fullUrlWithQuery(['type' => null, 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'all') b-posts-toolbar__tab--active @endif">Все ({{ $typeCounts['all'] }})</a>
-                        <a href="{{ request()->fullUrlWithQuery(['type' => 'photo', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'photo') b-posts-toolbar__tab--active @endif">Фото ({{ $typeCounts['photo'] }})</a>
-                        <a href="{{ request()->fullUrlWithQuery(['type' => 'video', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'video') b-posts-toolbar__tab--active @endif">Видео ({{ $typeCounts['video'] }})</a>
-                        <a href="{{ request()->fullUrlWithQuery(['type' => 'carousel', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'carousel') b-posts-toolbar__tab--active @endif">Карусель ({{ $typeCounts['carousel'] }})</a>
+                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => null, 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'all') b-posts-toolbar__tab--active @endif">Все ({{ $typeCounts['all'] }})</a>
+                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'photo', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'photo') b-posts-toolbar__tab--active @endif">Фото ({{ $typeCounts['photo'] }})</a>
+                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'video', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'video') b-posts-toolbar__tab--active @endif">Видео ({{ $typeCounts['video'] }})</a>
+                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'carousel', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'carousel') b-posts-toolbar__tab--active @endif">Карусель ({{ $typeCounts['carousel'] }})</a>
+                    </div>
+
+                    <div class="b-posts-toolbar__dropdowns">
+                    {{-- фильтр по типу поста (posts.type) — тот же дропдаун, что и сортировка ниже;
+                         параметр post_type, а не type: type занят вкладками типа медиа слева --}}
+                    <div class="b-posts-sort js-posts-sort">
+                        <button type="button" class="b-posts-sort__trigger js-posts-sort-trigger @if ($activePostType) b-posts-sort__trigger--active @endif">
+                            <i class="fas fa-filter"></i>
+                            <span>{{ $activePostType ? \App\Models\Post::TYPE_LABELS[$activePostType] : 'Все типы' }}</span>
+                            <i class="fas fa-chevron-down b-posts-sort__chevron"></i>
+                        </button>
+                        <ul class="b-posts-sort__list js-posts-sort-list">
+                            {{-- смена типа сбрасывает фильтры вещи (цвет/бренд/принт) — они есть только у "Одежды" --}}
+                            @php $clothesFiltersReset = ['clothes_color' => null, 'clothes_brand' => null, 'clothes_print' => null]; @endphp
+                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'post_type' => null, 'page' => null] + $clothesFiltersReset) }}" class="b-posts-sort__option @if (!$activePostType) is-active @endif">Все типы</a></li>
+                            @foreach (\App\Models\Post::TYPE_LABELS as $postTypeKey => $postTypeLabel)
+                                <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'post_type' => $postTypeKey, 'page' => null] + $clothesFiltersReset) }}" class="b-posts-sort__option @if ($activePostType === $postTypeKey) is-active @endif">{{ $postTypeLabel }}</a></li>
+                            @endforeach
+                        </ul>
+                    </div>
+
+                    {{-- выбран тип "Одежда" — фильтры по данным вещи (post_clothes): цвет, бренд, принт. В списках только
+                         то, что есть в пинах пользователя (PostController::index()); пока нет ничего — подсказка --}}
+                    @if ($clothesFilterOptions !== null)
+                        @foreach (['color' => ['Цвет', 'Любой цвет', 'fa-palette'], 'brand' => ['Бренд', 'Любой бренд', 'fa-tag'], 'print' => ['Принт', 'Любой принт', 'fa-shapes']] as $clothesKey => [$clothesLabel, $clothesAnyLabel, $clothesIcon])
+                            @php $clothesActive = $activeClothes[$clothesKey]; @endphp
+                            <div class="b-posts-sort js-posts-sort">
+                                <button type="button" class="b-posts-sort__trigger js-posts-sort-trigger @if ($clothesActive) b-posts-sort__trigger--active @endif">
+                                    <i class="fas {{ $clothesIcon }}"></i>
+                                    <span>@if ($clothesActive && $clothesKey === 'color')@include('user.wardrobe.parts.color_label', ['color' => $clothesActive])@else{{ $clothesActive->name ?? $clothesLabel }}@endif</span>
+                                    <i class="fas fa-chevron-down b-posts-sort__chevron"></i>
+                                </button>
+                                <ul class="b-posts-sort__list js-posts-sort-list">
+                                    <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'clothes_' . $clothesKey => null, 'page' => null]) }}" class="b-posts-sort__option @if (!$clothesActive) is-active @endif">{{ $clothesAnyLabel }}</a></li>
+                                    @foreach ($clothesFilterOptions[$clothesKey] as $clothesOption)
+                                        <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'clothes_' . $clothesKey => $clothesOption->id, 'page' => null]) }}" class="b-posts-sort__option @if ($clothesActive && $clothesActive->id === $clothesOption->id) is-active @endif">@if ($clothesKey === 'color')@include('user.wardrobe.parts.color_label', ['color' => $clothesOption])@else{{ $clothesOption->name }}@endif</a></li>
+                                    @endforeach
+                                    @if ($clothesFilterOptions[$clothesKey]->isEmpty())
+                                        <li class="b-posts-sort__hint">Ни в одном пине «Одежда» пока не указан — заполните поле «{{ $clothesLabel }}» при редактировании пина.</li>
+                                    @endif
+                                </ul>
+                            </div>
+                        @endforeach
+                    @endif
+
+                    {{-- фильтр по отметке "Использовано" (posts.is_used): что уже публиковалось, а что ещё нет.
+                         Отметку ставят в меню карточки, в режиме "Выбрать" и на странице группы --}}
+                    @php $usedLabels = ['no' => 'Неиспользованные', 'yes' => 'Использованные']; @endphp
+                    <div class="b-posts-sort js-posts-sort">
+                        <button type="button" class="b-posts-sort__trigger js-posts-sort-trigger @if ($activeUsed) b-posts-sort__trigger--active @endif">
+                            <i class="fas fa-check-double"></i>
+                            <span>{{ $activeUsed ? $usedLabels[$activeUsed] : 'Любые' }}</span>
+                            <i class="fas fa-chevron-down b-posts-sort__chevron"></i>
+                        </button>
+                        <ul class="b-posts-sort__list js-posts-sort-list">
+                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'used' => null, 'page' => null]) }}" class="b-posts-sort__option @if (!$activeUsed) is-active @endif">Любые</a></li>
+                            @foreach ($usedLabels as $usedKey => $usedLabel)
+                                <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'used' => $usedKey, 'page' => null]) }}" class="b-posts-sort__option @if ($activeUsed === $usedKey) is-active @endif">{{ $usedLabel }}</a></li>
+                            @endforeach
+                        </ul>
                     </div>
 
                     <div class="b-posts-sort js-posts-sort">
@@ -94,10 +154,135 @@
                             {{-- у каждого пункта своё явное значение sort — никто не полагается на
                                  "нет параметра = дефолт", т.к. дефолт (см. PostController::index())
                                  это "old", а не первый пункт в списке --}}
-                            <li><a href="{{ request()->fullUrlWithQuery(['sort' => 'new', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'new') is-active @endif">Сначала новые</a></li>
-                            <li><a href="{{ request()->fullUrlWithQuery(['sort' => 'old', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'old') is-active @endif">Сначала старые</a></li>
-                            <li><a href="{{ request()->fullUrlWithQuery(['sort' => 'title', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'title') is-active @endif">По названию А-Я</a></li>
+                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'sort' => 'new', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'new') is-active @endif">Сначала новые</a></li>
+                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'sort' => 'old', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'old') is-active @endif">Сначала старые</a></li>
+                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'sort' => 'title', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'title') is-active @endif">По названию А-Я</a></li>
                         </ul>
+                    </div>
+
+                    {{-- галочка "Свернуть группы": отмечена — группа в ленте одной карточкой-стопкой, снята — посты
+                         группы отдельными карточками. Переключается без перезагрузки страницы, выбор помнится
+                         в localStorage и в cookie для сервера (Post::feedGroupsExpanded, admin.js) --}}
+                    <div class="b-posts-sort">
+                        <label class="b-posts-sort__trigger b-posts-ungrouped" title="Снимите, чтобы показать посты групп отдельными карточками">
+                            <input type="checkbox" class="b-posts-ungrouped__checkbox" id="js-posts-collapse-groups" @if (!$ungrouped) checked @endif>
+                            <span>Свернуть группы</span>
+                        </label>
+                    </div>
+
+                    {{-- режим выбора: отметить несколько постов и добавить им хештеги разом
+                         (/admin/posts-bulk.js, PostController::bulkAddHashtags) --}}
+                    <div class="b-posts-sort">
+                        <button type="button" class="b-posts-sort__trigger js-posts-select-toggle">
+                            <i class="far fa-check-square"></i>
+                            <span>Выбрать</span>
+                        </button>
+                    </div>
+
+                    {{-- корзина: удалённые посты, их можно вернуть (posts/trash.blade.php) --}}
+                    <div class="b-posts-sort">
+                        <a href="{{ route('posts.trash') }}" class="b-posts-sort__trigger" title="Удалённые посты — их можно вернуть">
+                            <i class="far fa-trash-alt"></i>
+                            <span class="js-posts-trash-count">Корзина @if ($trashCount > 0)({{ $trashCount }})@endif</span>
+                        </a>
+                    </div>
+                    </div>
+                </div>
+
+                {{-- панель режима выбора — внизу экрана, пока режим включён --}}
+                <div class="b-posts-select-bar js-posts-select-bar"
+                     data-hashtags-action="{{ route('posts.bulk.hashtags') }}"
+                     data-group-action="{{ route('posts.bulk.group') }}"
+                     data-category-action="{{ route('posts.bulk.category') }}"
+                     data-delete-action="{{ route('posts.bulk.delete') }}"
+                     data-used-action="{{ route('posts.bulk.used') }}" hidden>
+                    <span class="b-posts-select-bar__count js-posts-select-count">Выбрано: 0</span>
+                    <button type="button" class="b-posts-select-bar__btn js-posts-select-all">Выбрать все показанные</button>
+                    <button type="button" class="b-posts-select-bar__btn b-posts-select-bar__btn--accent js-posts-select-action js-posts-select-hashtags" disabled>
+                        <i class="fas fa-tags"></i> Добавить хештеги
+                    </button>
+                    <button type="button" class="b-posts-select-bar__btn js-posts-select-action js-posts-select-group" disabled>
+                        <i class="fas fa-layer-group"></i> Сгруппировать
+                    </button>
+                    <button type="button" class="b-posts-select-bar__btn js-posts-select-action js-posts-select-category" disabled>
+                        <i class="fas fa-folder"></i> Сменить категорию
+                    </button>
+                    {{-- подпись меняется: если все отмеченные уже использованы — "Снять отметку" (posts-bulk.js) --}}
+                    <button type="button" class="b-posts-select-bar__btn js-posts-select-action js-posts-select-used" disabled>
+                        <i class="fas fa-check-double"></i> <span>Использовано</span>
+                    </button>
+                    <button type="button" class="b-posts-select-bar__btn b-posts-select-bar__btn--danger js-posts-select-action js-posts-select-delete" disabled>
+                        <i class="fas fa-trash-alt"></i> Удалить
+                    </button>
+                    <button type="button" class="b-posts-select-bar__btn js-posts-select-cancel">Отмена</button>
+                </div>
+
+                {{-- "Удалить" в режиме выбора: подтверждение (PostController::bulkDelete) — посты уходят в корзину --}}
+                <div class="modal fade" id="modal-posts-bulk-delete" tabindex="-1" role="dialog" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title js-posts-bulk-delete-title"></h5>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">Посты попадут в корзину — оттуда их можно вернуть в течение {{ \App\Components\PostTrash::KEEP_DAYS }} дней.</p>
+                                <p class="mt-2 mb-0 js-posts-bulk-delete-groups" hidden></p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-danger js-posts-bulk-delete-confirm">Удалить</button>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- "Сгруппировать" в режиме выбора: подтверждение (PostController::bulkGroup) --}}
+                <div class="modal fade" id="modal-posts-bulk-group" tabindex="-1" role="dialog" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title js-posts-bulk-group-title"></h5>
+                            </div>
+                            <div class="modal-body">
+                                <p>Группируются только посты из одних изображений или из одного текста — и только одного вида.</p>
+                                <p class="mb-0">Название и категория у постов станут общими — как у первого из них, хештеги объединятся.
+                                    Если среди выбранных есть посты уже существующей группы, остальные добавятся в неё.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-primary js-posts-bulk-group-confirm">Сгруппировать</button>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- "Сменить категорию" в режиме выбора (PostController::bulkSetCategory) --}}
+                <div class="modal fade" id="modal-posts-bulk-category" tabindex="-1" role="dialog" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title js-posts-bulk-category-title"></h5>
+                            </div>
+                            <div class="modal-body">
+                                <label for="posts-bulk-category">Категория</label>
+                                <select class="form-control" id="posts-bulk-category">
+                                    <option value="">- (без категории)</option>
+                                    @foreach($categories as $category)
+                                        <option style="font-weight: 600;" value="{{ $category->id }}">{{ $category->title }}</option>
+                                        @if (!empty($category->children))
+                                            @foreach($category->children as $childrenCategory)
+                                                <option value="{{ $childrenCategory->id }}"> - {{ $childrenCategory->title }}</option>
+                                            @endforeach
+                                        @endif
+                                    @endforeach
+                                </select>
+                                <p class="text-muted small mt-2 mb-0">У постов из групп категория общая — её получит вся группа.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-primary js-posts-bulk-category-confirm">Сохранить</button>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -226,6 +411,7 @@
      бесконечным скроллом; сам биндинг делается только тут (не в post_items.blade.php),
      чтобы не навешивать его повторно при каждой AJAX-подгрузке страницы --}}
 @push('footer-scripts')
+<script src="/admin/posts-bulk.js?v={{ filemtime(public_path('admin/posts-bulk.js')) }}"></script>
 <script>
     Fancybox.bind('[data-fancybox="posts-gallery"]', {
         type: 'ajax',

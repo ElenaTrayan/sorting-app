@@ -45,9 +45,15 @@ return [
             'icon' => 'package',
             'route' => 'stock.overview',
         ],
+        'wardrobe' => [
+            'name' => 'Мой гардероб',
+            'description' => 'Одежда с фото и описанием, список покупок, образы из вещей',
+            'icon' => 'hanger',
+            'route' => 'wardrobe.items.index',
+        ],
     ],
 
     // что получает пользователь при регистрации (ключи из 'services' выше)
-    'default_services' => ['posts', 'hashtags', 'contacts', 'wishlists', 'stock'],
+    'default_services' => ['posts', 'hashtags', 'contacts', 'wishlists', 'stock', 'wardrobe'],
 
 ];

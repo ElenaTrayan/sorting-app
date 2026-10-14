@@ -357,7 +357,8 @@
                         @else
                             <div class="b-cards">
                                 <div class="grid are-images-unloaded">
-                                    @include('user.posts.parts.post_items', ['posts' => $relatedPosts])
+                                    {{-- linksOnly: скриптов ленты "Все посты" здесь нет — в меню карточки только пункты-ссылки --}}
+                                    @include('user.posts.parts.post_items', ['posts' => $relatedPosts, 'linksOnly' => true])
                                 </div>
                             </div>
                         @endif
@@ -374,6 +375,18 @@
     <script>
         Fancybox.bind('[data-fancybox="contact-photos"]', {infinite: false});
         Fancybox.bind('[data-fancybox="contact-conversations"]', {infinite: false});
+        // карточки постов на вкладке "Посты": клик — превью поста в поп-апе, как на "Все посты"
+        // (без этого ссылка карточки открывала голый фрагмент превью отдельной страницей)
+        Fancybox.bind('[data-fancybox="posts-gallery"]', {
+            type: 'ajax',
+            dragToClose: false,
+            mainClass: 'fancybox-posts-gallery',
+            Thumbs: false,
+        });
+        Fancybox.bind('[data-fancybox^="post-preview-image-"]', {
+            dragToClose: false,
+            mainClass: 'fancybox-post-zoom',
+        });
     </script>
 @endpush
 @endsection

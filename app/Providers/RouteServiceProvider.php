@@ -5,6 +5,10 @@ namespace App\Providers;
 use App\Models\Hashtag;
 use App\Models\Post;
 use App\Models\PostsCategory;
+use App\Models\WardrobeItem;
+use App\Models\WardrobeOutfit;
+use App\Models\WardrobeOutfitWear;
+use App\Models\WardrobeStorage;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Http\Request;
@@ -52,6 +56,26 @@ class RouteServiceProvider extends ServiceProvider
         });
         Route::bind('hashtag', function ($value) {
             return Hashtag::where('user_id', Auth::id())->findOrFail($value);
+        });
+        // второй хештег в роутах связанных хештегов (/hashtags/{hashtag}/related/{relatedHashtag})
+        Route::bind('relatedHashtag', function ($value) {
+            return Hashtag::where('user_id', Auth::id())->findOrFail($value);
+        });
+
+        // "Мой гардероб": вещи, образы и записи "куда надевала" — тоже только свои
+        Route::bind('wardrobeItem', function ($value) {
+            return WardrobeItem::where('user_id', Auth::id())->findOrFail($value);
+        });
+        Route::bind('wardrobeOutfit', function ($value) {
+            return WardrobeOutfit::where('user_id', Auth::id())->findOrFail($value);
+        });
+        Route::bind('wardrobeStorage', function ($value) {
+            return WardrobeStorage::where('user_id', Auth::id())->findOrFail($value);
+        });
+        Route::bind('wardrobeWear', function ($value) {
+            return WardrobeOutfitWear::whereHas('outfit', function ($q) {
+                $q->where('user_id', Auth::id());
+            })->findOrFail($value);
         });
 
         $this->routes(function () {

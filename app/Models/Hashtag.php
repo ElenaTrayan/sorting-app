@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class Post
@@ -77,7 +78,41 @@ class Hashtag extends Model
             'hashtag_relations',
             'hashtag_id',
             'related_hashtag_id'
-        );
+        )->withPivot('auto_add');
+    }
+
+    /**
+     * Направление связи по умолчанию (для новой связи и для старых — см. миграцию add_auto_add): выбрали
+     * $hashtagId — добавлять ли $relatedHashtagId к посту сразу. Связанный, который используется не реже
+     * выбранного, — общее ("Самара Уивинг" → "актриса": добавлять), реже — конкретнее ("актриса" →
+     * "Самара Уивинг": только предлагать). На странице хештега направление можно поменять
+     *
+     * @param int $hashtagId
+     * @param int $relatedHashtagId
+     * @return bool
+     */
+    public static function defaultAutoAdd(int $hashtagId, int $relatedHashtagId): bool
+    {
+        $counts = DB::table('hashtag_post')
+            ->whereIn('hashtag_id', [$hashtagId, $relatedHashtagId])
+            ->select('hashtag_id', DB::raw('count(*) as c'))
+            ->groupBy('hashtag_id')
+            ->pluck('c', 'hashtag_id');
+
+        return (int)($counts[$relatedHashtagId] ?? 0) >= (int)($counts[$hashtagId] ?? 0);
+    }
+
+    /**
+     * Поменять направление связи: выбрали этот хештег — добавлять ли $relatedHashtagId к посту сразу
+     * (обратная строка пары не меняется)
+     *
+     * @param int $relatedHashtagId
+     * @param bool $autoAdd
+     * @return void
+     */
+    public function setRelatedAutoAdd(int $relatedHashtagId, bool $autoAdd)
+    {
+        $this->relatedHashtags()->updateExistingPivot($relatedHashtagId, ['auto_add' => $autoAdd]);
     }
 
     /**
@@ -93,12 +128,20 @@ class Hashtag extends Model
             return;
         }
 
-        $this->relatedHashtags()->syncWithoutDetaching([$relatedHashtagId]);
+        // направление по умолчанию — только у новой строки: у уже существующей не сбрасываем то,
+        // что выбрали на странице хештега
+        if (!$this->relatedHashtags()->where('related_hashtag_id', $relatedHashtagId)->exists()) {
+            $this->relatedHashtags()->attach($relatedHashtagId, [
+                'auto_add' => static::defaultAutoAdd($this->id, $relatedHashtagId),
+            ]);
+        }
 
         /** @var Hashtag|null $relatedHashtag */
         $relatedHashtag = static::find($relatedHashtagId);
-        if ($relatedHashtag) {
-            $relatedHashtag->relatedHashtags()->syncWithoutDetaching([$this->id]);
+        if ($relatedHashtag && !$relatedHashtag->relatedHashtags()->where('related_hashtag_id', $this->id)->exists()) {
+            $relatedHashtag->relatedHashtags()->attach($this->id, [
+                'auto_add' => static::defaultAutoAdd($relatedHashtagId, $this->id),
+            ]);
         }
     }
 

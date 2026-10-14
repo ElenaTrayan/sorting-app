@@ -16,6 +16,12 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         // $schedule->command('inspire')->hourly();
+
+        // брошенные загрузки во временной папке (пост так и не сохранили) — см. CleanTempDirectory
+        $schedule->command('temp:clean')->dailyAt('04:00');
+
+        // посты, пролежавшие в корзине дольше положенного, — удалить навсегда, см. PurgePostsTrash
+        $schedule->command('posts:purge-trash')->dailyAt('04:30');
     }
 
     /**

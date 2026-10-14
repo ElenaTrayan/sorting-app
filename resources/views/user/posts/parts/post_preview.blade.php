@@ -65,8 +65,14 @@
             @include('user.posts.parts.film_card', ['film' => $post->film, 'compact' => true])
         @endif
 
-        @if ($post->hashtags->isNotEmpty() || $post->category)
+        @if ($post->hashtags->isNotEmpty() || $post->category || $post->filmPost)
             <div class="b-post-show__tags">
+                {{-- пост прикреплён к фильму (кадр/промо/видео) --}}
+                @if ($post->filmPost)
+                    <a href="{{ route('posts.show', $post->filmPost->id) }}" class="b-post-show__film-chip">
+                        <i class="fas fa-film"></i> {{ $post->filmPost->title ?: 'Без названия' }}
+                    </a>
+                @endif
                 @foreach ($post->hashtags as $hashtag)
                     <span class="b-post-show__tag">#{{ $hashtag->title }}</span>
                 @endforeach

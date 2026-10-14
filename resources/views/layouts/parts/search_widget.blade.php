@@ -41,6 +41,16 @@
                 <span class="b-tabs__button-subtitle">Ищите по словам и фразам</span>
             </span>
         </button>
+        {{-- по цвету — только посты: палитра есть у постов (posts.palette), у контактов её нет --}}
+        @if ($searchContext === 'posts')
+            <button class="b-tabs__button js-b-tabs__button" data-tab="color">
+                <span class="b-tabs__button-icon"><i class="fas fa-palette"></i></span>
+                <span class="b-tabs__button-text">
+                    <span class="b-tabs__button-title">Поиск по цвету</span>
+                    <span class="b-tabs__button-subtitle">Посты в нужной гамме</span>
+                </span>
+            </button>
+        @endif
         @if ($showAllTabs)
             <button class="b-tabs__button js-b-tabs__button" data-tab="image">
                 <span class="b-tabs__button-icon"><i class="fas fa-image"></i></span>
@@ -103,6 +113,10 @@
                         </div>
 
                     </div>
+                    @if ($searchContext === 'posts')
+                        {{-- цвет, выбранный на вкладке "Поиск по цвету": "Найти" ищет и по нему (admin.js) --}}
+                        <div class="b-search-filter-summary js-search-color-summary" style="display: none;"></div>
+                    @endif
                     <div class="b-hashtags-section-foot">
                         <button type="button" class="b-hashtags-section-foot__reset js-b-search-reset"><i class="fas fa-sync-alt mr-1"></i>Сбросить</button>
                         <button type="button" class="btn btn-block btn-info b-search-by-hashtags__button js-b-search-by-hashtags__button" data-action="{{ route('search.posts-by-hashtags') }}" data-posts-url="{{ route('posts.index') }}"><i class="fas fa-search mr-1"></i>Найти</button>
@@ -118,6 +132,33 @@
                 <button class="b-search-text__button">Поиск</button>
             </div>
         </div>
+
+        @if ($searchContext === 'posts')
+            <!-- Поиск по цвету: готовый цвет или свой (пипетка) -> посты, в палитре которых он есть (admin.js) -->
+            <div class="b-tabs__panel js-b-tabs__panel" data-tab="color" style="display: none;">
+                <div class="b-color-search js-color-search">
+                    <div class="b-hashtags-section-head">
+                        <span class="b-hashtags-section-head__title">Цвета вашей коллекции <i class="fas fa-info-circle" title="Оттенки из палитр ваших постов; число — сколько постов найдёт поиск по этому цвету (среди всех постов, без учёта хэштегов)"></i></span>
+                    </div>
+                    {{-- кружки подгружает admin.js при первом открытии вкладки (search.collection-colors) --}}
+                    <div class="b-color-search__swatches js-color-search__swatches" role="radiogroup" aria-label="Цвет"
+                         data-action="{{ route('search.collection-colors') }}">
+                        <span class="b-color-search__status">Загружаю цвета…</span>
+                    </div>
+                    <label class="b-color-search__custom">
+                        <input type="color" class="js-color-search__picker" value="#D8C3A5">
+                        <span>Свой цвет</span>
+                        <span class="b-color-search__custom-hex js-color-search__hex"></span>
+                    </label>
+                    {{-- хэштеги с вкладки "Поиск по хэштегам": поиск по цвету идёт только среди постов с ними (admin.js) --}}
+                    <div class="b-search-filter-summary js-search-hashtags-summary"></div>
+                    <div class="b-hashtags-section-foot">
+                        <button type="button" class="btn btn-block btn-info b-search-by-hashtags__button js-color-search__button"
+                                data-action="{{ route('search.posts-by-color') }}"><i class="fas fa-search mr-1"></i>Найти</button>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         @if ($showAllTabs)
             <!-- Поиск по картинке -->

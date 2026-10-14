@@ -7,6 +7,7 @@ use App\Models\Contact;
 use App\Models\Hashtag;
 use App\Models\Post;
 use App\Models\StockItem;
+use App\Models\WardrobeItem;
 use App\Models\Wishlist;
 use Illuminate\Http\Request;
 
@@ -36,6 +37,9 @@ class HomeController extends Controller
             },
             'stock' => function () use ($user) {
                 return StockItem::where('user_id', $user->id)->count();
+            },
+            'wardrobe' => function () use ($user) {
+                return WardrobeItem::where('user_id', $user->id)->count();
             },
         ];
 

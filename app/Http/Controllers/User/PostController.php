@@ -2,14 +2,24 @@
 
 namespace App\Http\Controllers\User;
 
+use App\Components\ColorMatch;
+use App\Components\HashtagSuggester;
+use App\Components\ImagePalette;
 use App\Components\ImageReader;
+use App\Components\PostTrash;
+use App\Components\TextGroupExport;
 use App\Http\Controllers\User\Packages\InstagramParser;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\User\Packages\UploadImageController;
 use App\Models\Hashtag;
 use App\Models\Post;
+use App\Models\PostClothes;
 use App\Models\PostFilm;
 use App\Models\PostsCategory;
+use App\Models\UserAiSetting;
+use App\Models\WardrobeBrand;
+use App\Models\WardrobeColor;
+use App\Models\WardrobePrint;
 use App\Parsers\BaseParser;
 use App\Parsers\EdaRuParser;
 use App\Parsers\HdFilmixFunParser;
@@ -35,8 +45,43 @@ class PostController extends Controller
         //$posts = Post::orderBy('title', 'asc')->get();
 
         $withoutHashtags = $request->boolean('without_hashtags');
+        // фильтр по отметке "Использовано" (posts.is_used): used=no — ещё не использованные, used=yes — использованные
+        $activeUsed = in_array($request->get('used'), ['no', 'yes'], true) ? $request->get('used') : null;
         $activeType = in_array($request->get('type'), ['photo', 'video', 'carousel'], true) ? $request->get('type') : 'all';
         $activeSort = in_array($request->get('sort'), ['old', 'title'], true) ? $request->get('sort') : 'new';
+        // тип поста (колонка posts.type, см. Post::TYPE_LABELS) — отдельный фильтр, не путать с
+        // типом медиа выше (вкладки "Фото/Видео/Карусель", параметр type); null — все типы
+        $activePostType = array_key_exists((string) $request->get('post_type'), Post::TYPE_LABELS) ? $request->get('post_type') : null;
+        // снята галочка "Свернуть группы" (cookie, см. Post::feedGroupsExpanded): посты групп идут в ленте
+        // отдельными карточками, а не одной карточкой-стопкой; посты одной группы всё равно стоят рядом (сортировка ниже)
+        $ungrouped = Post::feedGroupsExpanded();
+
+        // у типа "Одежда" — ещё и фильтры по данным вещи (post_clothes): цвет, бренд, принт — id из справочников
+        // гардероба, параметры clothes_color / clothes_brand / clothes_print (просто color занят поиском по палитре).
+        // В списках — только то, что встречается в пинах пользователя; null — фильтров нет (другой тип поста)
+        $clothesFilterOptions = null;
+        $activeClothes = [];
+        $clothesWhere = [];
+        if ($activePostType === Post::TYPE_CLOTHES) {
+            $usedClothes = PostClothes::whereHas('post', function($q) {
+                $q->where('user_id', auth()->id())->where('type', Post::TYPE_CLOTHES);
+            })->get(['color_id', 'brand_id', 'print_id']);
+
+            $clothesFilterOptions = [
+                'color' => WardrobeColor::whereIn('id', $usedClothes->pluck('color_id')->filter()->unique())->orderBy('name')->get(),
+                'brand' => WardrobeBrand::whereIn('id', $usedClothes->pluck('brand_id')->filter()->unique())->orderBy('name')->get(),
+                'print' => WardrobePrint::whereIn('id', $usedClothes->pluck('print_id')->filter()->unique())->orderBy('name')->get(),
+            ];
+
+            foreach ($clothesFilterOptions as $key => $options) {
+                // выбранное значение — только из списка: чужой или устаревший id в адресе фильтром не считается
+                $activeClothes[$key] = $options->firstWhere('id', (int) $request->get('clothes_' . $key));
+                if ($activeClothes[$key]) {
+                    $clothesWhere[$key . '_id'] = $activeClothes[$key]->id;
+                }
+            }
+        }
+
         $perPage = 50;
         $page = max((int) $request->get('page', 1), 1);
 
@@ -57,16 +102,41 @@ class PostController extends Controller
             'film' => function($q) {
                 $q->select(['id', 'post_id', 'kind', 'year', 'duration', 'imdb_rating', 'my_rating', 'status', 'genres', 'vibes']);
             },
+            // пин "Одежда" уже в гардеробе — в меню карточки "В гардеробе" вместо "В гардероб"
+            'wardrobeItems' => function($q) {
+                $q->select(['id', 'post_id']);
+            },
+            // пост прикреплён к фильму (кадр/промо/видео) — чип с названием фильма на карточке
+            'filmPost' => function($q) {
+                $q->select(['id', 'title']);
+            },
         ];
 
         // лёгкая выборка (без eager loads) — только для подсчёта постов по типу медиа
         // (вкладки "Фото/Видео/Карусель" в шапке). Тип медиа не хранится отдельной
         // колонкой, определяется по форме JSON в *_image (как и cover_image ниже),
         // поэтому посчитать/отфильтровать по нему можно только в PHP, не в SQL.
+        // Группа в ленте — одна карточка-стопка (её первый пост, Post::scopeCollapsedGroups): и здесь,
+        // и в выборке страницы ниже считаем и листаем карточки, а не посты; фильтры и тип медиа
+        // у группы — по её первому посту
         $lightPosts = Post::selectRaw('posts.id, posts.title, posts.created_at, posts.group_id, posts.sort_order, posts.small_image, posts.medium_image, posts.original_image, posts.video')
             ->where('posts.user_id', auth()->id())
+            ->when(!$ungrouped, function($q) {
+                $q->collapsedGroups((int)auth()->id());
+            })
+            ->when($activeUsed, function($q) use ($activeUsed) {
+                $q->where('posts.is_used', $activeUsed === 'yes');
+            })
             ->when($withoutHashtags, function($q) {
                 $q->whereDoesntHave('hashtags');
+            })
+            ->when($activePostType, function($q) use ($activePostType) {
+                $q->where('posts.type', $activePostType);
+            })
+            ->when($clothesWhere, function($q) use ($clothesWhere) {
+                $q->whereHas('clothes', function($q) use ($clothesWhere) {
+                    $q->where($clothesWhere);
+                });
             })
             ->get()
             ->each(function ($post) {
@@ -80,25 +150,36 @@ class PostController extends Controller
             'carousel' => $lightPosts->where('media_type', 'carousel')->count(),
         ];
 
-        $baseSelect = 'posts.id, posts.title, posts.alias, posts.user_id, posts.category_id,
-        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image, posts.video';
+        $baseSelect = 'posts.id, posts.title, posts.alias, posts.user_id, posts.category_id, posts.type, posts.film_post_id, posts.group_id,
+        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image, posts.video, posts.palette';
 
         if ($activeType === 'all') {
             // без фильтра по типу медиа — обычная SQL-пагинация, как раньше
             $posts = Post::selectRaw($baseSelect)
                 ->with($withRelations)
                 ->where('posts.user_id', auth()->id())
+                ->when(!$ungrouped, function($q) {
+                    $q->collapsedGroups((int)auth()->id());
+                })
+                ->when($activeUsed, function($q) use ($activeUsed) {
+                    $q->where('posts.is_used', $activeUsed === 'yes');
+                })
                 ->when($withoutHashtags, function($q) {
                     $q->whereDoesntHave('hashtags');
                 })
+                ->when($activePostType, function($q) use ($activePostType) {
+                    $q->where('posts.type', $activePostType);
+                })
+                ->when($clothesWhere, function($q) use ($clothesWhere) {
+                    $q->whereHas('clothes', function($q) use ($clothesWhere) {
+                        $q->where($clothesWhere);
+                    });
+                })
                 ->when($activeSort === 'title', function ($q) { $q->orderBy('posts.title'); })
                 ->when($activeSort !== 'title', function ($q) use ($activeSort) {
-                    // group_id = id первого поста группы (см. createPost()), поэтому
-                    // COALESCE(group_id, id) кладёт всю группу одним блоком туда, где ей
-                    // место по общему направлению сортировки, а sort_order (тот же порядок,
-                    // что и на странице самой группы, см. showGroup()) всегда по возрастанию
-                    // расставляет посты ВНУТРИ группы — независимо от new/old, чтобы порядок
-                    // чтения группы не переворачивался при переключении сортировки ленты
+                    // group_id = id одного из постов группы (обычно первого созданного), поэтому
+                    // COALESCE(group_id, id) ставит карточку группы туда, где ей место по общему
+                    // направлению сортировки, даже если первым в группе стоит более новый пост
                     $direction = $activeSort === 'old' ? 'asc' : 'desc';
                     $q->orderByRaw("COALESCE(posts.group_id, posts.id) {$direction}")
                         ->orderBy('posts.sort_order', 'asc');
@@ -108,22 +189,16 @@ class PostController extends Controller
             // с фильтром по типу — тип уже посчитан выше в $lightPosts, дальше просто
             // сортируем/режем на страницы в PHP и подгружаем полные посты по их id
             $filtered = $lightPosts->where('media_type', $activeType);
-            // та же логика группировки, что и в SQL-ветке выше (COALESCE(group_id, id) —
-            // группа единым блоком по общему направлению, sort_order внутри неё — всегда
-            // по возрастанию), просто средствами коллекции, а не ORDER BY
+            // тот же порядок, что и в SQL-ветке выше (COALESCE(group_id, id)), средствами коллекции.
+            // Ключ считается один раз на пост: раньше тут была сортировка по списку замыканий, а их
+            // коллекция вызывает как сравнение двух постов — порядок выходил случайным, а сама сортировка
+            // нескольких тысяч постов занимала минуты
             $groupKey = fn ($post) => $post->group_id ?? $post->id;
-            $sortOrderKey = fn ($post) => $post->sort_order ?? 0;
-            $filtered = match ($activeSort) {
-                'title' => $filtered->sortBy('title'),
-                'old' => $filtered->sortBy([
-                    [$groupKey, 'asc'],
-                    [$sortOrderKey, 'asc'],
-                ]),
-                default => $filtered->sortBy([
-                    [$groupKey, 'desc'],
-                    [$sortOrderKey, 'asc'],
-                ]),
-            };
+            // внутри группы (снята галочка "Свернуть группы") — по sort_order: сортировка в PHP 8 устойчивая,
+            // поэтому сначала по sort_order, потом по группе, и порядок внутри группы сохраняется
+            $filtered = $activeSort === 'title'
+                ? $filtered->sortBy('title')
+                : $filtered->sortBy('sort_order')->sortBy($groupKey, SORT_REGULAR, $activeSort !== 'old');
             $orderedIds = $filtered->pluck('id')->values();
             $pageIds = $orderedIds->forPage($page, $perPage);
 
@@ -163,6 +238,12 @@ class PostController extends Controller
             }
         }
 
+        // счётчик постов на карточке-стопке группы; без стопок (снята галочка "Свернуть группы") он не нужен —
+        // карточка без group_count показывается обычной, с чипом "Группа" (parts/post_items.blade.php)
+        if (!$ungrouped) {
+            Post::fillGroupCounts($posts);
+        }
+
         if ($request->ajax()) {
             return view('user.posts.parts.post_items', [
                 'posts' => $posts,
@@ -175,6 +256,15 @@ class PostController extends Controller
             'typeCounts' => $typeCounts,
             'activeType' => $activeType,
             'activeSort' => $activeSort,
+            'activePostType' => $activePostType,
+            'activeUsed' => $activeUsed,
+            'ungrouped' => $ungrouped,
+            'clothesFilterOptions' => $clothesFilterOptions,
+            'activeClothes' => $activeClothes,
+            // окно "Сменить категорию" режима выбора
+            'categories' => PostsCategory::where('user_id', auth()->id())->orderBy('title', 'DESC')->get(),
+            // счётчик на кнопке "Корзина"
+            'trashCount' => Post::onlyTrashed()->where('user_id', auth()->id())->count(),
         ]);
     }
 
@@ -235,6 +325,20 @@ class PostController extends Controller
 
             $images = json_decode($request->images, true);
 
+            // сначала ищем дубликаты среди всех картинок, ничего не сохраняя: если есть — пусть
+            // пользователь решит по каждому (окно сравнения в admin.js), а потом форма придёт снова
+            $duplicateInfos = $this->findDuplicatesBeforeCreate($request, $images ?: [], (int)$user->id);
+            if (!empty($duplicateInfos)) {
+                return response()->json([
+                    'needs_choice' => true,
+                    // 'carousel' — все картинки идут в один пост: сливать его с найденным целиком нельзя,
+                    // выбираем только, в каком из постов останется картинка; 'post' — картинка это
+                    // отдельный пост, его можно объединить с найденным (текст, название, хештеги)
+                    'duplicate_mode' => count($images) > 1 && $request->numberOfPosts === 'one-post' ? 'carousel' : 'post',
+                    'duplicate_infos' => $duplicateInfos,
+                ]);
+            }
+
             //если картинок больше одной
             if (count($images) > 1) {
 
@@ -275,16 +379,27 @@ class PostController extends Controller
                     // "Группировать посты" (галочка group-posts) — посты остаются отдельными
                     // записями (в отличие от "Один пост", где картинки объединяются в один),
                     // но получают общий group_id (= id первого созданного поста группы) и
-                    // sort_order по порядку загрузки — см. posts.groups.show/reorder
-                    $shouldGroup = $request->boolean('groupPosts');
+                    // sort_order по порядку загрузки — см. posts.groups.show/reorder.
+                    // Группируются только посты из одних картинок (Post::groupKind()): с текстом или
+                    // с выбранным вручную типом (фильм, рецепт, одежда) посты создаются без группы
+                    $shouldGroup = $request->boolean('groupPosts')
+                        && empty(strip_tags((string)$request->text))
+                        && !in_array($request->input('pin_type'), Post::MANUAL_TYPES, true);
                     $groupId = null;
                     $sortOrder = 0;
+                    // картинки, из которых посты уже созданы: если на какой-то из следующих случится ошибка,
+                    // форма уберёт их у себя — иначе повторное сохранение споткнулось бы о них же
+                    $createdKeys = [];
 
                     foreach ($images as $key => $image) {
                         $count++;
 
                         $createdId = null;
                         $newPost = $this->createPost($request, $user->id, $image, '', $groupId, $shouldGroup ? $sortOrder : null, $createdId);
+
+                        if ($newPost === true) {
+                            $createdKeys[] = $key;
+                        }
 
                         if ($newPost !== true) {
                             $errors[] = $newPost['errors'];
@@ -309,6 +424,7 @@ class PostController extends Controller
                         return response()->json([
                             'errors' => $errors,
                             'duplicate_infos' => $duplicateInfos,
+                            'created_keys' => $createdKeys,
                         ]);
                     }
 
@@ -433,6 +549,12 @@ class PostController extends Controller
      */
     public function show(Request $request, Post $post)
     {
+        // у поста группы своей страницы нет — его смотрят и правят на странице группы (showGroup());
+        // превью в поп-апе на "Все посты" (?fragment=1) остаётся
+        if (!$request->boolean('fragment') && $post->group_id && $post->groupKind() !== null) {
+            return redirect($this->groupPostUrl($post));
+        }
+
         // $post уже привязан роутом только к постам текущего пользователя (RouteServiceProvider);
         // ниже перечитываем его с нужными связями
         $post = Post::where('id', $post->id)->with([
@@ -449,6 +571,11 @@ class PostController extends Controller
                 $q->select(['id', 'title', 'parent_id', 'user_id']);
             },
             'film',
+            'clothes.brand',
+            // фильм, к которому прикреплён этот пост (кадр/промо/видео) — чип "Фильм" на странице и в превью
+            'filmPost' => function($q) {
+                $q->select(['id', 'title']);
+            },
         ])->firstOrFail();
 
         $categories = PostsCategory::where('user_id', auth()->id())->orderBy('title', 'DESC')->get();
@@ -496,38 +623,926 @@ class PostController extends Controller
             'post' => $post,
             'galleryImages' => $galleryImages,
             'groupCount' => $groupCount,
+            'filmMaterials' => $post->type === Post::TYPE_FILM ? $this->filmMaterialsBySection($post) : null,
         ]);
     }
 
     /**
-     * Группа постов ("Группировать посты" при создании) — список постов группы
-     * в порядке sort_order, с возможностью перетащить и поменять порядок
-     * (см. reorderGroup() и resources/views/admin/posts/group.blade.php).
+     * Материалы фильма (посты с film_post_id = id фильма) по разделам блока "Материалы" на странице фильма:
+     * [раздел => коллекция постов], разделы — все из Post::MATERIAL_SECTION_LABELS, в том числе пустые
+     *
+     * @param Post $film
+     * @return array
+     */
+    private function filmMaterialsBySection(Post $film): array
+    {
+        $materials = Post::where('film_post_id', $film->id)
+            ->where('user_id', auth()->id())
+            ->orderBy('id')
+            ->get(['id', 'title', 'film_material_kind', 'small_image', 'medium_image', 'original_image', 'video']);
+
+        foreach ($materials as $material) {
+            $material->cover_image = $this->resolveCoverImagePath($material);
+        }
+
+        $sections = [];
+        foreach (array_keys(Post::MATERIAL_SECTION_LABELS) as $section) {
+            $sections[$section] = $materials->filter(fn (Post $material) => $material->filmMaterialSection() === $section)->values();
+        }
+
+        return $sections;
+    }
+
+    /**
+     * Посты, которые можно прикрепить к фильму — список для окна "Добавить материалы" на странице фильма
+     * (film-materials.js): поиск по названию и хештегу, следующие страницы — ?page=N.
+     * Не предлагаем сам фильм, другие пины "Фильм / Сериал" и посты, уже прикреплённые к этому фильму
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function filmMaterialCandidates(Request $request, Post $post)
+    {
+        abort_unless($post->type === Post::TYPE_FILM, 404);
+
+        $search = ltrim(trim((string) $request->get('q', '')), '#');
+
+        $candidates = Post::where('user_id', auth()->id())
+            ->where('id', '!=', $post->id)
+            ->where('type', '!=', Post::TYPE_FILM)
+            ->where(function ($q) use ($post) {
+                $q->whereNull('film_post_id')->orWhere('film_post_id', '!=', $post->id);
+            })
+            ->when($search !== '', function ($q) use ($search) {
+                $like = '%' . addcslashes($search, '%_\\') . '%';
+                $q->where(function ($q) use ($like) {
+                    $q->where('title', 'like', $like)
+                        ->orWhereHas('hashtags', function ($q) use ($like) {
+                            $q->where('title', 'like', $like);
+                        });
+                });
+            })
+            ->with(['filmPost' => function ($q) {
+                $q->select(['id', 'title']);
+            }])
+            ->orderByDesc('id')
+            ->simplePaginate(40, ['id', 'title', 'film_post_id', 'small_image', 'medium_image', 'original_image', 'video']);
+
+        return response()->json([
+            'items' => collect($candidates->items())->map(function (Post $candidate) {
+                $cover = $this->resolveCoverImagePath($candidate);
+
+                return [
+                    'id' => $candidate->id,
+                    'title' => (string) $candidate->title,
+                    'cover' => $cover ? '/storage' . $cover : null,
+                    'video' => $candidate->video_url,
+                    // уже материал другого фильма — прикрепление перенесёт его сюда
+                    'film' => $candidate->filmPost ? ($candidate->filmPost->title ?: 'другой фильм') : null,
+                ];
+            })->values(),
+            'has_more' => $candidates->hasMorePages(),
+        ]);
+    }
+
+    /**
+     * Прикрепляет выбранные посты к фильму (окно "Добавить материалы")
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function attachFilmMaterials(Request $request, Post $post)
+    {
+        abort_unless($post->type === Post::TYPE_FILM, 404);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'max:500'],
+            'ids.*' => ['integer'],
+            'kind' => ['required', 'in:' . implode(',', array_keys(Post::MATERIAL_KIND_LABELS))],
+        ]);
+
+        // toBase(): не трогаем updated_at — сам пост не менялся
+        $attached = Post::where('user_id', auth()->id())
+            ->whereIn('id', $data['ids'])
+            ->where('id', '!=', $post->id)
+            ->where('type', '!=', Post::TYPE_FILM)
+            ->toBase()
+            ->update(['film_post_id' => $post->id, 'film_material_kind' => $data['kind']]);
+
+        return response()->json(['attached' => $attached]);
+    }
+
+    /**
+     * Открепляет пост от фильма — сам пост остаётся
+     *
+     * @param Post $post
+     * @param int $materialId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function detachFilmMaterial(Post $post, $materialId)
+    {
+        $detached = Post::where('user_id', auth()->id())
+            ->where('id', $materialId)
+            ->where('film_post_id', $post->id)
+            ->toBase()
+            ->update(['film_post_id' => null, 'film_material_kind' => null]);
+
+        abort_unless($detached, 404);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Страница группы постов — на ней группу и смотрят, и редактируют (своих страниц у постов группы нет,
+     * см. show()/edit()): общие название, категория и хештеги, посты в порядке sort_order (перетаскиванием,
+     * reorderGroup()), у группы текстов — текст каждого поста. Здесь же посты добавляют в группу и убирают
+     * из неё. Вьюха — user/posts/group.blade.php, поведение — /admin/post-group.js.
      *
      * @param int $groupId
      * @return Application|Factory|View
      */
     public function showGroup($groupId)
     {
-        $user = auth()->user();
-
-        $posts = Post::where('group_id', $groupId)
-            ->where('user_id', $user->id)
-            ->orderBy('sort_order')
-            ->get();
-
-        if ($posts->isEmpty()) {
-            abort(404);
-        }
-
-        foreach ($posts as $post) {
-            $post->cover_image = $this->resolveCoverImagePath($post);
-        }
+        $posts = $this->groupPosts($groupId);
+        $head = $posts->first();
+        $kind = $this->groupKind($posts);
 
         return view('user.posts.group', [
             'groupId' => $groupId,
             'posts' => $posts,
+            'kind' => $kind,
+            // у группы текстов два режима: просмотр (тексты только читают, карточки можно переставлять) и
+            // редактирование (?edit=1 — общие поля, тексты, состав группы). Группа изображений всегда редактируется
+            'editing' => $kind !== Post::TYPE_TEXT || request()->boolean('edit'),
+            // общие поля — по первому посту; хештеги — всех постов сразу, чтобы ни один не потерялся
+            // (у групп, собранных до этой страницы, они могли разойтись); сохранение раздаёт их всем
+            'title' => $head->title,
+            // отметка "Использовано" у группы одна на всех — по первому посту
+            'isUsed' => (bool)$head->is_used,
+            'headId' => $head->id,
+            'categoryId' => $head->category_id,
+            'hashtags' => $posts->pluck('hashtags')->flatten()->unique('id')->values(),
+            'categories' => PostsCategory::where('user_id', auth()->id())->orderBy('title', 'DESC')->get(),
         ]);
+    }
+
+    /**
+     * Посты группы в порядке sort_order, с хештегами и картинками для страницы группы; 404 — группы нет
+     *
+     * @param int $groupId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    private function groupPosts($groupId)
+    {
+        $posts = Post::where('group_id', $groupId)
+            ->where('user_id', auth()->id())
+            ->with(['hashtags' => function ($q) {
+                $q->select(['id', 'title', 'parent_id', 'user_id']);
+            }])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        abort_if($posts->isEmpty(), 404);
+
+        foreach ($posts as $post) {
+            $this->fillGroupImages($post);
+        }
+
+        return $posts;
+    }
+
+    /**
+     * Картинки поста для карточки на странице группы: обложка, она же в полном размере (для просмотра)
+     * и её имя — по нему картинку поворачивают (transformImage())
+     *
+     * @param Post $post
+     * @return void
+     */
+    private function fillGroupImages(Post $post): void
+    {
+        $original = UploadImageController::normalizeImages($post->original_image);
+        $firstOriginal = reset($original);
+
+        $post->cover_image = $this->resolveCoverImagePath($post);
+        $post->full_image = $firstOriginal['path'] ?? $post->cover_image;
+        $post->image_name = array_key_first($original);
+    }
+
+    /**
+     * Вид группы: тексты (у каждого поста свой текст) — когда в ней только посты "Текст"; иначе — изображения
+     *
+     * @param \Illuminate\Support\Collection $posts
+     * @return string Post::TYPE_TEXT или Post::TYPE_PICTURE
+     */
+    private function groupKind($posts): string
+    {
+        return $posts->every(fn (Post $post) => $post->type === Post::TYPE_TEXT) ? Post::TYPE_TEXT : Post::TYPE_PICTURE;
+    }
+
+    /**
+     * Сохраняет страницу группы: название, категория и хештеги — одни на все посты, у группы текстов —
+     * ещё текст каждого поста (texts[id поста])
+     *
+     * @param Request $request
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateGroup(Request $request, $groupId)
+    {
+        $posts = $this->groupPosts($groupId);
+        $isTextGroup = $this->groupKind($posts) === Post::TYPE_TEXT;
+
+        $data = $request->validate([
+            'title' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['nullable', 'integer'],
+            'hashtags' => ['nullable', 'string'],
+            'texts' => ['nullable', 'array'],
+            'texts.*' => ['nullable', 'string'],
+        ]);
+
+        // хештеги приходят как на форме поста: JSON {id: название}; не пришли — не трогаем
+        $hashtagIds = null;
+        if (isset($data['hashtags'])) {
+            $requestHashtags = json_decode($data['hashtags'], true);
+            if (is_array($requestHashtags)) {
+                $hashtagIds = Hashtag::where('user_id', auth()->id())->whereIn('id', array_keys($requestHashtags))->pluck('id')->all();
+            }
+        }
+
+        foreach ($posts as $post) {
+            $post->title = (string)($data['title'] ?? '');
+            $post->category_id = ($data['category_id'] ?? 0) ?: 0;
+            if ($isTextGroup && array_key_exists($post->id, $data['texts'] ?? [])) {
+                $post->content = $data['texts'][$post->id];
+            }
+            // cover_image/full_image/image_name — только для вьюхи (fillGroupImages()), колонок таких нет
+            unset($post->cover_image, $post->full_image, $post->image_name);
+            $post->save();
+
+            if ($hashtagIds !== null) {
+                $post->hashtags()->sync($hashtagIds);
+            }
+        }
+
+        return response()->json(['status' => true, 'message' => 'Группа сохранена']);
+    }
+
+    /**
+     * Скачать картинки и видео поста — пункт "Скачать" в меню карточки. Один файл отдаётся как есть,
+     * несколько (карусель, картинки и видео) — zip-архивом
+     *
+     * @param Post $post
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function download(Post $post)
+    {
+        $files = $this->postMediaFiles($post);
+        abort_if(empty($files), 404);
+
+        if (count($files) === 1) {
+            return response()->download($files[0]['path'], $files[0]['name']);
+        }
+
+        return $this->downloadZip(
+            array_column($files, 'path', 'name'),
+            \Illuminate\Support\Str::slug((string)$post->title) ?: 'post-' . $post->id
+        );
+    }
+
+    /**
+     * Скачать группу архивом: картинки и видео всех её постов в порядке группы, имена файлов
+     * с номером впереди ("01-...", "02-...") — чтобы порядок сохранился и в папке
+     *
+     * @param int $groupId
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function downloadGroup($groupId)
+    {
+        $posts = $this->groupPosts($groupId);
+
+        $files = [];
+        foreach ($posts as $post) {
+            foreach ($this->postMediaFiles($post) as $file) {
+                $files[] = $file;
+            }
+        }
+        abort_if(empty($files), 404);
+
+        $digits = max(2, strlen((string)count($files)));
+        $entries = [];
+        foreach ($files as $i => $file) {
+            $entries[str_pad((string)($i + 1), $digits, '0', STR_PAD_LEFT) . '-' . $file['name']] = $file['path'];
+        }
+
+        return $this->downloadZip(
+            $entries,
+            \Illuminate\Support\Str::slug((string)$posts->first()->title) ?: 'group-' . $groupId
+        );
+    }
+
+    /**
+     * Файлы поста для скачивания: оригиналы картинок по порядку, затем видео; только те, что есть на диске
+     *
+     * @param Post $post
+     * @return array [['name' => 'имя.расширение', 'path' => абсолютный путь], ...] — имена не повторяются
+     */
+    private function postMediaFiles(Post $post): array
+    {
+        $disk = Storage::disk('local');
+        $found = [];
+
+        foreach (UploadImageController::normalizeImages($post->original_image) as $name => $image) {
+            if (!empty($image['path'])) {
+                $found[] = [$name, $image['extension'] ?? pathinfo($image['path'], PATHINFO_EXTENSION), $image['path']];
+            }
+        }
+        if (!empty($post->video_data['path'])) {
+            $video = $post->video_data;
+            $found[] = [$video['name'] ?? 'video', $video['extension'] ?? pathinfo($video['path'], PATHINFO_EXTENSION), $video['path']];
+        }
+
+        $files = [];
+        $taken = [];
+        foreach ($found as [$name, $extension, $path]) {
+            $absolutePath = $disk->path($path);
+            if (!file_exists($absolutePath)) {
+                continue;
+            }
+
+            // у части постов расширение уже входит в сохранённое имя картинки
+            if (strtolower(pathinfo((string)$name, PATHINFO_EXTENSION)) === strtolower((string)$extension)) {
+                $name = pathinfo((string)$name, PATHINFO_FILENAME);
+            }
+
+            $fileName = $name . '.' . $extension;
+            for ($i = 1; isset($taken[$fileName]); $i++) {
+                $fileName = $name . '-' . $i . '.' . $extension;
+            }
+            $taken[$fileName] = true;
+
+            $files[] = ['name' => $fileName, 'path' => $absolutePath];
+        }
+
+        return $files;
+    }
+
+    /**
+     * Собирает zip во временной папке пользователя и отдаёт его; файл удаляется после отправки
+     *
+     * @param array $entries [имя в архиве => абсолютный путь]
+     * @param string $filename имя архива без расширения
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    private function downloadZip(array $entries, string $filename)
+    {
+        $tempDir = 'temp_directory/' . auth()->id();
+        Storage::disk('local')->makeDirectory($tempDir);
+        $zipPath = Storage::disk('local')->path($tempDir . '/' . $filename . '-' . time() . '.zip');
+
+        $zip = new \ZipArchive();
+        abort_unless($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true, 500, 'Не удалось создать архив');
+        foreach ($entries as $entryName => $absolutePath) {
+            $zip->addFile($absolutePath, $entryName);
+        }
+        $zip->close();
+
+        return response()->download($zipPath, $filename . '.zip')->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Экспорт группы текстов в файл — кнопки "DOCX" / "PDF" на странице группы: название группы и тексты
+     * постов по порядку, каждый пост — один абзац (App\Components\TextGroupExport)
+     *
+     * @param int $groupId
+     * @param string $format docx или pdf
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     */
+    public function exportGroup($groupId, string $format)
+    {
+        $posts = $this->groupPosts($groupId);
+        abort_unless($this->groupKind($posts) === Post::TYPE_TEXT, 404);
+
+        $title = trim((string)$posts->first()->title);
+        $paragraphs = TextGroupExport::paragraphs($posts->pluck('content'));
+
+        $file = $format === 'pdf' ? TextGroupExport::pdf($title, $paragraphs) : TextGroupExport::docx($title, $paragraphs);
+        $name = (\Illuminate\Support\Str::slug($title) ?: 'group-' . $groupId) . '.' . $format;
+
+        return response()->streamDownload(function () use ($file) {
+            echo $file;
+        }, $name, [
+            'Content-Type' => $format === 'pdf'
+                ? 'application/pdf'
+                : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ]);
+    }
+
+    /**
+     * Посты, которые можно добавить в группу — список для окна "Добавить посты" (post-group.js): того же вида,
+     * что и группа (изображения или тексты), и ещё не в группе. Поиск по названию, хештегу и тексту, ?page=N
+     *
+     * @param Request $request
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function groupCandidates(Request $request, $groupId)
+    {
+        $kind = $this->groupKind($this->groupPosts($groupId));
+        $search = ltrim(trim((string) $request->get('q', '')), '#');
+
+        $candidates = Post::where('user_id', auth()->id())
+            ->where('type', $kind)
+            ->whereNull('group_id')
+            ->when($search !== '', function ($q) use ($search) {
+                $like = '%' . addcslashes($search, '%_\\') . '%';
+                $q->where(function ($q) use ($like) {
+                    $q->where('title', 'like', $like)
+                        ->orWhere('content', 'like', $like)
+                        ->orWhereHas('hashtags', function ($q) use ($like) {
+                            $q->where('title', 'like', $like);
+                        });
+                });
+            })
+            ->orderByDesc('id')
+            ->simplePaginate(40, ['id', 'title', 'content', 'small_image', 'medium_image', 'original_image', 'video']);
+
+        return response()->json([
+            'items' => collect($candidates->items())->map(function (Post $candidate) {
+                $cover = $this->resolveCoverImagePath($candidate);
+                $text = trim(html_entity_decode(strip_tags((string)$candidate->content), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+                return [
+                    'id' => $candidate->id,
+                    // у текста без названия — начало самого текста
+                    'title' => (string)$candidate->title !== '' ? (string)$candidate->title : \Illuminate\Support\Str::limit($text, 90),
+                    'cover' => $cover ? '/storage' . $cover : null,
+                    'video' => $candidate->video_url,
+                ];
+            })->values(),
+            'has_more' => $candidates->hasMorePages(),
+        ]);
+    }
+
+    /**
+     * Добавляет выбранные посты в конец группы (окно "Добавить посты"). Название и категория у них становятся
+     * общими с группой, а их собственные хештеги добавляются к хештегам группы — то есть ко всем её постам
+     *
+     * @param Request $request
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function attachToGroup(Request $request, $groupId)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'max:500'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $posts = $this->groupPosts($groupId);
+        $head = $posts->first();
+
+        $added = Post::where('user_id', auth()->id())
+            ->whereIn('id', $data['ids'])
+            ->where('type', $this->groupKind($posts))
+            ->whereNull('group_id')
+            ->with('hashtags:id')
+            ->orderBy('id')
+            ->get();
+
+        $this->addPostsToGroup($posts, $added, $groupId);
+
+        return response()->json(['attached' => $added->count()]);
+    }
+
+    /**
+     * Кладёт посты в конец группы: название и категория у них становятся как у первого поста группы,
+     * а хештеги объединяются — и у прежних постов группы, и у новых остаётся один общий набор
+     *
+     * @param \Illuminate\Database\Eloquent\Collection $members посты группы по порядку, с hashtags
+     * @param \Illuminate\Database\Eloquent\Collection $added новые посты, с hashtags
+     * @param int $groupId
+     * @return void
+     */
+    private function addPostsToGroup($members, $added, $groupId): void
+    {
+        if ($added->isEmpty()) {
+            return;
+        }
+
+        $head = $members->first();
+        $sortOrder = (int)$members->max('sort_order');
+        foreach ($added as $post) {
+            $post->group_id = $groupId;
+            $post->sort_order = ++$sortOrder;
+            $post->title = (string)$head->title;
+            $post->category_id = $head->category_id ?: 0;
+            // отметка "Использовано" у группы тоже общая
+            $post->is_used = (bool)$head->is_used;
+            $post->save();
+        }
+
+        $all = $members->concat($added);
+        $hashtagIds = $all->pluck('hashtags')->flatten()->pluck('id')->unique()->values()->all();
+        foreach ($all as $post) {
+            $post->hashtags()->sync($hashtagIds);
+        }
+    }
+
+    /**
+     * Группирует отмеченные посты — режим "Выбрать" на "Все посты" (/admin/posts-bulk.js). Все они должны быть
+     * одного вида (Post::groupKind()): только изображения или только тексты. Если среди них есть посты одной
+     * уже существующей группы, остальные добавляются в неё; иначе создаётся новая группа, первый пост
+     * (с меньшим id) задаёт ей название и категорию
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function bulkGroup(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'max:500'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $fail = fn (string $message) => response()->json(['status' => false, 'message' => $message], 422);
+
+        $posts = Post::where('user_id', auth()->id())->whereIn('id', $data['ids'])->with('hashtags:id')->orderBy('id')->get();
+
+        if ($posts->contains(fn (Post $post) => $post->groupKind() === null)) {
+            return $fail('Группировать можно только посты из одних изображений или из одного текста — уберите из выбора остальные');
+        }
+        if ($posts->pluck('type')->unique()->count() > 1) {
+            return $fail('Изображения и тексты группируются отдельно — выберите посты одного вида');
+        }
+
+        $groupIds = $posts->pluck('group_id')->filter()->unique()->values();
+        if ($groupIds->count() > 1) {
+            return $fail('Среди выбранных — посты из разных групп');
+        }
+
+        if ($groupIds->count() === 1) {
+            $groupId = $groupIds->first();
+            $members = Post::where('group_id', $groupId)->where('user_id', auth()->id())->with('hashtags:id')->orderBy('sort_order')->orderBy('id')->get();
+            $added = $posts->whereNull('group_id')->values();
+
+            if ($this->groupKind($members) !== $posts->first()->type) {
+                return $fail('Группа другого вида: изображения и тексты группируются отдельно');
+            }
+            if ($added->isEmpty()) {
+                return $fail('Все выбранные посты уже в одной группе');
+            }
+        } else {
+            if ($posts->count() < 2) {
+                return $fail('Выберите хотя бы два поста');
+            }
+
+            // группы отдельной таблицей не заводим — id первого поста и есть group_id
+            $head = $posts->first();
+            $groupId = $head->id;
+            $head->group_id = $groupId;
+            $head->sort_order = 0;
+            $head->save();
+
+            $members = $posts->take(1);
+            $added = $posts->slice(1)->values();
+        }
+
+        $this->addPostsToGroup($members, $added, $groupId);
+
+        return response()->json([
+            'status' => true,
+            // новую группу сразу открываем — в режиме редактирования
+            'redirect' => route('posts.groups.show', [$groupId, 'edit' => 1]),
+        ]);
+    }
+
+    /**
+     * Меняет категорию сразу нескольким постам — режим "Выбрать" на "Все посты" (/admin/posts-bulk.js).
+     * У постов из групп категория общая, поэтому её получает вся группа
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function bulkSetCategory(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'max:2000'],
+            'ids.*' => ['integer'],
+            // пусто — снять категорию
+            'category_id' => ['nullable', 'integer'],
+        ]);
+
+        $categoryId = 0;
+        if (!empty($data['category_id'])) {
+            $categoryId = PostsCategory::where('user_id', auth()->id())->findOrFail($data['category_id'])->id;
+        }
+
+        $posts = Post::where('user_id', auth()->id())->whereIn('id', $data['ids'])->get(['id', 'type', 'group_id']);
+        $groupIds = $posts->filter(fn (Post $post) => $post->group_id && $post->groupKind() !== null)->pluck('group_id')->unique();
+
+        $updated = Post::where('user_id', auth()->id())
+            ->where(function ($q) use ($posts, $groupIds) {
+                $q->whereIn('id', $posts->pluck('id'))->orWhereIn('group_id', $groupIds);
+            })
+            ->update(['category_id' => $categoryId]);
+
+        return response()->json(['status' => true, 'updated' => $updated]);
+    }
+
+    /**
+     * Загружает картинку прямо на странице группы изображений — она становится новым постом в конце группы
+     * (с общими названием, категорией и хештегами).
+     *
+     * Если похожая картинка уже есть в каком-то посте, ничего не сохраняется: в ответе needs_choice и данные
+     * для окна сравнения (post-group.js). Решение приходит вторым запросом — уже без файла, со staged_image
+     * (картинка ждёт во временной папке) и decision: "replace" — новая лучше, старую из её поста убрать,
+     * "add" — это разные картинки, добавить как есть
+     *
+     * @param Request $request
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function uploadToGroup(Request $request, $groupId)
+    {
+        try {
+            $posts = $this->groupPosts($groupId);
+            abort_unless($this->groupKind($posts) === Post::TYPE_PICTURE, 404);
+
+            $uploadController = new UploadImageController();
+            $userId = (string)auth()->id();
+            $categoryId = (string)($posts->first()->category_id ?: 0);
+            $replacedNote = null;
+
+            if ($request->has('staged_image')) {
+                $request->validate([
+                    'staged_image' => 'required|array',
+                    'staged_image.image_name' => 'required|string',
+                    'staged_image.image_extension' => 'required|string',
+                    'staged_image.image_path' => 'required|string',
+                    'decision' => 'required|in:replace,add',
+                    'duplicate_post_id' => 'required_if:decision,replace|integer',
+                    'duplicate_image_name' => 'required_if:decision,replace|string',
+                ]);
+
+                $stagedImage = $request->input('staged_image');
+                // пути приходят с фронтенда — только свои временные файлы
+                abort_unless($this->isOwnStagedImage($stagedImage, (int)$userId), 422);
+
+                if ($request->input('decision') === 'replace') {
+                    $replacedNote = $this->removeReplacedImage((int)$request->input('duplicate_post_id'), (string)$request->input('duplicate_image_name'));
+                }
+
+                // решение принято — повторно на дубликат не проверяем
+                $saved = $uploadController->saveImageForPost($stagedImage, $userId, $categoryId, false, true);
+            } else {
+                $request->validate([
+                    'image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp,avif',
+                ]);
+
+                $staged = $uploadController->stageFileToTempDirectory($request->file('image'));
+                // allowDuplicateChoice: похожую картинку не отклоняем молча, а спрашиваем
+                $saved = $uploadController->saveImageForPost($staged['data'], $userId, $categoryId, true);
+
+                if (!empty($saved['duplicate_choice']) || !empty($saved['duplicate_reject_choice'])) {
+                    $isBigger = !empty($saved['duplicate_choice']);
+                    $duplicate = $isBigger ? $saved['duplicate_choice'] : $saved['duplicate_reject_choice'];
+                    $inThisGroup = $posts->contains('id', $duplicate->post_id);
+                    $where = $inThisGroup ? 'в этой группе' : 'в посте #' . $duplicate->post_id;
+
+                    return response()->json([
+                        'status' => false,
+                        'needs_choice' => true,
+                        // новая картинка крупнее — можно заменить ею старую; не крупнее — возможно, это просто
+                        // другая картинка, её можно добавить как есть
+                        'mode' => $isBigger ? 'replace' : 'add',
+                        'message' => $isBigger
+                            ? 'Похожая картинка меньшего размера уже есть ' . $where . '. Заменить её новой?'
+                            : 'Похоже, такая картинка уже есть ' . $where . '. Это точно другая картинка?',
+                        'duplicate' => $this->formatDuplicateForFrontend($duplicate),
+                        'new_image' => [
+                            'thumbnail_url' => '/storage/' . $saved['staged_image']['image_path'],
+                            'width' => $saved['new_width'],
+                            'height' => $saved['new_height'],
+                        ],
+                        'staged_image' => $saved['staged_image'],
+                    ]);
+                }
+            }
+
+            if (!empty($saved['errors'])) {
+                $errors = $saved['errors'];
+                throw new \Exception(is_array($errors) ? implode(' ', $errors) : $errors);
+            }
+
+            $post = $this->newGroupPost($posts, auth()->id() . '_' . ($posts->first()->category_id ?: 0) . '_' . $saved['original_image']['name']);
+            // сохраняет пост и хеш картинки (поиск дубликатов)
+            $this->attachSavedImageToPost($post, $saved);
+            $post->hashtags()->sync($posts->first()->hashtags->pluck('id')->all());
+
+            return response()->json([
+                'status' => true,
+                'html' => $this->renderGroupItem($post, $groupId, Post::TYPE_PICTURE, $posts->count() + 1),
+                // старую картинку заменили: что стало с её постом — и какую плитку убрать со страницы
+                'replaced' => $replacedNote,
+            ]);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Убирает из поста картинку, которую заменили новой (лучшей) копией в другом посте. Пост, в котором после
+     * этого не осталось ни картинок, ни видео, ни текста, уходит в корзину — пустая плитка никому не нужна
+     *
+     * @param int $postId
+     * @param string $imageName
+     * @return array|null ['post_id' => ..., 'trashed' => bool]; null — поста уже нет
+     */
+    private function removeReplacedImage(int $postId, string $imageName): ?array
+    {
+        $post = Post::where('user_id', auth()->id())->find($postId);
+        if (!$post) {
+            return null;
+        }
+
+        (new UploadImageController)->swapPostImage($post, $imageName, null);
+        $post->refresh();
+
+        $text = html_entity_decode(strip_tags((string)$post->content), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $isEmpty = $post->coverImagePath() === null && empty($post->video_data) && preg_replace('/[\s\x{00A0}]+/u', '', $text) === '';
+        if ($isEmpty) {
+            $post->delete();
+        }
+
+        return ['post_id' => $post->id, 'trashed' => $isEmpty];
+    }
+
+    /**
+     * Новый пустой пост "Текст" в конце группы текстов (кнопка "Новый текст" на странице группы)
+     *
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function addTextToGroup($groupId)
+    {
+        $posts = $this->groupPosts($groupId);
+        abort_unless($this->groupKind($posts) === Post::TYPE_TEXT, 404);
+
+        $post = $this->newGroupPost($posts, auth()->id() . '_' . ($posts->first()->category_id ?: 0) . '_' . time());
+        $post->save();
+        $post->hashtags()->sync($posts->first()->hashtags->pluck('id')->all());
+
+        return response()->json(['status' => true, 'html' => $this->renderGroupItem($post, $groupId, Post::TYPE_TEXT, $posts->count() + 1)]);
+    }
+
+    /**
+     * Заготовка нового поста в конце группы — с её общими названием и категорией; ещё не сохранена
+     *
+     * @param \Illuminate\Database\Eloquent\Collection $posts посты группы (groupPosts())
+     * @param string $alias
+     * @return Post
+     */
+    private function newGroupPost($posts, string $alias): Post
+    {
+        $head = $posts->first();
+
+        $post = new Post();
+        $post->user_id = auth()->id();
+        $post->group_id = $head->group_id;
+        $post->sort_order = (int)$posts->max('sort_order') + 1;
+        $post->title = (string)$head->title;
+        $post->category_id = $head->category_id ?: 0;
+        $post->is_used = (bool)$head->is_used;
+        $post->alias = $this->freeAlias($alias);
+
+        return $post;
+    }
+
+    /**
+     * Карточка поста для страницы группы — для постов, добавленных без перезагрузки страницы
+     *
+     * @param Post $post
+     * @param int $groupId
+     * @param string $kind
+     * @param int $position
+     * @return string
+     */
+    private function renderGroupItem(Post $post, $groupId, string $kind, int $position): string
+    {
+        $this->fillGroupImages($post);
+
+        return view('user.posts.parts.group_item', [
+            'post' => $post,
+            'groupId' => $groupId,
+            'kind' => $kind,
+            'position' => $position,
+            // посты добавляют только в режиме редактирования
+            'editing' => true,
+        ])->render();
+    }
+
+    /**
+     * Убирает пост из группы (сам пост остаётся — с названием и хештегами, какие были у группы), а с ?delete=1 —
+     * удаляет его: в корзину, из неё он вернётся на своё место в группе. Если группа после этого сменила ключ
+     * или в ней не осталось постов, в ответе redirect — куда уйти
+     *
+     * @param Request $request
+     * @param int $groupId
+     * @param int $postId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function detachFromGroup(Request $request, $groupId, $postId)
+    {
+        $post = Post::where('user_id', auth()->id())->where('group_id', $groupId)->findOrFail($postId);
+
+        // ключ группы без этого поста; null — других постов в ней нет
+        $newGroupId = Post::groupIdWithout((int)$groupId, (int)$post->id, (int)$post->user_id);
+
+        if ($request->boolean('delete')) {
+            $deleted = $this->destroy($post)->getData(true);
+            if (empty($deleted['status'])) {
+                return response()->json(['status' => false, 'message' => $deleted['error'] ?? 'Ошибка при удалении поста']);
+            }
+            // пост в корзине остаётся постом группы, ключ у неё прежний — уходить надо, только если она опустела
+            if ($newGroupId !== null) {
+                $newGroupId = (int)$groupId;
+            }
+        } else {
+            $post->group_id = null;
+            $post->sort_order = null;
+            $post->save();
+            Post::rekeyGroupWithout((int)$groupId, (int)$post->id, (int)$post->user_id);
+        }
+
+        $redirect = null;
+        if ($newGroupId === null) {
+            $redirect = route('posts.index');
+        } elseif ($newGroupId !== (int)$groupId) {
+            // убирают и удаляют посты только в режиме редактирования — в нём и остаёмся
+            $redirect = route('posts.groups.show', [$newGroupId, 'edit' => 1]);
+        }
+
+        return response()->json(['status' => true, 'redirect' => $redirect]);
+    }
+
+    /**
+     * Разгруппировать: посты остаются (с общими названием и хештегами), группы больше нет
+     *
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function dissolveGroup($groupId)
+    {
+        abort_unless(Post::where('group_id', $groupId)->where('user_id', auth()->id())->exists(), 404);
+
+        // вместе с постами группы из корзины — восстановленные, они не должны оказаться в группе, которой уже нет.
+        // toBase(): не трогаем updated_at — сами посты не менялись
+        Post::withTrashed()
+            ->where('group_id', $groupId)
+            ->where('user_id', auth()->id())
+            ->toBase()
+            ->update(['group_id' => null, 'sort_order' => null]);
+
+        return response()->json(['status' => true, 'redirect' => route('posts.index')]);
+    }
+
+    /**
+     * Создаёт группу из одного поста ("Создать группу" в меню карточки) и открывает её страницу —
+     * остальные посты добавляют уже там
+     *
+     * @param Post $post
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function startGroup(Post $post)
+    {
+        if (!$post->group_id) {
+            abort_unless($post->groupKind() !== null, 404);
+
+            // группы отдельной таблицей не заводим — id первого поста и есть group_id
+            $post->group_id = $post->id;
+            $post->sort_order = 0;
+            $post->save();
+        }
+
+        // новую группу сразу собирают — открываем в режиме редактирования
+        return redirect()->route('posts.groups.show', [$post->group_id, 'edit' => 1]);
+    }
+
+    /**
+     * Адрес страницы группы с якорем на карточку этого поста
+     *
+     * @param Post $post
+     * @param bool $edit открыть группу текстов сразу в режиме редактирования (см. showGroup())
+     * @return string
+     */
+    private function groupPostUrl(Post $post, bool $edit = false): string
+    {
+        return route('posts.groups.show', [$post->group_id] + ($edit ? ['edit' => 1] : [])) . '#post-' . $post->id;
     }
 
     /**
@@ -568,24 +1583,7 @@ class PostController extends Controller
      */
     private function resolveCoverImagePath(Post $post): ?string
     {
-        if (!empty($post->small_image) && isJson($post->small_image)) {
-            $smallImage = json_decode($post->small_image, true);
-            if (!isset($smallImage['path'])) {
-                $firstPicture = array_shift($smallImage);
-                return $firstPicture['path'] ?? null;
-            }
-            return $smallImage['path'];
-        }
-        if (!empty($post->medium_image) && isJson($post->medium_image)) {
-            $mediumImage = json_decode($post->medium_image, true);
-            return $mediumImage['path'] ?? null;
-        }
-        if (!empty($post->original_image) && isJson($post->original_image)) {
-            $originalImage = json_decode($post->original_image, true);
-            return $originalImage['path'] ?? null;
-        }
-
-        return null;
+        return $post->coverImagePath();
     }
 
     /**
@@ -596,6 +1594,11 @@ class PostController extends Controller
      */
     public function edit(Post $post)
     {
+        // пост группы редактируют на странице группы, см. show()
+        if ($post->group_id && $post->groupKind() !== null) {
+            return redirect($this->groupPostUrl($post, true));
+        }
+
         $post = Post::where('id', $post->id)
             ->where('posts.user_id', auth()->id())
             ->with([
@@ -603,6 +1606,7 @@ class PostController extends Controller
                     $q->select(['id', 'title', 'parent_id', 'user_id']);
                 },
                 'film',
+                'clothes.brand',
             ])->first();
 
         $categories = PostsCategory::where('user_id', auth()->id())->orderBy('title', 'DESC')->get();
@@ -679,8 +1683,17 @@ class PostController extends Controller
             $post->alias = $request->alias;
         }
 
-        if (!empty($request->content)) {
+        // has(), а не !empty(): иначе текст поста нельзя стереть целиком
+        if ($request->has('content')) {
             $post->content = $request->content;
+        }
+
+        // переключатель типа на форме: фильм/рецепт — как выбрали, "auto" — тип по содержимому
+        // (сбрасываем, модель определит его при сохранении, см. Post::booted)
+        if ($request->has('post_type')) {
+            $post->type = in_array($request->input('post_type'), Post::MANUAL_TYPES, true)
+                ? $request->input('post_type')
+                : null;
         }
 
         // Добавление/замена/переименование/удаление изображений поста больше не идёт через
@@ -691,9 +1704,24 @@ class PostController extends Controller
 
         if ($postSave === true) {
             // поля фильма есть на форме редактирования всегда (parts/film_fields.blade.php, скрытый film-pros
-            // приходит и при пустых полях) — всё очищено, значит данные фильма удаляем
-            if ($request->has('film-pros')) {
-                PostFilm::saveForPost($post, PostFilm::attributesFromRequest($request));
+            // приходит и при пустых полях), но видны только у типа "Фильм / Сериал": у него всё очищено —
+            // данные фильма удаляем; пост перестал быть фильмом — тоже (форма предупреждает об этом)
+            if ($post->type === Post::TYPE_FILM) {
+                if ($request->has('film-pros')) {
+                    PostFilm::saveForPost($post, PostFilm::attributesFromRequest($request));
+                }
+            } elseif ($post->film) {
+                PostFilm::saveForPost($post, null);
+            }
+
+            // поля вещи — так же: сохраняем только у типа "Одежда" (скрытый clothes-fields — блок был на форме),
+            // пост перестал быть одеждой — данные вещи удаляем
+            if ($post->type === Post::TYPE_CLOTHES) {
+                if ($request->has('clothes-fields')) {
+                    PostClothes::saveForPost($post, PostClothes::attributesFromRequest($request, (int)$post->user_id));
+                }
+            } elseif ($post->clothes) {
+                PostClothes::saveForPost($post, null);
             }
 
             if (!empty($addHashtags)) {
@@ -703,14 +1731,328 @@ class PostController extends Controller
                 $this->removeHashtagsFromPost($post->id, $deleteHashtags);
             }
 
+            // у группы хештеги общие (страница группы): тег, добавленный или снятый у одного её поста
+            // (например, "Добавить тег" на "Все посты"), получают и остальные
+            if ($post->group_id && $post->groupKind() !== null && (!empty($addHashtags) || !empty($deleteHashtags))) {
+                $ownHashtagIds = fn (array $ids) => Hashtag::where('user_id', auth()->id())->whereIn('id', $ids)->pluck('id')->all();
+                $siblings = Post::where('group_id', $post->group_id)->where('user_id', auth()->id())->where('id', '!=', $post->id)->get();
+                foreach ($siblings as $sibling) {
+                    $sibling->hashtags()->syncWithoutDetaching($ownHashtagIds($addHashtags));
+                    $sibling->hashtags()->detach($ownHashtagIds($deleteHashtags));
+                }
+            }
+
             return response()->json([
                 'status' => true,
                 'message' => 'Пост был успешно обновлен',
+                'type' => $post->type,
+                'type_label' => $post->typeLabel(),
             ]);
         }
 
         return response()->json([
             'errors' => 'Не удалось обновить пост',
+        ]);
+    }
+
+    /**
+     * Добавляет хештеги сразу нескольким постам — режим "Выбрать" на "Все посты" (/admin/posts-bulk.js).
+     * Только добавляет: хештеги, которые у постов уже есть, остаются. У постов из групп хештеги общие,
+     * поэтому их получает вся группа, даже если выбрали один её пост
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function bulkAddHashtags(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'max:2000'],
+            'ids.*' => ['integer'],
+            // как на форме поста: JSON {id: название}
+            'hashtags' => ['required', 'string'],
+        ]);
+
+        $requestHashtags = json_decode($data['hashtags'], true);
+        $hashtags = Hashtag::where('user_id', auth()->id())
+            ->whereIn('id', is_array($requestHashtags) ? array_keys($requestHashtags) : [])
+            ->get(['id', 'title']);
+
+        if ($hashtags->isEmpty()) {
+            return response()->json(['status' => false, 'message' => 'Не выбрано ни одного хештега'], 422);
+        }
+
+        $posts = Post::where('user_id', auth()->id())->whereIn('id', $data['ids'])->get(['id', 'type', 'group_id']);
+
+        $groupIds = $posts->filter(fn (Post $post) => $post->group_id && $post->groupKind() !== null)->pluck('group_id')->unique();
+        if ($groupIds->isNotEmpty()) {
+            $posts = $posts->concat(
+                Post::where('user_id', auth()->id())->whereIn('group_id', $groupIds)->whereNotIn('id', $posts->pluck('id'))->get(['id', 'type', 'group_id'])
+            );
+        }
+
+        foreach ($posts as $post) {
+            $post->hashtags()->syncWithoutDetaching($hashtags->pluck('id')->all());
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Хештеги добавлены',
+            // все посты, у которых могли появиться хештеги (вместе с постами групп) — обновить карточки
+            'post_ids' => $posts->pluck('id')->values(),
+            'hashtags' => $hashtags->map(fn (Hashtag $hashtag) => ['id' => $hashtag->id, 'title' => $hashtag->title])->values(),
+        ]);
+    }
+
+    /**
+     * Ставит или снимает отметку "Использовано" (posts.is_used) у одного или нескольких постов: пункт меню
+     * карточки и панель режима "Выбрать" на "Все посты" (/admin/posts-bulk.js), кнопка на странице группы
+     * (/admin/post-group.js). У группы отметка одна на всех — её получают все посты группы
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function bulkSetUsed(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'max:2000'],
+            'ids.*' => ['integer'],
+            'used' => ['required', 'boolean'],
+        ]);
+
+        $posts = Post::where('user_id', auth()->id())->whereIn('id', $data['ids'])->get(['id', 'type', 'group_id']);
+        $groupIds = $posts->filter(fn (Post $post) => $post->group_id && $post->groupKind() !== null)->pluck('group_id')->unique();
+
+        $query = Post::where('user_id', auth()->id())
+            ->where(function ($q) use ($posts, $groupIds) {
+                $q->whereIn('id', $posts->pluck('id'))->orWhereIn('group_id', $groupIds);
+            });
+
+        $postIds = (clone $query)->pluck('id');
+        // toBase(): отметка — не правка поста, updated_at не трогаем
+        $query->toBase()->update(['is_used' => (bool)$data['used']]);
+
+        return response()->json([
+            'status' => true,
+            'used' => (bool)$data['used'],
+            // все посты, у которых отметка изменилась (вместе с постами групп) — обновить карточки
+            'post_ids' => $postIds->values(),
+        ]);
+    }
+
+    /**
+     * Удаляет сразу несколько постов — в корзину; режим "Выбрать" на "Все посты" (/admin/posts-bulk.js).
+     * Отмеченная карточка-стопка — это вся группа: её посты приходят в group_ids и удаляются все
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function bulkDelete(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'max:2000'],
+            'ids.*' => ['integer'],
+            'group_ids' => ['nullable', 'array', 'max:2000'],
+            'group_ids.*' => ['integer'],
+        ]);
+
+        $posts = Post::where('user_id', auth()->id())
+            ->where(function ($q) use ($data) {
+                $q->whereIn('id', $data['ids'])->orWhereIn('group_id', $data['group_ids'] ?? []);
+            })
+            ->get();
+
+        // по одному, а не одним запросом: у удаления есть обработчики в модели (Post::booted)
+        foreach ($posts as $post) {
+            $post->delete();
+        }
+
+        return response()->json([
+            'status' => true,
+            'deleted' => $posts->count(),
+            'post_ids' => $posts->pluck('id')->values(),
+            'trash_count' => Post::onlyTrashed()->where('user_id', auth()->id())->count(),
+        ]);
+    }
+
+    /**
+     * Корзина: удалённые посты (PostTrash) — вернуть или удалить навсегда. Вьюха — user/posts/trash.blade.php,
+     * поведение — /admin/posts-trash.js
+     *
+     * @return Application|Factory|View
+     */
+    public function trash()
+    {
+        // Посты одной группы в корзине — одна плитка-стопка, как группа в ленте: показываем первый из них
+        // (по порядку в группе), на плитке — сколько их и срок того, который удалится раньше всех
+        $trashedGroups = Post::onlyTrashed()
+            ->where('user_id', auth()->id())
+            ->whereNotNull('group_id')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'group_id', 'deleted_at'])
+            ->groupBy('group_id');
+
+        $posts = Post::onlyTrashed()
+            ->where('user_id', auth()->id())
+            ->where(function ($q) use ($trashedGroups) {
+                $q->whereNull('group_id')->orWhereIn('id', $trashedGroups->map->first()->pluck('id'));
+            })
+            ->orderByDesc('deleted_at')
+            ->orderByDesc('id')
+            ->paginate(60);
+
+        foreach ($posts as $post) {
+            $members = $post->group_id ? $trashedGroups[$post->group_id] : collect([$post]);
+
+            $post->cover_image = $post->coverImagePath();
+            $post->days_left = PostTrash::daysLeftSince($members->min('deleted_at'));
+            // 0 — пост не из группы; 1 — из группы, но в корзине он один (остальные её посты на месте)
+            $post->group_trashed = $post->group_id ? $members->count() : 0;
+        }
+
+        return view('user.posts.trash', [
+            'posts' => $posts,
+            'keepDays' => PostTrash::KEEP_DAYS,
+        ]);
+    }
+
+    /**
+     * Возвращает из корзины все посты пользователя (кнопка "Вернуть всё")
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function restoreAllTrashed()
+    {
+        $restored = $this->restorePosts(Post::onlyTrashed()->where('user_id', auth()->id())->get());
+
+        return response()->json(['status' => true, 'restored' => $restored]);
+    }
+
+    /**
+     * Возвращает из корзины все посты одной группы (кнопка "Вернуть группу" на плитке её поста)
+     *
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function restoreTrashedGroup($groupId)
+    {
+        $posts = Post::onlyTrashed()->where('user_id', auth()->id())->where('group_id', $groupId)->get();
+        abort_if($posts->isEmpty(), 404);
+
+        return response()->json(['status' => true, 'restored' => $this->restorePosts($posts), 'message' => 'Группа восстановлена']);
+    }
+
+    /**
+     * Возвращает посты из корзины. Пост группы возвращается в неё на прежнее место; если в группе больше
+     * никого, даже в корзине (остальные её посты удалены навсегда) — становится обычным постом
+     *
+     * @param iterable $posts посты из корзины
+     * @return int сколько постов возвращено
+     */
+    private function restorePosts(iterable $posts): int
+    {
+        $restored = 0;
+
+        // сначала все: посты одной группы должны "увидеть" друг друга при проверке ниже
+        foreach ($posts as $post) {
+            $post->restore();
+            $restored++;
+        }
+
+        foreach ($posts as $post) {
+            if ($post->group_id && !Post::withTrashed()->where('group_id', $post->group_id)->where('id', '!=', $post->id)->exists()) {
+                $post->group_id = null;
+                $post->sort_order = null;
+                $post->save();
+            }
+        }
+
+        return $restored;
+    }
+
+    /**
+     * Возвращает пост из корзины. Пост группы возвращается в неё на прежнее место; если группы уже нет
+     * (её разгруппировали или остальные посты удалили) — становится обычным постом
+     *
+     * @param int $postId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function restoreTrashed($postId)
+    {
+        $this->restorePosts([Post::onlyTrashed()->where('user_id', auth()->id())->findOrFail($postId)]);
+
+        return response()->json(['status' => true, 'message' => 'Пост восстановлен']);
+    }
+
+    /**
+     * Удаляет пост из корзины навсегда — вместе с файлами
+     *
+     * @param int $postId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function purgeTrashed($postId)
+    {
+        $post = Post::onlyTrashed()->where('user_id', auth()->id())->findOrFail($postId);
+
+        try {
+            PostTrash::purge($post);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['status' => false, 'message' => 'Не удалось удалить пост']);
+        }
+
+        return response()->json(['status' => true, 'message' => 'Пост удалён навсегда']);
+    }
+
+    /**
+     * Удаляет навсегда все посты группы, лежащие в корзине (плитка-стопка на странице корзины)
+     *
+     * @param int $groupId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function purgeTrashedGroup($groupId)
+    {
+        $posts = Post::onlyTrashed()->where('user_id', auth()->id())->where('group_id', $groupId)->orderBy('id')->get();
+        abort_if($posts->isEmpty(), 404);
+
+        $failed = 0;
+        foreach ($posts as $post) {
+            try {
+                PostTrash::purge($post);
+            } catch (\Throwable $e) {
+                report($e);
+                $failed++;
+            }
+        }
+
+        return response()->json([
+            'status' => $failed === 0,
+            'message' => $failed === 0 ? 'Группа удалена навсегда' : 'Не удалось удалить постов: ' . $failed,
+        ]);
+    }
+
+    /**
+     * Очищает корзину: все посты в ней удаляются навсегда
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function emptyTrash()
+    {
+        $failed = 0;
+
+        foreach (Post::onlyTrashed()->where('user_id', auth()->id())->orderBy('id')->get() as $post) {
+            try {
+                PostTrash::purge($post);
+            } catch (\Throwable $e) {
+                report($e);
+                $failed++;
+            }
+        }
+
+        return response()->json([
+            'status' => $failed === 0,
+            'message' => $failed === 0 ? 'Корзина очищена' : 'Не удалось удалить постов: ' . $failed,
         ]);
     }
 
@@ -722,28 +2064,13 @@ class PostController extends Controller
      */
     public function destroy(Post $post)
     {
-        $categoryId = $post->category_id;
-
         try {
-            $deletePostImages = (new UploadImageController)->deletePostImages($post);
-            if ($deletePostImages !== true) {
-                $errorMessage = 'Ошибка при удалении изображений поста.';
-                if (!empty($deletePostImages['errors'])) {
-                    throw new \Exception($errorMessage . '. ' . $deletePostImages['errors']);
-                }
-
-                throw new \Exception($errorMessage);
-            }
-
-            $postId = $post->id;
-
+            // в корзину (SoftDeletes): картинки, видео, хештеги, данные фильма/вещи остаются — пост можно вернуть.
+            // Удаление навсегда — со страницы корзины или само через PostTrash::KEEP_DAYS дней, см. PostTrash::purge()
             if ($post->delete() === true) {
-                PostFilm::where('post_id', $postId)->delete();
-
-                //dd('UDALENO');
                 return response()->json([
                     'status' => true,
-                    'message' => 'Пост был успешно удалён',
+                    'message' => 'Пост перемещён в корзину',
                 ]);
             }
 
@@ -786,6 +2113,11 @@ class PostController extends Controller
         // "это не дубликат, добавить всё равно" при повторной отправке формы
         // (см. PostController::store() и JS-обработчик #creationform)
         $forceDuplicateKeys = json_decode($request->force_duplicate_keys ?? '[]', true) ?: [];
+        // {image_name: {post_id, image_name}} — у этих картинок лучшая копия идёт в новый пост,
+        // а старую копию из другого поста удаляем, когда новый пост сохранён (окно сравнения
+        // дубликатов в режиме карусели, см. admin.js)
+        $replaceDuplicates = json_decode($request->replace_duplicates ?? '{}', true) ?: [];
+        $savedImageKeys = [];
 
         $categoryId = $request->category_id ?? 0;
         $categoryParentId = (new PostsCategory)->getCategoryParentId($categoryId);
@@ -793,6 +2125,11 @@ class PostController extends Controller
         $new_post = new Post();
         $new_post->user_id = $userId;
         $new_post->category_id = $request->category_id ?: 0;
+
+        // фильм/рецепт — как выбрали на форме; остальные типы модель определит по содержимому (Post::booted)
+        if (in_array($request->input('pin_type'), Post::MANUAL_TYPES, true)) {
+            $new_post->type = $request->input('pin_type');
+        }
 
         if ($groupId !== null) {
             $new_post->group_id = $groupId;
@@ -854,6 +2191,7 @@ class PostController extends Controller
                         'staged_image' => $saveImageForPost['staged_image'] ?? $img,
                     ];
                 } elseif (!empty($saveImageForPost)) {
+                    $savedImageKeys[] = $img['image_name'] ?? null;
                     $originalImages[$saveImageForPost['original_image']['name']] = $saveImageForPost['original_image'];
                     if (!empty($saveImageForPost['medium_image'])) {
                         $mediumImages[$saveImageForPost['medium_image']['name']] = $saveImageForPost['medium_image'];
@@ -910,12 +2248,7 @@ class PostController extends Controller
             // }
 
             $new_post->title = $title;
-
-            if ($this->aliasExist($alias, $userId) === null) {
-                $new_post->alias = $alias;
-            } else {
-                dd($this->aliasExist($alias, $userId));
-            }
+            $new_post->alias = $this->freeAlias($alias);
 
         } else {
             //dd('tttt');
@@ -933,6 +2266,7 @@ class PostController extends Controller
                         ]],
                     ];
                 } else {
+                    $savedImageKeys[] = $image['image_name'] ?? null;
                     $new_post->original_image = json_encode($saveImageForPost['original_image']);
                     if (!empty($saveImageForPost['medium_image'])) {
                         $new_post->medium_image = json_encode($saveImageForPost['medium_image']);
@@ -965,12 +2299,7 @@ class PostController extends Controller
             }
 
             $new_post->title = $title;
-
-            if ($this->aliasExist($alias, $userId) === null) {
-                $new_post->alias = $alias;
-            } else {
-                $new_post->alias = $userId . '_' . $categoryId . '_' . time();
-            }
+            $new_post->alias = $this->freeAlias($alias);
         }
 
         $newPost = $new_post->save();
@@ -993,6 +2322,17 @@ class PostController extends Controller
                 );
             }
 
+            foreach ($savedImageKeys as $imageKey) {
+                $replace = $replaceDuplicates[$imageKey] ?? null;
+                if (empty($replace['post_id']) || empty($replace['image_name'])) {
+                    continue;
+                }
+                $oldPost = Post::where('id', $replace['post_id'])->where('user_id', $userId)->first();
+                if ($oldPost) {
+                    (new UploadImageController)->swapPostImage($oldPost, (string)$replace['image_name'], null);
+                }
+            }
+
             // данные фильма — только для типа пина "Фильм / Сериал": у остальных типов блок полей
             // скрыт, но парсер мог его заполнить
             if ($request->input('pin_type') === 'film') {
@@ -1002,6 +2342,11 @@ class PostController extends Controller
                     // в выбранные (film-fields.js) и прислала в hashtags вместе с остальными
                     PostFilm::saveForPost($new_post, $filmAttributes);
                 }
+            }
+
+            // данные вещи — только для типа "Одежда"
+            if ($request->input('pin_type') === Post::TYPE_CLOTHES) {
+                PostClothes::saveForPost($new_post, PostClothes::attributesFromRequest($request, (int)$userId));
             }
 
             $createdId = $new_post->id;
@@ -1149,6 +2494,81 @@ class PostController extends Controller
     }
 
     /**
+     * Кнопка "Подобрать хештеги" на странице создания поста: подсказки из существующих хештегов
+     * пользователя по картинкам, уже загруженным во временную папку (см. HashtagSuggester).
+     * Принимает image_paths[] — как getTextFromImage() — и selected_ids[] — уже выбранные теги,
+     * их не предлагаем.
+     */
+    public function suggestHashtags(Request $request)
+    {
+        $request->validate([
+            'image_paths' => 'required|array|min:1|max:10',
+            'image_paths.*' => 'string|max:500',
+            'selected_ids' => 'nullable|array',
+            'selected_ids.*' => 'integer',
+        ]);
+
+        $userDir = 'temp_directory/' . auth()->id() . '/';
+        $disk = Storage::disk('local');
+        $absolutePaths = [];
+
+        foreach ($request->input('image_paths') as $path) {
+            $path = ltrim(str_replace('\\', '/', $path), '/');
+
+            if (strpos($path, $userDir) !== 0 || strpos($path, '..') !== false || !$disk->exists($path)) {
+                return response()->json(['status' => false, 'message' => 'Изображение не найдено. Загрузите его заново.']);
+            }
+
+            $absolutePaths[] = $disk->path($path);
+        }
+
+        return $this->hashtagSuggestionsResponse($absolutePaths, $request->input('selected_ids', []));
+    }
+
+    /**
+     * То же для уже сохранённого поста (страница редактирования): картинки берутся из самого поста
+     * (средние копии, если есть, — их хватает и они легче), selected_ids[] — теги поста в форме
+     */
+    public function suggestHashtagsForPost(Request $request, Post $post)
+    {
+        $request->validate([
+            'selected_ids' => 'nullable|array',
+            'selected_ids.*' => 'integer',
+        ]);
+
+        $images = UploadImageController::normalizeImages($post->medium_image)
+            ?: UploadImageController::normalizeImages($post->original_image);
+
+        $disk = Storage::disk('local');
+        $absolutePaths = [];
+        foreach (array_slice($images, 0, 10) as $image) {
+            if (!empty($image['path']) && $disk->exists($image['path'])) {
+                $absolutePaths[] = $disk->path($image['path']);
+            }
+        }
+
+        if (!$absolutePaths) {
+            return response()->json(['status' => false, 'message' => 'У поста нет изображений.']);
+        }
+
+        return $this->hashtagSuggestionsResponse($absolutePaths, $request->input('selected_ids', []));
+    }
+
+    private function hashtagSuggestionsResponse(array $absolutePaths, array $selectedIds)
+    {
+        $suggester = new HashtagSuggester();
+        $hashtags = $suggester->suggest($absolutePaths, auth()->id(), array_map('intval', $selectedIds));
+
+        return response()->json([
+            'status' => true,
+            'hashtags' => $hashtags,
+            'warning' => $suggester->aiError(),
+            // режим "Добавлять сразу" из Настроек ИИ — admin.js ставит теги в выбранные без клика
+            'auto_apply' => UserAiSetting::forUser(auth()->id())->autoApplyTags(),
+        ]);
+    }
+
+    /**
      * Бесплатный ключ OCR.space принимает файлы до 1 МБ — большие оригиналы заранее
      * уменьшаем и пережимаем в JPEG (для распознавания хватает).
      */
@@ -1244,6 +2664,102 @@ class PostController extends Controller
     }
 
     /**
+     * Сохранить палитру, поправленную вручную (страница редактирования, блок "Палитра", palette-editor.js):
+     * цвета в нужном порядке (первый — главный), у каждого — фон или нет. Доли цветов считаем заново
+     * по обложке (ImagePalette::sharesFor): так у цвета, добавленного пипеткой, настоящая доля, а удалённый
+     * фон не раздувает остальные. После этого палитра не пересчитывается сама, пока не сменится обложка.
+     *
+     * @param Request $request colors: [{hex: "#D8C3A5", background: false}, ...]
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updatePalette(Request $request, Post $post)
+    {
+        $request->validate([
+            'colors' => 'required|array|min:1|max:8',
+            'colors.*.hex' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'colors.*.background' => 'boolean',
+        ]);
+
+        $coverPath = $post->coverImagePath();
+        if ($coverPath === null) {
+            return response()->json(['status' => false, 'message' => 'У поста нет картинки — палитру не из чего считать'], 422);
+        }
+
+        // без повторов (два раза взяли пипеткой один цвет)
+        $colors = collect($request->input('colors'))
+            ->map(function ($color) {
+                return ['hex' => strtoupper($color['hex']), 'background' => !empty($color['background'])];
+            })
+            ->unique('hex')
+            ->values();
+
+        $shares = ImagePalette::sharesFor(Storage::disk('local')->path($coverPath), $colors->pluck('hex')->all());
+        if ($shares === null) {
+            return response()->json(['status' => false, 'message' => 'Не удалось прочитать картинку поста'], 422);
+        }
+
+        $palette = $colors->map(function ($color, $i) use ($shares) {
+            $item = [
+                'hex' => $color['hex'],
+                // цвет, который оставили вручную, должен находиться поиском по цвету, даже если на картинке
+                // он — мелкая деталь: не меньше порога поиска (ColorMatch::MIN_SCORE)
+                'share' => $color['background'] ? $shares[$i] : max($shares[$i], ColorMatch::MIN_SCORE),
+            ];
+            if ($color['background']) {
+                $item['background'] = true;
+            }
+            return $item;
+        })
+            // порядок — как выбрали (первый — главный), фон — в конце, как у автоматической палитры
+            ->sortBy(function ($item, $i) {
+                return [!empty($item['background']), $i];
+            })
+            ->values()
+            ->all();
+
+        $post->palette = $palette;
+        $post->palette_edited = true;
+        $post->save();
+
+        return response()->json(['status' => true, 'palette' => $post->palette, 'edited' => true]);
+    }
+
+    /**
+     * Текущая палитра и обложка — блок "Палитра" перечитывает их, когда в панели "Изображения поста"
+     * что-то поменяли (обложка могла смениться — тогда палитра уже пересчитана сервером)
+     *
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function showPalette(Post $post)
+    {
+        $coverPath = $post->coverImagePath();
+
+        return response()->json([
+            'status' => true,
+            'palette' => $post->palette ?? [],
+            'edited' => (bool)$post->palette_edited,
+            'cover_url' => $coverPath ? '/storage' . $coverPath : null,
+        ]);
+    }
+
+    /**
+     * Вернуть автоматическую палитру (кнопка "Пересчитать автоматически" в блоке "Палитра")
+     *
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function resetPalette(Post $post)
+    {
+        $post->palette = $post->computePalette() ?: null;
+        $post->palette_edited = false;
+        $post->save();
+
+        return response()->json(['status' => true, 'palette' => $post->palette ?? [], 'edited' => false]);
+    }
+
+    /**
      * Удалить видео поста.
      *
      * @param Post $post
@@ -1281,7 +2797,7 @@ class PostController extends Controller
     {
         try {
             $request->validate([
-                'image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp',
+                'image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp,avif',
             ]);
 
             $user = auth()->user();
@@ -1442,6 +2958,238 @@ class PostController extends Controller
     }
 
     /**
+     * При создании поста нашлась такая же картинка в посте $post, и пользователь в окне сравнения
+     * выбрал "Объединить": новый пост не создаётся, в $post переносится выбранное —
+     * картинка лучшего качества (image_choice), текст (text_choice: old/new/both), название
+     * (title_choice), хештеги нового (merge_hashtags), а также видео и данные фильма, если у $post
+     * их нет. Поля формы создания (text, title, hashtags, video, pin_type, film-*) приходят как есть.
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function mergeDuplicate(Request $request, Post $post)
+    {
+        try {
+            $request->validate([
+                'staged_image' => 'required|array',
+                'staged_image.image_name' => 'required|string',
+                'staged_image.image_extension' => 'required|string',
+                'staged_image.image_path' => 'required|string',
+                'duplicate_image_name' => 'required|string',
+                'image_choice' => 'required|in:old,new',
+                'text_choice' => 'nullable|in:old,new,both',
+                'title_choice' => 'nullable|in:old,new',
+            ]);
+
+            $userId = (int)auth()->id();
+            if ((int)$post->user_id !== $userId) {
+                abort(403);
+            }
+
+            $staged = $request->input('staged_image');
+            if (!$this->isOwnStagedImage($staged, $userId)) {
+                throw new \Exception('Загруженная картинка не найдена — загрузите её заново');
+            }
+
+            $uploadController = new UploadImageController();
+            if ($request->input('image_choice') === 'new') {
+                // проверку на дубликат уже прошли — это он и есть
+                $saved = $uploadController->saveImageForPost($staged, (string)$userId, (string)$post->category_id, false, true);
+                if (!empty($saved['errors'])) {
+                    $errors = $saved['errors'];
+                    throw new \Exception(is_array($errors) ? implode(' ', $errors) : $errors);
+                }
+                $uploadController->swapPostImage($post, $request->input('duplicate_image_name'), $saved);
+            } else {
+                UploadImageController::deleteStagedImageFiles($staged['image_name'], $staged['image_extension'], $userId);
+            }
+
+            // текст: у нового нет или он такой же — оставляем как есть; у старого нет — берём новый
+            $newText = (string)$request->input('text', '');
+            if ($this->postPlainText($newText) !== '' && !$this->isSamePostText($post->content, $newText)) {
+                $textChoice = $this->postPlainText($post->content) === '' ? 'new' : $request->input('text_choice', 'old');
+                if ($textChoice === 'new') {
+                    $post->content = $newText;
+                } elseif ($textChoice === 'both') {
+                    $post->content = $post->content . "\n" . $newText;
+                }
+            }
+
+            $newTitle = trim((string)$request->input('title', ''));
+            if ($newTitle !== '' && (trim((string)$post->title) === '' || $request->input('title_choice') === 'new')) {
+                $post->title = $newTitle;
+            }
+
+            if (empty($post->video) && !empty($request->video)) {
+                $videoData = json_decode($request->video, true);
+                $savedVideo = is_array($videoData) ? $this->saveVideoForPost($videoData, (string)$userId) : null;
+                if ($savedVideo) {
+                    $post->video = json_encode($savedVideo);
+                }
+            }
+
+            $post->save();
+
+            if ($request->boolean('merge_hashtags') && !empty($request->hashtags)) {
+                $hashtagIds = array_keys(json_decode($request->hashtags, true) ?: []);
+                $post->hashtags()->syncWithoutDetaching(
+                    Hashtag::where('user_id', $userId)->whereIn('id', $hashtagIds)->pluck('id')->all()
+                );
+            }
+
+            if ($request->input('pin_type') === Post::TYPE_FILM && !$post->film) {
+                $filmAttributes = PostFilm::attributesFromRequest($request);
+                if ($filmAttributes !== null) {
+                    PostFilm::saveForPost($post, $filmAttributes);
+                    $post->type = Post::TYPE_FILM;
+                    $post->save();
+                }
+            }
+
+            // то же для "Одежды": в существующий пост переносим данные вещи, если у него их ещё нет
+            if ($request->input('pin_type') === Post::TYPE_CLOTHES && !$post->clothes) {
+                $clothesAttributes = PostClothes::attributesFromRequest($request, (int)$userId);
+                if ($clothesAttributes !== null) {
+                    PostClothes::saveForPost($post, $clothesAttributes);
+                    $post->type = Post::TYPE_CLOTHES;
+                    $post->save();
+                }
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Объединено с постом #' . $post->id,
+                'post_id' => $post->id,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['status' => false, 'message' => implode(' ', $e->validator->errors()->all())]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Дубликаты среди картинок формы создания поста — до того, как что-то сохранено
+     * (см. store()). Картинки, для которых пользователь уже выбрал "создать отдельно"
+     * (force_duplicate_keys), не проверяем.
+     *
+     * @param Request $request
+     * @param array $images images формы создания: {image_name: {image_name, image_path, ...}}
+     * @param int $userId
+     * @return array для окна сравнения в admin.js, по элементу на найденный дубликат
+     */
+    private function findDuplicatesBeforeCreate(Request $request, array $images, int $userId): array
+    {
+        $forceKeys = json_decode($request->force_duplicate_keys ?? '[]', true) ?: [];
+        $infos = [];
+
+        foreach ($images as $image) {
+            if (!is_array($image) || empty($image['image_name']) || in_array($image['image_name'], $forceKeys, true)) {
+                continue;
+            }
+
+            $found = UploadImageController::findDuplicateForStagedImage($image, $userId);
+            $existingPost = $found ? Post::with('hashtags')->find($found['duplicate']->post_id) : null;
+            if (!$existingPost) {
+                continue;
+            }
+
+            $duplicate = $found['duplicate'];
+            $oldFileSize = Storage::exists($duplicate->path) ? Storage::size($duplicate->path) : 0;
+            $newArea = $found['width'] * $found['height'];
+            $oldArea = $duplicate->width * $duplicate->height;
+
+            $infos[] = [
+                'image_key' => $image['image_name'],
+                'staged_image' => $image,
+                'new_image' => [
+                    'thumbnail_url' => '/storage/' . ($image['m_image_path'] ?? $image['image_path']),
+                    'width' => $found['width'],
+                    'height' => $found['height'],
+                    'file_size' => $found['file_size'],
+                ],
+                'duplicate' => $this->formatDuplicateForFrontend($duplicate) + ['file_size' => $oldFileSize],
+                // лучше качество — больше пикселей, при равном разрешении — больший файл
+                'new_is_better' => $newArea !== $oldArea ? $newArea > $oldArea : $found['file_size'] > $oldFileSize,
+                'existing_post' => [
+                    'id' => $existingPost->id,
+                    'url' => route('posts.edit', $existingPost->id),
+                    'merge_url' => route('posts.merge-duplicate', $existingPost->id),
+                    'title' => (string)$existingPost->title,
+                    'text' => $this->postPlainText($existingPost->content),
+                    'hashtags' => $existingPost->hashtags->map(function ($hashtag) {
+                        return ['id' => $hashtag->id, 'title' => $hashtag->title];
+                    })->values(),
+                    'images_count' => count(UploadImageController::normalizeImages($existingPost->original_image)),
+                ],
+                'texts_equal' => $this->isSamePostText($existingPost->content, (string)$request->input('text', '')),
+            ];
+        }
+
+        return $infos;
+    }
+
+    /**
+     * Текст поста (HTML из TinyMCE) без разметки — для показа в окне сравнения и сравнения текстов
+     *
+     * @param string|null $html
+     * @return string
+     */
+    private function postPlainText(?string $html): string
+    {
+        $text = preg_replace('/<(br|\/p|\/div|\/li|\/h\d)[^>]*>/i', "\n", (string)$html);
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/[ \t\x{00A0}]+/u', ' ', $text);
+
+        return trim(preg_replace("/\n\s*\n+/u", "\n\n", $text));
+    }
+
+    /**
+     * Тексты одинаковые, если совпадают без учёта разметки, регистра и пробелов
+     *
+     * @param string|null $a
+     * @param string|null $b
+     * @return bool
+     */
+    private function isSamePostText(?string $a, ?string $b): bool
+    {
+        $normalize = function (?string $html) {
+            return mb_strtolower(preg_replace('/\s+/u', ' ', $this->postPlainText($html)));
+        };
+
+        return $normalize($a) === $normalize($b);
+    }
+
+    /**
+     * Картинка из формы создания лежит во временной папке этого пользователя
+     * (пути приходят с фронтенда — не даём подсунуть чужой или произвольный файл)
+     *
+     * @param array $image
+     * @param int $userId
+     * @return bool
+     */
+    private function isOwnStagedImage(array $image, int $userId): bool
+    {
+        if (preg_match('/[\/\\\\]|\.\./', $image['image_name'] . $image['image_extension'])) {
+            return false;
+        }
+
+        $prefix = 'temp_directory/' . $userId . '/';
+        foreach (['image_path', 's_image_path', 'm_image_path'] as $key) {
+            if (!isset($image[$key])) {
+                continue;
+            }
+            $path = (string)$image[$key];
+            if (strpos($path, $prefix) !== 0 || strpos($path, '..') !== false || strpos($path, '\\') !== false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Приводит "сырой" объект дубликата (из UploadImageController::findDuplicateByHash())
      * к виду, удобному для фронтенда (готовый thumbnail_url вместо внутреннего path).
      *
@@ -1578,6 +3326,97 @@ class PostController extends Controller
     }
 
     /**
+     * Повернуть или отразить изображение поста (кнопки на карточке картинки, страница редактирования) —
+     * вместе с его medium/small. Файлы перезаписываются на месте: имена и пути не меняются, поэтому в посте
+     * (original_image/medium_image/small_image, палитра) ничего обновлять не нужно. Из-за этого размер в имени
+     * medium/small ("_350_467") после поворота на 90° не совпадает с фактическим — на имя никто не опирается.
+     *
+     * @param Request $request name — имя файла оригинала, action — rotate_left | rotate_right | flip_h | flip_v
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function transformImage(Request $request, Post $post)
+    {
+        try {
+            $request->validate([
+                'name' => 'required|string',
+                'action' => 'required|in:rotate_left,rotate_right,flip_h,flip_v',
+            ]);
+
+            $name = $request->name;
+            $action = $request->action;
+            $isRotation = in_array($action, ['rotate_left', 'rotate_right'], true);
+
+            $original = UploadImageController::normalizeImages($post->original_image)[$name] ?? null;
+            if (empty($original['path'])) {
+                throw new \Exception('Изображение не найдено');
+            }
+
+            $disk = Storage::disk('local');
+            $originalPath = $disk->path($original['path']);
+            // у GIF при пересохранении пропала бы анимация, SVG — не растр
+            $extension = strtolower(pathinfo($originalPath, PATHINFO_EXTENSION));
+            if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true) || !file_exists($originalPath)) {
+                throw new \Exception('Изображение этого формата нельзя повернуть');
+            }
+
+            $image = \Intervention\Image\Facades\Image::make($originalPath);
+            // фото с телефона: браузер показывает оригинал повёрнутым по EXIF, а при пересохранении EXIF
+            // теряется — сначала разворачиваем пиксели так, как картинку видно на экране
+            if (in_array($extension, ['jpg', 'jpeg'], true)) {
+                $image->orientate();
+            }
+            switch ($action) {
+                // Intervention крутит против часовой стрелки
+                case 'rotate_left':
+                    $image->rotate(90);
+                    break;
+                case 'rotate_right':
+                    $image->rotate(-90);
+                    break;
+                case 'flip_h':
+                    $image->flip('h');
+                    break;
+                default:
+                    $image->flip('v');
+            }
+            $image->save($originalPath, 95);
+
+            // medium/small пересобираем из уже повёрнутого оригинала — в том же размере (при повороте на 90°
+            // ширина и высота меняются местами). Свои — по имени: "{имя оригинала}_{ширина}_{высота}"
+            $derivedPattern = '/^' . preg_quote(pathinfo($name, PATHINFO_FILENAME), '/') . '_\d+_\d+(\.\w+)?$/iu';
+            foreach ([$post->medium_image, $post->small_image] as $json) {
+                foreach (UploadImageController::normalizeImages($json) as $key => $derived) {
+                    if (!preg_match($derivedPattern, (string)$key) || empty($derived['path']) || !$disk->exists($derived['path'])) {
+                        continue;
+                    }
+
+                    $derivedPath = $disk->path($derived['path']);
+                    $size = getimagesize($derivedPath);
+                    if (!$size) {
+                        continue;
+                    }
+
+                    \Intervention\Image\Facades\Image::make($originalPath)
+                        ->resize($isRotation ? $size[1] : $size[0], $isRotation ? $size[0] : $size[1])
+                        ->save($derivedPath);
+                }
+            }
+
+            // хеши для поиска дубликатов считаются по содержимому — у перевёрнутой картинки они другие
+            UploadImageController::refreshImageHash($post->id, $name, $originalPath);
+
+            return response()->json([
+                'status' => true,
+                'message' => $isRotation ? 'Изображение повёрнуто' : 'Изображение отражено',
+                'image' => $original,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Переименовывает и перемещает один файл изображения (original/medium/small).
      * Для medium/small ($isOriginalImage = false) размер (_ширина_высота) в новое имя
      * подставляется автоматически, по фактическим размерам текущего файла —
@@ -1659,18 +3498,24 @@ class PostController extends Controller
     }
 
     /**
-     * @param $alias
-     * @param $userId
-     * @return mixed
+     * Свободный alias: сам $alias или "$alias-2", "$alias-3"... Колонка posts.alias уникальна по всей таблице
+     * (не по пользователю), поэтому проверяем без user_id. Раньше занятый alias давал dd() (режим "один пост") или
+     * "userId_categoryId_time()" — а он совпадает у постов, сохранённых в одну секунду (группа постов, две вкладки)
+     *
+     * @param string $alias
+     * @return string
      */
-    private function aliasExist($alias, $userId)
+    private function freeAlias(string $alias): string
     {
-        $posts = Post::selectRaw('posts.id, posts.alias, posts.user_id')
-            ->where('posts.user_id', $userId)
-            ->where('posts.alias', $alias)
-            ->first();
+        $alias = $alias !== '' ? $alias : (string)auth()->id() . '_' . time();
 
-        return $posts;
+        $candidate = $alias;
+        // withTrashed: alias поста из корзины тоже занят — колонка уникальна, а пост могут вернуть
+        for ($i = 2; Post::withTrashed()->where('alias', $candidate)->exists(); $i++) {
+            $candidate = $alias . '-' . $i;
+        }
+
+        return $candidate;
     }
 
     /**

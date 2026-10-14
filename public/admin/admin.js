@@ -213,6 +213,19 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      var page = 1;
      var isLoadingMore = false; // защита от параллельных запросов, пока предыдущий ещё не завершился
      var noMoreRecords = false; // достигнут конец списка — больше не пытаемся подгружать
+     // активный поиск (по хэштегам/цвету) — адрес его результатов: следующие страницы грузятся
+     // оттуда (&page=N), а не из общей ленты. null — обычная лента "Все посты"
+     var postsSearchUrl = null;
+     var ajaxLoadInitialHtml = $('.ajax-load').html();
+
+     // новый поиск показал первую страницу результатов — дальше прокрутка грузит его же страницы
+     function startPostsSearch(url) {
+         postsSearchUrl = url;
+         page = 1;
+         isLoadingMore = false;
+         noMoreRecords = false;
+         $('.ajax-load').hide().html(ajaxLoadInitialHtml);
+     }
      $(window).scroll(function() {
          if (window.location.pathname === '/cabinet/posts') {
              if (isLoadingMore || noMoreRecords) {
@@ -243,12 +256,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let requestUrl;
 
-         let savedHashtags = localStorage.getItem('hashtags');
-         console.log('loadMoreData savedHashtags' + savedHashtags);
-
-         if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
-             requestUrl =  $('#js-b-search')[0].getAttribute('data-action') + '?page=' + page;
-             console.log(requestUrl);
+         if (postsSearchUrl) {
+             // раньше адрес брался из #js-b-search (старый поиск в шапке) — после переезда поиска
+             // в поп-ап этого элемента нет, и прокрутка результатов поиска падала на первой же подгрузке
+             requestUrl = postsSearchUrl + (postsSearchUrl.indexOf('?') === -1 ? '?' : '&') + 'page=' + page;
          } else {
              // сохраняем текущие query-параметры страницы (например, without_hashtags=1),
              // подменяя в них только page, чтобы фильтр не терялся при подгрузке следующих страниц
@@ -278,7 +289,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                  //$grid.masonry('destroy'); // destroy masonry
 
-                 if(html === ""){
+                 // пустая страница из шаблона — это пробелы/переносы, а не совсем пустая строка
+                 if ($.trim(html) === '') {
                      $('.ajax-load').html('<span class="ajax-load__text">Больше постов нет</span>');
                      // больше подгружать нечего — вернуть возможность скроллить страницу
                      // и не пытаться больше грузить следующие страницы
@@ -354,6 +366,97 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
      }
 
+     // Галочка "Свернуть группы" (posts/index.blade.php): отмечена — группа одной карточкой-стопкой, снята — посты
+     // группы отдельными карточками. Переключается без перезагрузки страницы: заново грузим первую страницу ленты
+     // (или текущего поиска) и подменяем карточки. Выбор хранится в localStorage и дублируется в cookie — по ней
+     // сервер сразу отдаёт ленту в нужном виде и при прокрутке, и при следующем открытии (Post::feedGroupsExpanded)
+     const collapseGroupsCheckbox = document.getElementById('js-posts-collapse-groups');
+     if (collapseGroupsCheckbox) {
+         const collapseGroupsStorageKey = 'posts.collapseGroups';
+
+         function saveCollapseGroups(collapsed) {
+             try { localStorage.setItem(collapseGroupsStorageKey, collapsed ? '1' : '0'); } catch (e) {}
+             document.cookie = 'posts_ungrouped=' + (collapsed ? '0' : '1') + '; path=/; max-age=31536000; SameSite=Lax';
+         }
+
+         function replaceFeedCards(html) {
+             $grid.masonry('destroy');
+             $grid.html(html);
+             $grid.masonry(masonryOptions);
+             $grid.imagesLoaded(function () {
+                 $grid.masonry('layout');
+             });
+
+             // прокрутка снова грузит страницы с начала
+             page = 1;
+             isLoadingMore = false;
+             noMoreRecords = false;
+             $('.ajax-load').hide().html(ajaxLoadInitialHtml);
+         }
+
+         function reloadFeedCards() {
+             // режим "Выбрать" снимает отметки с постов групп — у них меняется смысл (posts-bulk.js)
+             $(document).trigger('posts:groups-toggle');
+             collapseGroupsCheckbox.disabled = true;
+             $grid.css('opacity', .5);
+
+             let request;
+             if (postsSearchUrl) {
+                 // результаты поиска — его же первая страница (только карточки)
+                 request = Promise.resolve($.ajax({url: postsSearchUrl, type: 'get'})).then(function (html) {
+                     replaceFeedCards(html);
+                 });
+             } else {
+                 // лента — страница целиком, чтобы обновить и счётчики на вкладках "Все/Фото/...": fetch, а не $.ajax —
+                 // без заголовка X-Requested-With сервер отдаёт всю страницу, а не только карточки
+                 let params = new URLSearchParams(window.location.search);
+                 params.delete('page');
+                 request = fetch(window.location.pathname + '?' + params.toString(), {credentials: 'same-origin'})
+                     .then(function (response) {
+                         if (!response.ok) {
+                             throw new Error(response.status);
+                         }
+                         return response.text();
+                     })
+                     .then(function (pageHtml) {
+                         let doc = new DOMParser().parseFromString(pageHtml, 'text/html');
+                         let newGrid = doc.querySelector('#posts-index .grid');
+                         let newTabs = doc.querySelector('.b-posts-toolbar__tabs');
+                         if (!newGrid) {
+                             throw new Error('no grid');
+                         }
+                         if (newTabs) {
+                             $('.b-posts-toolbar__tabs').html(newTabs.innerHTML);
+                         }
+                         replaceFeedCards(newGrid.innerHTML);
+                     });
+             }
+
+             request
+                 .catch(function () {
+                     toastr.error('Не удалось обновить ленту');
+                 })
+                 .then(function () {
+                     collapseGroupsCheckbox.disabled = false;
+                     $grid.css('opacity', '');
+                 });
+         }
+
+         collapseGroupsCheckbox.addEventListener('change', function () {
+             saveCollapseGroups(collapseGroupsCheckbox.checked);
+             reloadFeedCards();
+         });
+
+         // cookie потерялась (очистили cookie), а выбор в localStorage остался — восстанавливаем его
+         let storedCollapseGroups = null;
+         try { storedCollapseGroups = localStorage.getItem(collapseGroupsStorageKey); } catch (e) {}
+         if (storedCollapseGroups !== null && (storedCollapseGroups === '1') !== collapseGroupsCheckbox.checked) {
+             collapseGroupsCheckbox.checked = storedCollapseGroups === '1';
+             saveCollapseGroups(collapseGroupsCheckbox.checked);
+             reloadFeedCards();
+         }
+     }
+
      let searchInput1 = '#search-input'; //поиск в шапке - по хештегам
      let searchInput1_2 = '#search-input-1-2'; //поиск в шапке - по хештегам (not in)
 
@@ -363,17 +466,38 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      let containerSelectedHashtagsTags1_2 = '#b-search__field__tags-container__tags-1-2';
      let containerSelectedHashtagsTags2 = '#b-selected-tags-2';
 
-     //очищаем images в localStorage
-     if (window.location.href !== '/cabinet/posts/create') {
-         if (localStorage.getItem('images') !== undefined && localStorage.getItem('images') !== null) {
-              localStorage.removeItem('images');
+     // хештеги поиска в шапке — сбрасываем при каждой загрузке страницы
+     localStorage.removeItem('hashtags');
+
+     // Данные формы поста (загруженные картинки, выбранные хештеги, видео) — в sessionStorage: у каждой вкладки
+     // свои. В общем для всех вкладок localStorage другая вкладка кабинета могла их стереть, и пост создавался
+     // без картинок. Хештеги поиска ('hashtags') остаются в localStorage.
+     function postStorage(key) {
+         return ['images', 'postImages', 'hashtags2', 'postVideo'].indexOf(key) !== -1 ? sessionStorage : localStorage;
+     }
+
+     // удалить загруженный во временную папку файл, который в пост уже не попадёт (убрали с формы, отменили) —
+     // иначе он так и останется лежать там (UploadImageController::deleteDownloadFile, копии удаляются вместе с ним)
+     function deleteTempFile(name, extension) {
+         if (!name || !extension) {
+             return;
          }
-         if (localStorage.getItem('hashtags') !== undefined && localStorage.getItem('hashtags') !== null) {
-             localStorage.removeItem('hashtags');
-         }
-         if (localStorage.getItem('hashtags2') !== undefined && localStorage.getItem('hashtags2') !== null) {
-             localStorage.removeItem('hashtags2');
-         }
+         $.ajax({
+             url: '/cabinet/delete-download-file',
+             type: 'post',
+             headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+             contentType: 'application/json',
+             data: JSON.stringify({name: name, extension: extension}),
+         });
+     }
+
+     // открыли форму создания/редактирования — начинаем с чистого листа (sessionStorage переживает перезагрузку
+     // вкладки и копируется в новую при "Дублировать вкладку" — иначе обе формы ссылались бы на одни и те же
+     // временные файлы, и вторая при сохранении их бы уже не нашла)
+     if (document.getElementById('creationform') || document.getElementById('editform')) {
+         sessionStorage.removeItem('images');
+         sessionStorage.removeItem('hashtags2');
+         sessionStorage.removeItem('postVideo');
      }
 
      $.ajaxSetup({ headers: { 'csrftoken' : '{{ csrf_token() }}' } });
@@ -392,7 +516,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              placeholder: 'image-sort-placeholder',
              forcePlaceholderSize: true,
              update: function () {
-                 let savedImages = localStorage.getItem('images');
+                 let savedImages = sessionStorage.getItem('images');
                  if (!savedImages) {
                      return;
                  }
@@ -404,7 +528,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          reordered[name] = images[name];
                      }
                  });
-                 localStorage.setItem('images', JSON.stringify(reordered));
+                 sessionStorage.setItem('images', JSON.stringify(reordered));
              }
          });
      }
@@ -494,15 +618,115 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //     //upload($(this).prop('files'));
      // });
 
-     // Функция загрузки файлов
+     // ===== Ход загрузки картинок на форму создания =====
+     // Файлы уходят на сервер по одному, по очереди: так у каждого есть свой честный статус (сервер после
+     // приёма файла ещё делает уменьшенные копии и ищет похожие картинки — это и есть основное время).
+     // Пока файл ждёт или грузится, на форме стоит его плитка-заготовка с локальным превью; над ней —
+     // полоса "Загрузка 2 из 5". Готовая картинка встаёт на место заготовки.
+     let uploadQueue = [];      // [{file, url, placeholder}] — ещё не отправленные
+     let uploadTotal = 0;       // сколько файлов в текущей серии (растёт, если докинули ещё)
+     let uploadFinished = 0;    // сколько из них уже обработано
+     let uploadRunning = false;
+     let videoUploading = false; // см. uploadPostVideo()
+
+     function uploadInProgress() {
+         return uploadRunning;
+     }
+
+     function setUploadProgress(fraction, label) {
+         let percent = Math.max(0, Math.min(100, Math.round(fraction * 100)));
+         $('.upload-image-section .progress').show();
+         $('.upload-image-section .progress-bar').css('width', percent + '%');
+         $('.upload-image-section .progress-value').text(label);
+     }
+
+     // плитка-заготовка: превью прямо из выбранного файла, поверх — "ждёт" или крутилка
+     function addUploadPlaceholder(file) {
+         let placeholder = $('<div class="image-uploading" title="Загружается…"><span class="image-uploading__preview"></span><span class="image-uploading__state"></span></div>');
+         placeholder.attr('data-file', file.name);
+         try {
+             let previewUrl = URL.createObjectURL(file);
+             placeholder.find('.image-uploading__preview').css('background-image', 'url(' + previewUrl + ')');
+             placeholder.data('previewUrl', previewUrl);
+         } catch (e) {
+             // превью не получилось — останется пустая плитка с крутилкой
+         }
+         $('.js-upload-image-section .images').append(placeholder);
+         return placeholder;
+     }
+
+     function removeUploadPlaceholder(placeholder) {
+         if (placeholder.data('previewUrl')) {
+             URL.revokeObjectURL(placeholder.data('previewUrl'));
+         }
+         placeholder.remove();
+     }
+
+     function runUploadQueue() {
+         if (!uploadQueue.length) {
+             uploadRunning = false;
+             uploadTotal = 0;
+             uploadFinished = 0;
+             setUploadProgress(1, 'Готово');
+             // все файлы на месте — теперь можно подбирать хештеги по картинкам (если включено в Настройках ИИ)
+             if ($('.js-images .image').length) {
+                 autoSuggestHashtagsAfterUpload();
+             }
+             setTimeout(function () {
+                 if (!uploadRunning) {
+                     $('.upload-image-section .progress').hide();
+                 }
+             }, 1200);
+             return;
+         }
+
+         uploadRunning = true;
+         let item = uploadQueue.shift();
+         let position = uploadFinished + 1;
+         item.placeholder.addClass('is-active');
+
+         uploadFiles([item.file], item.url, function (fraction) {
+             // файл передан целиком, а ответа ещё нет — сервер обрабатывает картинку
+             setUploadProgress(
+                 (uploadFinished + fraction * 0.6) / uploadTotal,
+                 (fraction < 1 ? 'Загрузка ' : 'Обработка ') + position + ' из ' + uploadTotal
+             );
+         }, function () {
+             uploadFinished++;
+             removeUploadPlaceholder(item.placeholder);
+             setUploadProgress(uploadFinished / uploadTotal, 'Загружено ' + uploadFinished + ' из ' + uploadTotal);
+             runUploadQueue();
+         });
+     }
+
+     // Поставить файлы в очередь загрузки
      function upload(files, url = '') {
+         // новая серия — прошлое предупреждение о незагруженных картинках уже неактуально
+         if (!uploadRunning) {
+             $('.js-error-block').removeClass('active');
+         }
+
+         for (let i = 0; i < files.length; ++i) {
+             uploadQueue.push({file: files[i], url: url, placeholder: addUploadPlaceholder(files[i])});
+         }
+         uploadTotal += files.length;
+
+         setUploadProgress(uploadFinished / uploadTotal, 'Загрузка ' + (uploadFinished + 1) + ' из ' + uploadTotal);
+         if (!uploadRunning) {
+             runUploadQueue();
+         }
+     }
+
+     // Отправить файлы одним запросом. onProgress(доля отправленного 0..1), onDone() — когда пришёл ответ
+     // или ошибка
+     function uploadFiles(files, url, onProgress, onDone) {
          console.log("UPLOAD");
          console.log(files);
 
          let formData = new FormData();
 
-         if (localStorage.getItem('images') !== undefined && localStorage.getItem('images') !== null) {
-             let savedImages = localStorage.getItem('images');
+         if (sessionStorage.getItem('images') !== undefined && sessionStorage.getItem('images') !== null) {
+             let savedImages = sessionStorage.getItem('images');
              console.log('savedImages' + savedImages);
              let images = JSON.parse(savedImages);
              console.log('images' + images);
@@ -524,6 +748,17 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  console.log(files);
                  formData.append('files[]', files[i]);
              }
+         }
+
+         // картинки, уже загруженные на этой форме: повторную загрузку того же файла сервер отдаст под тем же
+         // именем (превью не задвоится), а файл с таким же именем из другой вкладки не тронет —
+         // см. UploadImageController::stageFileToTempDirectory()
+         try {
+             Object.keys(JSON.parse(sessionStorage.getItem('images') || '{}') || {}).forEach(function (name) {
+                 formData.append('staged_names[]', name);
+             });
+         } catch (e) {
+             // нет сохранённых картинок — нечего и передавать
          }
 
          formData.append('username', 'Chris');
@@ -548,27 +783,41 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              contentType: false,
              cache: false,
              processData: false,
-             beforeSend: function () {
-
+             // сколько файла уже ушло на сервер — для полосы загрузки (см. runUploadQueue)
+             xhr: function () {
+                 let xhr = $.ajaxSettings.xhr();
+                 if (xhr.upload && onProgress) {
+                     xhr.upload.addEventListener('progress', function (event) {
+                         if (event.lengthComputable) {
+                             onProgress(event.loaded / event.total);
+                         }
+                     });
+                 }
+                 return xhr;
+             },
+             complete: function () {
+                 if (onDone) {
+                     onDone();
+                 }
              },
              success:function(response)
              {
                  console.log(response);
 
                  if (response.status === false) {
-                     $('.js-error-block').addClass('active');
-                     $('.js-error-block p').text(response.error).show();
-                     $('.progress').hide();
+                     // этот файл не загрузился — в список под загрузкой, остальные файлы очереди идут дальше
+                     showRejectedUploads([{file: files[0].name, message: response.error || 'не удалось загрузить'}]);
                  } else {
-                     $('.progress-bar').css('width', '100%');
-                     $('.progress-value').text('100 %');
-
                      let uploadedImages = response.images;
 
                      console.log(uploadedImages);
 
-                     if (localStorage.getItem('images') !== undefined && localStorage.getItem('images') !== null) {
-                         let savedImages = localStorage.getItem('images');
+                     // похожие картинки сервер на форму не пустил (уже есть в каком-то посте или на этой же
+                     // форме, UploadImageController::uploadImagesToTempDirectory) — говорим, какие и почему
+                     showRejectedUploads(response.rejected || []);
+
+                     if (sessionStorage.getItem('images') !== undefined && sessionStorage.getItem('images') !== null) {
+                         let savedImages = sessionStorage.getItem('images');
                          console.log('savedImages' + savedImages);
                          let images = JSON.parse(savedImages);
                          console.log('images' + images);
@@ -576,12 +825,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          images = Object.assign({}, images, uploadedImages);
                          console.log('images' + images);
 
-                         localStorage.setItem('images', JSON.stringify(images));
+                         sessionStorage.setItem('images', JSON.stringify(images));
                      } else {
-                         localStorage.setItem('images', JSON.stringify(response.images));
+                         sessionStorage.setItem('images', JSON.stringify(response.images));
                      }
 
-                     console.log(localStorage.getItem('images'));
+                     console.log(sessionStorage.getItem('images'));
+
+                     // подбор хештегов по картинкам — один раз, когда загрузится вся очередь (runUploadQueue)
 
                      // Отобразить загруженные картинки
                      if (uploadedImages) {
@@ -597,6 +848,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                  console.log(uploadedImages[key]);
                                  console.log(uploadedImages[key]['image_name']);
 
+                                 // тот же файл загрузили повторно — сервер вернул то же имя, превью уже есть
+                                 let alreadyShown = $('.js-upload-image-section .images .image').filter(function () {
+                                     return this.dataset.name === uploadedImages[key]['image_name'];
+                                 }).length > 0;
+                                 if (alreadyShown) {
+                                     continue;
+                                 }
+
                                  let img = '<div class="image" data-name="' + uploadedImages[key]['image_name'] + '" data-extension="' + uploadedImages[key]['image_extension'] + '">';
 
                                  if (uploadedImages[key]['small'] !== undefined) {
@@ -609,8 +868,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                          '</div>';
                                  }
 
-                                 // Добавить в контейнер
-                                 $('.js-upload-image-section .images').append(img);
+                                 // Добавить в контейнер — перед заготовками ещё не загруженных файлов,
+                                 // чтобы картинки шли в том порядке, в каком их выбрали
+                                 let pending = $('.js-upload-image-section .images .image-uploading').not('.is-active').first();
+                                 if (pending.length) {
+                                     $(img).insertBefore(pending);
+                                 } else {
+                                     $('.js-upload-image-section .images').append(img);
+                                 }
                              }
                          }
 
@@ -619,9 +884,32 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              },
              error: function(response) {
                  console.log(response);
-                 debugger;
+                 showRejectedUploads([{file: files[0].name, message: 'не удалось загрузить — попробуйте ещё раз'}]);
              },
          });
+     }
+
+     // Список картинок, которые не попали на форму создания, потому что такие уже стоят на этой форме:
+     // в блоке предупреждения под загрузкой (post_url — если сервер укажет пост, где картинка уже лежит)
+     function showRejectedUploads(rejected) {
+         let block = $('.js-error-block');
+         if (!rejected.length) {
+             return;
+         }
+
+         // файлы грузятся по одному — строки копятся, пока блок открыт; новая серия загрузки начинает с чистого
+         let text = block.find('p').show();
+         if (!block.hasClass('active')) {
+             text.empty().append(document.createTextNode('Не добавлены:'));
+         }
+         rejected.forEach(function (item) {
+             let line = $('<span style="display: block;"></span>').text('«' + item.file + '» — ' + item.message);
+             if (item.post_url) {
+                 line.append(' ').append($('<a target="_blank" rel="noopener"></a>').attr('href', item.post_url).text('открыть ↗'));
+             }
+             text.append(line);
+         });
+         block.addClass('active');
      }
 
      $('.js-close-error-block').on('click', function(e) {
@@ -631,7 +919,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //удаление изображений из поста на странице edit post
      $(document).on('click touchstart', '.js-delete-image.saved', function() {
          console.log('test delete image saved');
-         let postImages = localStorage.getItem('postImages');
+         let postImages = sessionStorage.getItem('postImages');
          console.log('postImages' + postImages);
          let images = JSON.parse(postImages);
          console.log('images' + images);
@@ -681,7 +969,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      if (result.status === true) {
                          console.log('=====images=====' + JSON.stringify(images));
-                         localStorage.setItem('images', JSON.stringify(images));
+                         sessionStorage.setItem('images', JSON.stringify(images));
                          image.remove();
                          toastr.success(result.message);
                      } else {
@@ -697,7 +985,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      $(document).on('click touchstart', '.js-delete-image.temp', function() {
          console.log('delete');
 
-         let savedImages = localStorage.getItem('images');
+         let savedImages = sessionStorage.getItem('images');
          console.log('savedImages' + savedImages);
          let images = JSON.parse(savedImages);
          console.log('images' + images);
@@ -742,7 +1030,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      if (result.status === true) {
                          console.log('=====images=====' + JSON.stringify(images));
-                         localStorage.setItem('images', JSON.stringify(images));
+                         sessionStorage.setItem('images', JSON.stringify(images));
                          image.remove();
                          toastr.success(result.msg);
                      } else {
@@ -756,8 +1044,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      });
 
      function resetImagesFromForm() {
-         if (localStorage.getItem('images') !== undefined && localStorage.getItem('images') !== null) {
-             localStorage.removeItem('images');
+         if (sessionStorage.getItem('images') !== undefined && sessionStorage.getItem('images') !== null) {
+             sessionStorage.removeItem('images');
          }
 
          $('.js-images').empty();
@@ -767,7 +1055,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      let postVideoObjectUrl = null;
 
      function resetVideoFromForm() {
-         localStorage.removeItem('postVideo');
+         sessionStorage.removeItem('postVideo');
          resetVideoPreview();
      }
 
@@ -797,7 +1085,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // ===== Видео поста на странице создания (страница /cabinet/posts/create) =====
      // видео попадает сюда из общей дропзоны (uploadDroppedFiles() выше) — без ресайза,
      // как у картинок: файл сразу грузится во временную папку, а его данные сохраняются
-     // в localStorage, чтобы уйти в submitCreationForm() вместе с остальной формой
+     // в sessionStorage, чтобы уйти в submitCreationForm() вместе с остальной формой
      function uploadPostVideo(file) {
          const videoUploadBlock = document.getElementById('post-video-upload');
          if (!videoUploadBlock) {
@@ -807,6 +1095,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let formData = new FormData();
          formData.append('video', file);
 
+         // видео бывает большим — показываем, сколько уже передано, той же полосой, что и у картинок
+         videoUploading = true;
+         setUploadProgress(0, 'Загрузка видео 0 %');
+
          $.ajax({
              url: videoUploadBlock.getAttribute('data-action'),
              type: 'post',
@@ -814,9 +1106,29 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              data: formData,
              contentType: false,
              processData: false,
+             xhr: function () {
+                 let xhr = $.ajaxSettings.xhr();
+                 if (xhr.upload) {
+                     xhr.upload.addEventListener('progress', function (event) {
+                         if (event.lengthComputable && !uploadInProgress()) {
+                             let fraction = event.loaded / event.total;
+                             setUploadProgress(fraction, fraction < 1 ? 'Загрузка видео ' + Math.round(fraction * 100) + ' %' : 'Обработка видео…');
+                         }
+                     });
+                 }
+                 return xhr;
+             },
+             complete: function () {
+                 videoUploading = false;
+                 if (!uploadInProgress()) {
+                     $('.upload-image-section .progress').hide();
+                 }
+             },
              success: function (response) {
                  if (response.status === true) {
-                     localStorage.setItem('postVideo', JSON.stringify(response.video));
+                     // видео у поста одно — прежнее загруженное заменяется новым и больше не нужно
+                     deleteStagedVideo();
+                     sessionStorage.setItem('postVideo', JSON.stringify(response.video));
                      renderVideoPreview(file);
                      toastr.success('Видео добавлено к посту');
                  } else {
@@ -829,13 +1141,22 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      }
 
+     // загруженное во временную папку видео формы — удалить с сервера (убрали или заменили другим)
+     function deleteStagedVideo() {
+         let staged = JSON.parse(sessionStorage.getItem('postVideo') || 'null');
+         if (staged) {
+             deleteTempFile(staged.video_name, staged.video_extension);
+         }
+     }
+
      $(document).on('click', '.js-images .js-post-video__remove', function () {
+         deleteStagedVideo();
          resetVideoFromForm();
      });
 
      function resetHashtagsFromForm(storageKey) {
-         if (localStorage.getItem(storageKey) !== undefined && localStorage.getItem(storageKey) !== null) {
-             localStorage.removeItem(storageKey);
+         if (postStorage(storageKey).getItem(storageKey) !== undefined && postStorage(storageKey).getItem(storageKey) !== null) {
+             postStorage(storageKey).removeItem(storageKey);
          }
 
          $(containerSelectedHashtagsTags2).empty();
@@ -847,40 +1168,76 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          console.log('CLICK');
 
-         submitCreationForm([]);
+         submitCreationForm();
      });
 
-     // вынесено в отдельную функцию, чтобы можно было переотправить форму с тем же
-     // содержимым, но со списком картинок, для которых пользователь подтвердил
-     // "это не дубликат, добавить всё равно" (см. showDuplicateConfirmAndRetry ниже)
-     function submitCreationForm(forceDuplicateKeys) {
+     // поля формы создания, общие для создания поста и для слияния с найденным дубликатом
+     // (PostController::mergeDuplicate берёт из них текст, название, хештеги, видео, данные фильма)
+     function creationFormFields() {
+         let data = $('#creationform').serializeArray();
+         data.push({name: 'hashtags', value: postStorage('hashtags2').getItem('hashtags2')});
+         data.push({name: 'text', value: tinyMCE.activeEditor.getContent({format: 'raw'})});
+         data.push({name: 'video', value: sessionStorage.getItem('postVideo') || ''});
+         return data;
+     }
+
+     function resetCreationForm() {
+         $('#creationform').trigger('reset');
+         $('#editor').trigger('reset');
+
+         resetImagesFromForm();
+         resetVideoFromForm();
+         resetHashtagsFromForm('hashtags2');
+     }
+
+     // вынесено в отдельную функцию, чтобы можно было переотправить форму с тем же содержимым
+     // после выбора в окне сравнения дубликатов (см. resolveDuplicatesAndRetry ниже):
+     // duplicateState.forceKeys — картинки "это другая, создать отдельно",
+     // duplicateState.replaceDuplicates — {картинка: {post_id, image_name}} "оставить копию в новом посте, из старого удалить"
+     function submitCreationForm(duplicateState) {
+         duplicateState = duplicateState || {forceKeys: [], replaceDuplicates: {}};
          let creationForm = $("#creationform");
 
-         let images = localStorage.getItem('images');
+         let images = sessionStorage.getItem('images');
          console.log('PARSE' + JSON.parse(images));
 
-         let storageKey = 'hashtags2';
-         let hashtags = localStorage.getItem(storageKey);
+         // превью на форме есть, а список загруженных картинок пропал — не создаём пост без картинок молча
+         let hasImagePreviews = $('.js-images .image').length > 0;
+         if (hasImagePreviews && (!images || images === '{}')) {
+             toastr.error('Список загруженных изображений потерян — удалите превью и загрузите изображения заново');
+             return;
+         }
 
-         console.log('hashtags' + hashtags);
-
-         let textareaContent = tinyMCE.activeEditor.getContent({format: 'raw'});
-
-         var numberOfPosts = $('input[type="radio"]:checked').val();
+         var numberOfPosts = $('input[name="numberOfPosts"]:checked').val();
          var groupPosts = document.getElementById("group-posts").checked;
 
          //get the action-url of the form
          var actionurl = $('#creationform').attr('action');
          console.log('actionurl' + actionurl);
 
-         let data = creationForm.serializeArray();
+         let data = creationFormFields();
          data.push({name: 'images', value: images});
-         data.push({name: 'hashtags', value: hashtags});
-         data.push({name: 'text', value: textareaContent});
          data.push({name: 'numberOfPosts', value: numberOfPosts});
          data.push({name: 'groupPosts', value: groupPosts});
-         data.push({name: 'force_duplicate_keys', value: JSON.stringify(forceDuplicateKeys || [])});
-         data.push({name: 'video', value: localStorage.getItem('postVideo') || ''});
+         data.push({name: 'force_duplicate_keys', value: JSON.stringify(duplicateState.forceKeys)});
+         data.push({name: 'replace_duplicates', value: JSON.stringify(duplicateState.replaceDuplicates)});
+
+         // картинки или видео ещё грузятся — сохранять рано: в пост попало бы не всё
+         if (uploadInProgress() || videoUploading) {
+             toastr.info('Дождитесь окончания загрузки — полоса над формой покажет, когда всё готово');
+             return;
+         }
+
+         // пока идёт сохранение, кнопка недоступна: повторное нажатие создало бы посты второй раз.
+         // На ней же видно, что сохранение идёт
+         let submitButton = $('#submit-creation-form');
+         if (submitButton.prop('disabled')) {
+             return;
+         }
+         if (submitButton.data('idleHtml') === undefined) {
+             submitButton.data('idleHtml', submitButton.html());
+         }
+         submitButton.prop('disabled', true).addClass('is-loading').html('<span class="b-pin-btn__spinner"></span> Сохранение…');
 
          //do your own request an handle the results
          $.ajax({
@@ -889,29 +1246,42 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              dataType: 'application/json',
              data: data, //images
              complete: function(response) {
+                 submitButton.prop('disabled', false).removeClass('is-loading').html(submitButton.data('idleHtml'));
+
                  console.log("ответ");
                  console.log(response.responseText);
-                 let result = JSON.parse(response.responseText);
+
+                 // сервер ответил не JSON (ошибка 500, истёкшая сессия...) — раньше на этом форма молча замирала
+                 let result;
+                 try {
+                     result = JSON.parse(response.responseText);
+                 } catch (e) {
+                     toastr.error('Не удалось сохранить: сервер вернул ошибку' + (response.status ? ' (' + response.status + ')' : '')
+                         + '. Часть постов могла успеть сохраниться — проверьте «Все посты», прежде чем сохранять ещё раз.');
+                     return;
+                 }
                  console.log('response' + result);
                  console.log('message' + result.message);
+
+                 // часть постов уже создана, на остальных — ошибка: созданные убираем с формы и говорим об этом прямо
+                 if (result.created_keys && result.created_keys.length) {
+                     result.created_keys.forEach(removeImageFromCreationForm);
+                     toastr.success('Создано постов: ' + result.created_keys.length + '. Остальные картинки остались на форме — см. сообщение об ошибке.');
+                 }
 
                  //обнуляем форму
                  //выводим исчезающее сообщение об успехе
 
                  if (result.status === true) {
-                     creationForm.trigger('reset');
-                     $('#editor').trigger('reset');
-
-                     resetImagesFromForm();
-                     resetVideoFromForm();
-
-                     resetHashtagsFromForm(storageKey);
-
+                     resetCreationForm();
 
                      toastr.success(result.message);
                      //showAlert(result.message, 'alert-info', 'fa-check');
+                 } else if (result.needs_choice && result.duplicate_infos && result.duplicate_infos.length) {
+                     resolveDuplicatesAndRetry(result, duplicateState);
                  } else if (result.duplicate_infos && result.duplicate_infos.length) {
-                     confirmDuplicatesAndRetry(result.duplicate_infos, forceDuplicateKeys);
+                     // дубликат нашёлся уже при сохранении (например, две одинаковые картинки в одной загрузке)
+                     confirmDuplicatesAndRetry(result.duplicate_infos, duplicateState);
                  } else {
                      // сервер при ошибке отдаёт либо message, либо errors
                      // (плоский массив строк или массив массивов — например, по одной ошибке на картинку)
@@ -926,13 +1296,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      }
 
-     // для каждой найденной "похожей" картинки спрашиваем пользователя (браузерный confirm —
-     // тут не заводим отдельную модалку, как на странице редактирования, картинка уже видна
-     // на форме создания, а сравнить с существующей можно по ссылке на пост). Если пользователь
-     // подтвердил все — переотправляем форму с этими ключами в force_duplicate_keys, если
-     // отменил хотя бы одну — просто останавливаемся, ничего не отправляем.
-     function confirmDuplicatesAndRetry(duplicateInfos, alreadyForcedKeys) {
-         let newForceKeys = (alreadyForcedKeys || []).slice();
+     // запасной вариант для дубликата, найденного уже при сохранении (без данных для окна
+     // сравнения): браузерный confirm "это другая картинка — добавить всё равно?"
+     function confirmDuplicatesAndRetry(duplicateInfos, duplicateState) {
+         let newForceKeys = duplicateState.forceKeys.slice();
 
          for (let i = 0; i < duplicateInfos.length; i++) {
              let info = duplicateInfos[i];
@@ -953,21 +1320,318 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              }
          }
 
-         submitCreationForm(newForceKeys);
+         submitCreationForm({forceKeys: newForceKeys, replaceDuplicates: duplicateState.replaceDuplicates});
+     }
+
+     // Сервер нашёл у картинок формы такие же в уже существующих постах (PostController::store,
+     // до сохранения чего-либо) — по каждой по очереди показываем окно сравнения. Слитые с
+     // найденным постом и оставленные только в старом посте картинки убираем из формы, остальное
+     // отправляем заново. "Отмена" — останавливаемся (уже слитое остаётся слитым).
+     async function resolveDuplicatesAndRetry(result, duplicateState) {
+         let infos = result.duplicate_infos;
+         let isCarousel = result.duplicate_mode === 'carousel';
+         let removedCount = 0;
+
+         for (let i = 0; i < infos.length; i++) {
+             let info = infos[i];
+             let action = await askAboutDuplicate(info, isCarousel, i, infos.length);
+
+             if (action === 'cancel') {
+                 toastr.warning(removedCount
+                     ? 'Остальное не сохранено — уже объединённые картинки убраны из формы'
+                     : 'Пост не добавлен');
+                 return;
+             }
+
+             if (action === 'separate' || action === 'keep-new') {
+                 duplicateState.forceKeys.push(info.image_key);
+             }
+             if (action === 'keep-new') {
+                 duplicateState.replaceDuplicates[info.image_key] = {
+                     post_id: info.duplicate.post_id,
+                     image_name: info.duplicate.image_name,
+                 };
+             }
+             if (action === 'merged' || action === 'keep-old') {
+                 removeImageFromCreationForm(info.image_key);
+                 removedCount++;
+             }
+             if (action === 'merged') {
+                 toastr.success('Объединено с постом #' + info.existing_post.id);
+             }
+         }
+
+         let remainingImages = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
+         if (removedCount && !Object.keys(remainingImages).length) {
+             // каждая картинка была отдельным постом и все слиты с существующими — создавать нечего
+             if (!isCarousel || !window.confirm('Все картинки уже есть в других постах. Создать пост без картинок?')) {
+                 resetCreationForm();
+                 return;
+             }
+         }
+
+         submitCreationForm(duplicateState);
+     }
+
+     function removeImageFromCreationForm(imageKey) {
+         let images = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
+         delete images[imageKey];
+         sessionStorage.setItem('images', JSON.stringify(images));
+
+         $('.js-images .image').filter(function () {
+             return this.getAttribute('data-name') === imageKey;
+         }).remove();
+     }
+
+     // Окно сравнения (#modal-duplicate-merge на странице создания) для одной найденной картинки.
+     // Возвращает Promise с выбором: 'merged' (уже слито на сервере), 'separate', 'keep-old',
+     // 'keep-new' (два последних — режим карусели) или 'cancel'.
+     function askAboutDuplicate(info, isCarousel, index, total) {
+         return new Promise(function (resolve) {
+             let modal = $('#modal-duplicate-merge');
+             let body = modal.find('.js-dup-merge-body').empty();
+             let post = info.existing_post;
+             let action = 'cancel';
+
+             modal.find('.js-dup-merge-title').text('Такая картинка уже есть в посте #' + post.id);
+             modal.find('.js-dup-merge-link').attr('href', post.url).text('Открыть пост #' + post.id + ' в новой вкладке ↗');
+             modal.find('.js-dup-merge-counter').text(total > 1 ? (index + 1) + ' из ' + total : '');
+             modal.find('.js-dup-merge-apply').text(isCarousel ? 'Применить' : 'Объединить в пост #' + post.id);
+             modal.find('.js-dup-merge-separate').text(isCarousel
+                 ? 'Это другая картинка — оставить в обоих'
+                 : 'Это другая картинка — создать отдельный пост');
+
+             body.append(dupMergeImageSection(info, isCarousel));
+             if (!isCarousel) {
+                 body.append(dupMergeTextSection(info));
+                 body.append(dupMergeTitleSection(info));
+                 body.append(dupMergeHashtagsSection(info));
+             }
+
+             let close = function (chosen) {
+                 action = chosen;
+                 modal.modal('hide');
+             };
+
+             modal.off('.dupMerge');
+             modal.on('click.dupMerge', '.js-dup-merge-cancel', function () { close('cancel'); });
+             modal.on('click.dupMerge', '.js-dup-merge-separate', function () { close('separate'); });
+             modal.on('click.dupMerge', '.js-dup-merge-apply', function () {
+                 let imageChoice = body.find('input[name="dup-merge-image"]:checked').val();
+                 if (isCarousel) {
+                     close(imageChoice === 'new' ? 'keep-new' : 'keep-old');
+                     return;
+                 }
+
+                 let button = $(this).prop('disabled', true);
+                 mergeDuplicateIntoPost(info, {
+                     image_choice: imageChoice,
+                     text_choice: body.find('input[name="dup-merge-text"]:checked').val() || '',
+                     title_choice: body.find('input[name="dup-merge-title"]:checked').val() || '',
+                     merge_hashtags: body.find('.js-dup-merge-hashtags').is(':checked') ? 1 : 0,
+                 })
+                     .done(function (response) {
+                         if (response.status) {
+                             close('merged');
+                         } else {
+                             toastr.error(response.message || 'Не удалось объединить посты');
+                         }
+                     })
+                     .fail(function () { toastr.error('Не удалось объединить посты'); })
+                     .always(function () { button.prop('disabled', false); });
+             });
+             modal.one('hidden.bs.modal', function () {
+                 modal.off('.dupMerge');
+                 resolve(action);
+             });
+
+             modal.modal({backdrop: 'static', keyboard: false, show: true});
+         });
+     }
+
+     function mergeDuplicateIntoPost(info, choices) {
+         let data = creationFormFields();
+         Object.keys(info.staged_image).forEach(function (key) {
+             data.push({name: 'staged_image[' + key + ']', value: info.staged_image[key]});
+         });
+         data.push({name: 'duplicate_image_name', value: info.duplicate.image_name});
+         Object.keys(choices).forEach(function (key) {
+             data.push({name: key, value: choices[key]});
+         });
+
+         return $.ajax({url: info.existing_post.merge_url, type: 'post', dataType: 'json', data: data});
+     }
+
+     function dupMergeSection(title) {
+         let section = $('<div class="b-dup-merge__section"></div>');
+         section.append($('<div class="b-dup-merge__section-title"></div>').text(title));
+         return section;
+     }
+
+     function dupMergeNote(text, modifier) {
+         return $('<div class="b-dup-merge__note"></div>').addClass(modifier ? 'b-dup-merge__note--' + modifier : '').text(text);
+     }
+
+     // options: [[value, label, checked], ...]
+     function dupMergeRadios(name, options) {
+         let group = $('<div class="b-dup-merge__pills"></div>');
+         options.forEach(function (option) {
+             let label = $('<label class="b-dup-merge__pill"></label>');
+             label.append($('<input type="radio">').attr('name', name).val(option[0]).prop('checked', option[2]));
+             label.append($('<span></span>').text(option[1]));
+             group.append(label);
+         });
+         return group;
+     }
+
+     function formatFileSize(bytes) {
+         if (!bytes) {
+             return '';
+         }
+         return bytes >= 1048576
+             ? (bytes / 1048576).toFixed(1).replace('.', ',') + ' МБ'
+             : Math.round(bytes / 1024) + ' КБ';
+     }
+
+     function dupMergeImageSection(info, isCarousel) {
+         let postId = info.existing_post.id;
+         let section = dupMergeSection('Изображение');
+         let grid = $('<div class="b-dup-merge__images"></div>');
+
+         [
+             ['old', info.duplicate, isCarousel ? 'Оставить в посте #' + postId : 'Из поста #' + postId, !info.new_is_better],
+             ['new', info.new_image, isCarousel ? 'Оставить в новом посте' : 'Новое', info.new_is_better],
+         ].forEach(function (option) {
+             let image = option[1];
+             let card = $('<label class="b-dup-merge__image"></label>');
+             card.append($('<input type="radio" name="dup-merge-image">').val(option[0]).prop('checked', option[3]));
+             card.append($('<img alt="">').attr('src', image.thumbnail_url));
+
+             let caption = $('<span class="b-dup-merge__image-caption"></span>').text(option[2]);
+             if (option[3]) {
+                 caption.append($('<span class="b-dup-merge__badge">лучше качество</span>'));
+             }
+             card.append(caption);
+             card.append($('<span class="b-dup-merge__image-meta"></span>').text(
+                 image.width + '×' + image.height + (image.file_size ? ' · ' + formatFileSize(image.file_size) : '')
+             ));
+             grid.append(card);
+         });
+         section.append(grid);
+
+         let hint = $('<div class="b-dup-merge__hint"></div>');
+         section.append(hint);
+         let updateHint = function () {
+             let keepNew = grid.find('input:checked').val() === 'new';
+             if (!isCarousel) {
+                 hint.text(keepNew ? 'Картинка в посте #' + postId + ' заменится новой.' : 'Новая копия не сохранится.');
+                 hint.removeClass('b-dup-merge__hint--warn');
+                 return;
+             }
+             let lastImage = keepNew && info.existing_post.images_count <= 1;
+             hint.text(keepNew
+                 ? 'Из поста #' + postId + ' картинка удалится.' + (lastImage ? ' Других картинок там нет — пост останется без изображения.' : '')
+                 : 'Из нового поста картинка будет убрана.');
+             hint.toggleClass('b-dup-merge__hint--warn', lastImage);
+         };
+         grid.on('change', 'input', updateHint);
+         updateHint();
+
+         return section;
+     }
+
+     function dupMergeTextSection(info) {
+         let postId = info.existing_post.id;
+         let oldText = info.existing_post.text;
+         let newText = tinyMCE.activeEditor.getContent({format: 'text'}).trim();
+         let section = dupMergeSection('Текст');
+
+         if (!oldText && !newText) {
+             return section.append(dupMergeNote('Текста нет ни у одного поста.'));
+         }
+         if (info.texts_equal) {
+             return section.append(dupMergeNote('Тексты одинаковые — останется как есть.', 'ok'));
+         }
+         if (!newText) {
+             return section.append(dupMergeNote('У нового поста текста нет — останется текст поста #' + postId + '.'));
+         }
+         if (!oldText) {
+             return section.append(dupMergeNote('У поста #' + postId + ' текста нет — возьмём текст нового.'));
+         }
+
+         let columns = $('<div class="b-dup-merge__texts"></div>');
+         [['Пост #' + postId, oldText], ['Новый', newText]].forEach(function (column) {
+             let block = $('<div></div>');
+             block.append($('<div class="b-dup-merge__text-label"></div>').text(column[0]));
+             block.append($('<div class="b-dup-merge__text"></div>').text(column[1]));
+             columns.append(block);
+         });
+         section.append(columns);
+         section.append(dupMergeRadios('dup-merge-text', [
+             ['old', 'Оставить текст поста #' + postId, true],
+             ['new', 'Взять новый', false],
+             ['both', 'Объединить оба', false],
+         ]));
+
+         return section;
+     }
+
+     function dupMergeTitleSection(info) {
+         let oldTitle = info.existing_post.title.trim();
+         let newTitle = ($('#title').val() || '').trim();
+
+         if (!newTitle || oldTitle.toLowerCase() === newTitle.toLowerCase()) {
+             return null;
+         }
+
+         let section = dupMergeSection('Название');
+         if (!oldTitle) {
+             return section.append(dupMergeNote('У поста #' + info.existing_post.id + ' названия нет — возьмём «' + newTitle + '».'));
+         }
+
+         return section.append(dupMergeRadios('dup-merge-title', [
+             ['old', oldTitle, true],
+             ['new', newTitle, false],
+         ]));
+     }
+
+     function dupMergeHashtagsSection(info) {
+         let formHashtags = JSON.parse(postStorage('hashtags2').getItem('hashtags2') || '{}') || {};
+         let existingIds = info.existing_post.hashtags.map(function (hashtag) { return String(hashtag.id); });
+         let newTitles = Object.keys(formHashtags)
+             .filter(function (id) { return existingIds.indexOf(String(id)) === -1; })
+             .map(function (id) { return formHashtags[id]; });
+
+         if (!newTitles.length) {
+             return null;
+         }
+
+         let section = dupMergeSection('Хештеги');
+         let label = $('<label class="b-dup-merge__check"></label>');
+         label.append($('<input type="checkbox" class="js-dup-merge-hashtags" checked>'));
+         label.append($('<span></span>').text('Добавить к посту #' + info.existing_post.id + ' хештеги нового'));
+         section.append(label);
+
+         let tags = $('<div class="b-dup-merge__tags"></div>');
+         newTitles.forEach(function (title) {
+             tags.append($('<span class="b-dup-merge__tag"></span>').text('#' + title));
+         });
+
+         return section.append(tags);
      }
 
      let editForm = $("#editform");
      if (editForm !== undefined && editForm !== null) {
-         //записать в localStorage теги поста при загрузке страницы
+         //записать в sessionStorage теги поста при загрузке страницы
          let savedHashtags = {};
          $(containerSelectedHashtagsTags2 + ' span.tag').each(function(i,elem) {
              savedHashtags[elem.getAttribute('data-id')] = elem.getAttribute('data-name');
              //hashtags.push(elem.getAttribute('data-id'));
          });
 
-         localStorage.setItem('hashtags2', JSON.stringify(savedHashtags));
+         sessionStorage.setItem('hashtags2', JSON.stringify(savedHashtags));
 
-         //записать в localStorage изображения поста при загрузке страницы
+         //записать в sessionStorage изображения поста при загрузке страницы
          //{"f-93293":{
          // "image_name":"f-93293","image_extension":"jpg","image_path":"temp_directory/f-93293.jpg",
          // "s_image_name":"f-93293_567_350.jpg","s_image_path":"temp_directory/f-93293_567_350.jpg",
@@ -992,7 +1656,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              };
          });
          console.log(postImages);
-         localStorage.setItem('postImages', JSON.stringify(postImages));
+         sessionStorage.setItem('postImages', JSON.stringify(postImages));
      }
 
      // Старый обработчик загрузки картинки на странице редактирования поста (через
@@ -1004,10 +1668,16 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          e.preventDefault();
 
          let storageKey = 'hashtags2';
-         let hashtags = localStorage.getItem(storageKey);
+         let hashtags = postStorage(storageKey).getItem(storageKey);
 
-         let images = localStorage.getItem('images');
+         let images = sessionStorage.getItem('images');
          console.log('PARSE' + JSON.parse(images));
+
+         // TinyMCE держит текст у себя и переносит его в скрытый textarea#editor только при
+         // обычном submit формы — а тут отправка через AJAX, без этого уходит старый текст
+         if (typeof tinymce !== 'undefined') {
+             tinymce.triggerSave();
+         }
 
          let data = editForm.serializeArray();
          data.push({name: 'hashtags', value: hashtags});
@@ -1033,6 +1703,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  //выводим исчезающее сообщение об успехе
                  if (result.status === true) {
                      toastr.success(result.message);
+                     // тип поста мог смениться (добавили текст к картинке и т.п.) — см. post-edit.js
+                     document.dispatchEvent(new CustomEvent('post:updated', {detail: result}));
                  } else {
                      toastr.error(result.message);
                  }
@@ -1471,8 +2143,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      });
 
+     // номер последнего запроса поиска хештегов: ответы на устаревшие запросы (набраны новые буквы
+     // или хештег уже выбран) игнорируются
+     let searchHashtagRequestId = 0;
+
      // Поиск хештегов
      function searchHashtag(searchValue, searchUrl, storageKey, foundHashtagsContainer) {
+         let requestId = ++searchHashtagRequestId;
 
          $.ajaxSetup({
              headers: {
@@ -1481,7 +2158,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
 
          let hashtagsValue = [];
-         let storageHashtags = localStorage.getItem(storageKey);
+         let storageHashtags = postStorage(storageKey).getItem(storageKey);
          if (storageHashtags !== undefined && storageHashtags !== null && storageHashtags !== {}) {
              hashtagsValue = JSON.parse(storageHashtags);
          }
@@ -1494,6 +2171,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              data: {'search': searchValue, 'hashtags': hashtagsValue},
              success: function (response) {
                  console.log('response - ' + response);
+
+                 if (requestId !== searchHashtagRequestId) {
+                     return;
+                 }
 
                  let hashtags = response.hashtags;
                  console.log('hashtags - ' + hashtags);
@@ -1714,6 +2395,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //добавить хэштег к выбранным хэштегам
      function addHashtagToSelectedHashtags(hashtagId, hashtagTitle, storageKey, searchInput, foundHashtagsContainer, selectedHashtagsContainer = null, bSearchInput = null) {
 
+         // отменяем ещё не пришедшие ответы поиска — иначе запоздавший ответ снова заполнит список результатов
+         searchHashtagRequestId++;
+
+         let tagsContainer = selectedHashtagsContainer !== null ? $(selectedHashtagsContainer) : $(bSearchInput).parent();
+
+         // хештег уже выбран — второй раз не добавляем, просто закрываем результаты поиска
+         if (tagsContainer.find('.tag[data-id="' + hashtagId + '"]').length) {
+             foundHashtagsContainer.empty();
+             focusOnInput(searchInput);
+             return;
+         }
+
          let hashtagElement = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
 
          if (selectedHashtagsContainer !== null) {
@@ -1722,7 +2415,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              $(hashtagElement).insertBefore(bSearchInput);
          }
 
-         let savedHashtags = localStorage.getItem(storageKey);
+         let savedHashtags = postStorage(storageKey).getItem(storageKey);
          console.log('savedHashtags' + savedHashtags);
          console.log(storageKey);
 
@@ -1733,8 +2426,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              //проверить есть ли ключ в массиве. если нет - добавить значение в массив
              if(savedHashtags.hasOwnProperty(hashtagId) === false) {
                  addHashtagToStorage(hashtagId, hashtagTitle, savedHashtags, storageKey, foundHashtagsContainer);
-                 focusOnInput(searchInput);
              }
+             foundHashtagsContainer.empty();
+             focusOnInput(searchInput);
          } else {
              addHashtagToStorage(hashtagId, hashtagTitle, {}, storageKey, foundHashtagsContainer);
              focusOnInput(searchInput);
@@ -1764,7 +2458,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          //hashtags[2] = 'bla';
          console.log('savedHashtags = ' + JSON.stringify(savedHashtags));
 
-         localStorage.setItem(storageKey, JSON.stringify(savedHashtags));
+         postStorage(storageKey).setItem(storageKey, JSON.stringify(savedHashtags));
 
          //удалить все предыдущие результаты
          foundHashtagsContainer.empty();
@@ -1792,9 +2486,134 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let storageKey = 'hashtags2';
 
+         // удалённый вручную тег больше не подставляем как связанный (см. ниже)
+         dismissedRelatedHashtags[$(this).closest('.tag').attr('data-id')] = true;
+
          removeHashtag($(this), storageKey);
          focusOnInput(searchInput2);
      });
+
+     // ===== Связанные хештеги (hashtag_relations) на форме создания/редактирования поста =====
+     // Выбрали хештег — связанные, которые общее его ("Самара Уивинг" → "актриса", "женщина"), добавляются
+     // к посту сами (лишние удаляются крестиком, как обычные), а более конкретные ("актриса" → "Самара Уивинг")
+     // только предлагаются в списке подсказок — какие из них какие, решает HashtagController::relatedFor.
+     // Следим за самим контейнером выбранных, а не за каждым способом добавления: теги туда кладут
+     // поиск, кнопка "Добавить тег", подсказки по картинке, вайбы фильма (film-fields.js).
+     // Только один уровень: связанные у подставленных тегов не подтягиваем (иначе цепочка
+     // расползётся по всей коллекции). Теги, которые на этой странице удалили, не возвращаем.
+     let dismissedRelatedHashtags = {};
+
+     (function () {
+         const container = document.querySelector(containerSelectedHashtagsTags2);
+         const relatedUrl = container && container.getAttribute('data-related-action');
+         if (!container || !relatedUrl || typeof MutationObserver === 'undefined') {
+             return;
+         }
+
+         function isSelected(id) {
+             return !!container.querySelector('.tag[data-id="' + id + '"]');
+         }
+
+         function addRelatedTag(id, title, parentTitle) {
+             const tag = document.createElement('span');
+             tag.className = 'tag tag--related';
+             tag.setAttribute('data-id', id);
+             tag.setAttribute('data-name', title);
+             tag.setAttribute('title', 'Связан с #' + parentTitle);
+             tag.textContent = '#' + title;
+             const close = document.createElement('span');
+             close.className = 'icon font-icon fas close';
+             tag.appendChild(close);
+             container.appendChild(tag);
+
+             let saved = {};
+             try {
+                 saved = JSON.parse(postStorage('hashtags2').getItem('hashtags2') || '{}') || {};
+             } catch (e) {
+                 saved = {};
+             }
+             saved[id] = title;
+             postStorage('hashtags2').setItem('hashtags2', JSON.stringify(saved));
+         }
+
+         // в тот же список, что и "Подобрать хештеги по картинке": клик по подсказке добавляет тег
+         // (обработчик '#b-suggested-tags-2 .tag' ниже), а у добавленного подтянутся уже его связанные
+         function suggestRelatedTag(id, title, parentTitle) {
+             const suggested = document.getElementById('b-suggested-tags-2');
+             if (!suggested || suggested.querySelector('.tag[data-id="' + id + '"]')) {
+                 return;
+             }
+             const tag = document.createElement('span');
+             tag.className = 'tag';
+             tag.setAttribute('data-id', id);
+             tag.setAttribute('data-name', title);
+             tag.setAttribute('title', 'Связан с #' + parentTitle + ' — нажмите, чтобы добавить');
+             tag.textContent = '+ #' + title;
+             suggested.appendChild(tag);
+         }
+
+         function loadRelated(id, title) {
+             const hashtags = {};
+             hashtags[id] = title;
+
+             $.ajax({
+                 url: relatedUrl,
+                 type: 'POST',
+                 dataType: 'json',
+                 headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                 data: {hashtags: hashtags},
+                 success: function (response) {
+                     // пока ждали ответ, сам тег уже убрали — его связанные не нужны
+                     if (!response || !response.status || !isSelected(id)) {
+                         return;
+                     }
+
+                     const added = [];
+                     (response.hashtags || []).forEach(function (related) {
+                         const relatedId = String(related.id);
+                         if (isSelected(relatedId)) {
+                             return;
+                         }
+                         // общее выбранного ("Самара Уивинг" → "актриса") — добавляем сразу,
+                         // конкретнее ("актриса" → "Самара Уивинг") — только предлагаем (HashtagController::relatedFor)
+                         if (related.auto) {
+                             if (!dismissedRelatedHashtags[relatedId]) {
+                                 addRelatedTag(relatedId, related.title, title);
+                                 added.push('#' + related.title);
+                             }
+                         } else {
+                             suggestRelatedTag(relatedId, related.title, title);
+                         }
+                     });
+
+                     if (added.length) {
+                         toastr.info('Добавлены связанные хештеги: ' + added.join(', ') + '. Лишние можно удалить.');
+                     }
+                 },
+             });
+         }
+
+         new MutationObserver(function (mutations) {
+             mutations.forEach(function (mutation) {
+                 mutation.addedNodes.forEach(function (node) {
+                     if (node.nodeType !== 1 || !node.classList.contains('tag') || node.classList.contains('tag--related')) {
+                         return;
+                     }
+                     const id = node.getAttribute('data-id');
+                     if (id) {
+                         // выбрали тем или иным способом — подсказка с ним больше не нужна
+                         const suggestion = document.querySelector('#b-suggested-tags-2 .tag[data-id="' + id + '"]');
+                         if (suggestion) {
+                             suggestion.remove();
+                         }
+                         // выбрали снова — значит, тег нужен, его снова можно подставлять
+                         delete dismissedRelatedHashtags[id];
+                         loadRelated(id, node.getAttribute('data-name') || '');
+                     }
+                 });
+             });
+         }).observe(container, {childList: true});
+     })();
 
      //удалить хештег из выбранных
      function removeHashtag(closeBtn, storageKey) {
@@ -1802,7 +2621,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let tagId = tag.data('id');
          console.log('tagId = ' + tagId);
 
-         let savedHashtags = localStorage.getItem(storageKey);
+         let savedHashtags = postStorage(storageKey).getItem(storageKey);
          console.log('savedHashtags' + savedHashtags);
 
          if (savedHashtags !== undefined && savedHashtags !== null && savedHashtags !== '{}') {
@@ -1817,7 +2636,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
              let hashtags = savedHashtags;
              console.log('hashtags' + hashtags);
-             localStorage.setItem(storageKey, JSON.stringify(hashtags));
+             postStorage(storageKey).setItem(storageKey, JSON.stringify(hashtags));
 
              tag.remove();
          } else {
@@ -1831,7 +2650,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let storageKey = 'hashtags2';
 
-         let savedHashtags = localStorage.getItem(storageKey);
+         let savedHashtags = postStorage(storageKey).getItem(storageKey);
          if (savedHashtags === undefined || savedHashtags === null) {
              savedHashtags = {};
          } else {
@@ -1988,16 +2807,27 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          // Дропдаун сортировки на "Все посты" (.js-posts-sort) — сами пункты обычные
          // <a href>, ведущие на страницу с другим query-параметром sort (см.
          // admin/posts/index.blade.php), тут только открытие/закрытие списка
-         const postsSortWrap = document.querySelector('.js-posts-sort');
-         if (postsSortWrap) {
+         // Таких дропдаунов на странице два: фильтр по типу поста и сортировка —
+         // открытие одного закрывает другой
+         const postsSortWraps = document.querySelectorAll('.js-posts-sort');
+         postsSortWraps.forEach(function (postsSortWrap) {
              const postsSortTrigger = postsSortWrap.querySelector('.js-posts-sort-trigger');
              postsSortTrigger.addEventListener('click', function (event) {
                  event.stopPropagation();
+                 postsSortWraps.forEach(function (otherWrap) {
+                     if (otherWrap !== postsSortWrap) {
+                         otherWrap.classList.remove('is-open');
+                     }
+                 });
                  postsSortWrap.classList.toggle('is-open');
              });
+         });
+         if (postsSortWraps.length) {
              document.addEventListener('click', function (event) {
                  if (!event.target.closest('.js-posts-sort')) {
-                     postsSortWrap.classList.remove('is-open');
+                     postsSortWraps.forEach(function (postsSortWrap) {
+                         postsSortWrap.classList.remove('is-open');
+                     });
                  }
              });
          }
@@ -2245,6 +3075,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          if (searchResetBtn) {
              searchResetBtn.addEventListener('click', function () {
                  clearAllHashtags();
+                 // цвет — часть того же поиска
+                 clearColorSelection();
 
                  if (excludeContainer) {
                      excludeContainer.style.display = 'none';
@@ -2259,6 +3091,45 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  }
              });
          }
+
+         // Клик по хэштегу на карточке поста (.grid-item .tags, post_items.blade.php) — добавляет его
+         // в поле "Введите хэштег" поп-апа поиска и открывает поп-ап на вкладке "по хэштегам".
+         // Сам поиск — кнопкой "Найти": так можно накидать несколько хэштегов с разных карточек.
+         // Делегирование — карточки подгружаются бесконечным скроллом и после поиска.
+         $(document).on('click', '.grid-item .tags li[data-id] a', function (event) {
+             let includeContainer = document.getElementById('include-tags-container');
+             let globalModal = document.getElementById('modal-search-global');
+             if (!includeContainer || !globalModal) {
+                 // на странице нет вкладки "по хэштегам" (см. search_widget.blade.php)
+                 return;
+             }
+             event.preventDefault();
+
+             let li = this.closest('li');
+             let hashtagId = String(li.getAttribute('data-id'));
+             let hashtagTitle = li.getAttribute('data-title');
+
+             // был в исключённых — переносим в искомые, в обоих полях сразу он быть не может
+             if (hashtagSearchState.exclude.hasOwnProperty(hashtagId)) {
+                 delete hashtagSearchState.exclude[hashtagId];
+                 let excludedChip = document.querySelector('#exclude-tags-container .b-tags__item[data-id="' + hashtagId + '"]');
+                 if (excludedChip) {
+                     excludedChip.remove();
+                 }
+             }
+
+             if (!hashtagSearchState.include.hasOwnProperty(hashtagId)) {
+                 hashtagSearchState.include[hashtagId] = hashtagTitle;
+                 appendHashtagChip(includeContainer, 'include', hashtagId, hashtagTitle);
+                 refreshRelatedHashtags();
+             }
+
+             let hashtagsTabBtn = document.querySelector('.js-b-tabs__button[data-tab="hashtags"]');
+             if (hashtagsTabBtn) {
+                 hashtagsTabBtn.click();
+             }
+             $(globalModal).modal('show');
+         });
 
          // Фильтрует карточки контактов на месте (#contacts-index) — все контакты и так
          // уже в DOM (contacts.index не пагинирует список), поэтому без AJAX/бэкенда:
@@ -2309,6 +3180,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          const searchByHashtagsBtn = document.querySelector('.js-b-search-by-hashtags__button');
          if (searchByHashtagsBtn) {
              searchByHashtagsBtn.addEventListener('click', function () {
+                 // выбран ещё и цвет (вкладка "Поиск по цвету") — ищем по цвету вместе с хэштегами
+                 if (colorSearchState.hex && document.getElementById('posts-index')) {
+                     runColorSearch();
+                     return;
+                 }
+
                  if (!Object.keys(hashtagSearchState.include).length) {
                      toastr.warning('Выберите хотя бы один хэштег для поиска');
                      return;
@@ -2342,23 +3219,260 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          excludeHashtags: hashtagSearchState.exclude,
                      },
                      success: function (response) {
-                         let $searchGrid = $('.grid');
-                         $searchGrid.masonry('destroy');
-
-                         let postsBlock = $('#posts-index .b-cards .grid');
-                         postsBlock.html('');
-                         postsBlock.append(response);
-
-                         let postsPagination = $('#posts-index .posts-pagination');
-                         postsPagination.html('');
-
-                         $searchGrid.masonry(masonryOptions);
+                         replacePostsGrid(response);
+                         // следующие страницы — тот же адрес: хэштеги сервер помнит в сессии
+                         startPostsSearch(searchUrl);
                      },
                      error: function () {
                          toastr.error('Не удалось выполнить поиск');
                      }
                  });
              });
+         }
+
+         // Результаты поиска (по хэштегам/цвету) вместо ленты "Все посты"
+         function replacePostsGrid(html) {
+             let $searchGrid = $('.grid');
+             $searchGrid.masonry('destroy');
+
+             let postsBlock = $('#posts-index .b-cards .grid');
+             postsBlock.html('');
+             postsBlock.append(html);
+
+             $('#posts-index .posts-pagination').html('');
+
+             $searchGrid.masonry(masonryOptions);
+             // карточки с картинками — перераскладываем, когда картинки загрузятся
+             $searchGrid.imagesLoaded(function () {
+                 $searchGrid.masonry('layout');
+             });
+         }
+
+         // ===== Поиск по цвету (вкладка "Поиск по цвету", только на "Все посты") =====
+         // Готовый цвет или свой (пипетка) -> посты, в палитре обложки которых он занимает
+         // заметную часть (SearchController::searchPostsByColor, App\Components\ColorMatch).
+         // Цвет и хэштеги — один поиск: "Найти" на любой из двух вкладок учитывает и выбранный цвет,
+         // и выбранные (и исключённые) хэштеги. Каждая вкладка показывает, что выбрано на другой.
+         const colorSearch = document.querySelector('.js-color-search');
+         let colorSearchState = {
+             hex: null,
+             name: null,
+         };
+
+         function escapeSearchText(text) {
+             return $('<div>').text(text).html();
+         }
+
+         function selectColor(hex, swatch) {
+             colorSearchState.hex = hex.toUpperCase();
+             colorSearchState.name = swatch ? swatch.getAttribute('data-name') : colorSearchState.hex;
+
+             colorSearch.querySelectorAll('.js-color-search__swatch').forEach(function (item) {
+                 let isSelected = item === swatch;
+                 item.classList.toggle('is-selected', isSelected);
+                 item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+             });
+             colorSearch.classList.toggle('is-custom', !swatch);
+             colorSearch.querySelector('.js-color-search__hex').textContent = swatch ? '' : colorSearchState.hex;
+         }
+
+         function clearColorSelection() {
+             colorSearchState.hex = null;
+             colorSearchState.name = null;
+             if (!colorSearch) {
+                 return;
+             }
+             colorSearch.querySelectorAll('.js-color-search__swatch').forEach(function (item) {
+                 item.classList.remove('is-selected');
+                 item.setAttribute('aria-checked', 'false');
+             });
+             colorSearch.classList.remove('is-custom');
+             colorSearch.querySelector('.js-color-search__hex').textContent = '';
+             refreshSearchSummaries();
+         }
+
+         // вкладка хэштегов показывает выбранный цвет, вкладка цвета — выбранные хэштеги
+         function refreshSearchSummaries() {
+             let colorSummary = document.querySelector('.js-search-color-summary');
+             if (colorSummary) {
+                 if (colorSearchState.hex) {
+                     colorSummary.innerHTML = '<span class="b-search-filter-summary__label">Цвет:</span>' +
+                         '<span class="b-search-filter-summary__dot" style="background: ' + colorSearchState.hex + ';"></span>' +
+                         escapeSearchText(colorSearchState.name) +
+                         '<button type="button" class="b-search-filter-summary__clear js-search-color-summary__clear" title="Убрать цвет из поиска">&times;</button>';
+                     colorSummary.style.display = '';
+                 } else {
+                     colorSummary.innerHTML = '';
+                     colorSummary.style.display = 'none';
+                 }
+             }
+
+             let tagsSummary = document.querySelector('.js-search-hashtags-summary');
+             if (tagsSummary) {
+                 let tags = function (state) {
+                     return Object.values(state).map(function (title) {
+                         return '<span class="b-search-filter-summary__tag">#' + escapeSearchText(title) + '</span>';
+                     }).join('');
+                 };
+                 let includeHtml = tags(hashtagSearchState.include);
+                 let excludeHtml = tags(hashtagSearchState.exclude);
+
+                 if (!includeHtml && !excludeHtml) {
+                     tagsSummary.innerHTML = '<span class="b-search-filter-summary__label">Хэштеги не выбраны — поиск по всем постам</span>';
+                 } else {
+                     tagsSummary.innerHTML =
+                         (includeHtml ? '<span class="b-search-filter-summary__label">С хэштегами:</span>' + includeHtml : '') +
+                         (excludeHtml ? '<span class="b-search-filter-summary__label">Без:</span>' + excludeHtml : '');
+                 }
+             }
+         }
+
+         // поиск по цвету + выбранным хэштегам; следующие страницы — тот же адрес с &page=N
+         function runColorSearch() {
+             let params = new URLSearchParams();
+             params.set('hex', colorSearchState.hex.replace('#', ''));
+             Object.keys(hashtagSearchState.include).forEach(function (id) {
+                 params.append('include[]', id);
+             });
+             Object.keys(hashtagSearchState.exclude).forEach(function (id) {
+                 params.append('exclude[]', id);
+             });
+
+             let action = colorSearch.querySelector('.js-color-search__button').getAttribute('data-action');
+             let searchUrl = action + '?' + params.toString();
+             let withHashtags = Object.keys(hashtagSearchState.include).length || Object.keys(hashtagSearchState.exclude).length;
+
+             $.ajax({
+                 type: 'get',
+                 url: searchUrl,
+                 success: function (response, status, xhr) {
+                     let total = parseInt(xhr.getResponseHeader('X-Total-Count'), 10) || 0;
+                     if (!total) {
+                         toastr.info(withHashtags
+                             ? 'Постов в этом цвете с выбранными хэштегами не нашлось'
+                             : 'Постов в этом цвете не нашлось — попробуйте соседний оттенок');
+                         return;
+                     }
+
+                     replacePostsGrid(response);
+                     startPostsSearch(searchUrl);
+                     $('#modal-search-global').modal('hide');
+                     toastr.success('Найдено постов: ' + total);
+                 },
+                 error: function () {
+                     toastr.error('Не удалось выполнить поиск');
+                 }
+             });
+         }
+
+         // кружки — цвета коллекции (оттенки из палитр постов, SearchController::collectionColors),
+         // грузим один раз, при первом открытии вкладки: поп-ап есть на каждой странице
+         let collectionColorsState = 'idle'; // idle | loading | loaded
+
+         function loadCollectionColors() {
+             if (collectionColorsState !== 'idle') {
+                 return;
+             }
+             collectionColorsState = 'loading';
+
+             let container = colorSearch.querySelector('.js-color-search__swatches');
+             $.ajax({
+                 type: 'get',
+                 url: container.getAttribute('data-action'),
+                 dataType: 'json',
+                 success: function (response) {
+                     let colors = (response && response.colors) ? response.colors : [];
+                     collectionColorsState = 'loaded';
+                     container.innerHTML = '';
+
+                     if (!colors.length) {
+                         container.innerHTML = '<span class="b-color-search__status">У постов пока нет палитр — выберите свой цвет ниже</span>';
+                         return;
+                     }
+
+                     colors.forEach(function (color) {
+                         let swatch = document.createElement('button');
+                         swatch.type = 'button';
+                         swatch.className = 'b-color-search__swatch js-color-search__swatch';
+                         swatch.setAttribute('role', 'radio');
+                         swatch.setAttribute('data-hex', color.hex);
+                         swatch.setAttribute('data-name', color.name);
+                         swatch.title = color.name + ' · ' + color.hex + ' · постов: ' + color.count;
+                         swatch.setAttribute('aria-label', color.name + ', постов: ' + color.count);
+
+                         let isSelected = colorSearchState.hex === color.hex.toUpperCase();
+                         swatch.classList.toggle('is-selected', isSelected);
+                         swatch.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+
+                         let dot = document.createElement('span');
+                         dot.className = 'b-color-search__dot';
+                         dot.style.background = color.hex;
+                         let count = document.createElement('span');
+                         count.className = 'b-color-search__count';
+                         count.textContent = color.count;
+
+                         swatch.appendChild(dot);
+                         swatch.appendChild(count);
+                         container.appendChild(swatch);
+                     });
+                 },
+                 error: function () {
+                     // даём попробовать ещё раз при следующем открытии вкладки
+                     collectionColorsState = 'idle';
+                     container.innerHTML = '<span class="b-color-search__status">Не удалось загрузить цвета — выберите свой цвет ниже</span>';
+                 }
+             });
+         }
+
+         if (colorSearch) {
+             // делегирование — кружки появляются после загрузки
+             colorSearch.addEventListener('click', function (event) {
+                 let swatch = event.target.closest('.js-color-search__swatch');
+                 if (swatch) {
+                     selectColor(swatch.getAttribute('data-hex'), swatch);
+                 }
+             });
+
+             let colorTabButton = document.querySelector('.js-b-tabs__button[data-tab="color"]');
+             if (colorTabButton) {
+                 colorTabButton.addEventListener('click', loadCollectionColors);
+             }
+
+             // "input" — пока водят по пипетке, "change" — выбрали
+             const colorPicker = colorSearch.querySelector('.js-color-search__picker');
+             colorPicker.addEventListener('input', function () {
+                 selectColor(colorPicker.value, null);
+             });
+
+             colorSearch.querySelector('.js-color-search__button').addEventListener('click', function () {
+                 if (!colorSearchState.hex) {
+                     toastr.warning('Выберите цвет');
+                     return;
+                 }
+                 runColorSearch();
+             });
+
+             // "×" у цвета во вкладке хэштегов
+             document.addEventListener('click', function (event) {
+                 if (event.target.closest('.js-search-color-summary__clear')) {
+                     clearColorSelection();
+                 }
+             });
+
+             // что выбрано на другой вкладке — обновляем при переключении (там это и видно)
+             document.querySelectorAll('.js-b-tabs__button').forEach(function (button) {
+                 button.addEventListener('click', refreshSearchSummaries);
+             });
+             refreshSearchSummaries();
+
+             // "Все посты?color=D8C3A5" — пришли по клику на цвет в палитре поста: сразу ищем этот цвет
+             let colorFromUrl = new URLSearchParams(window.location.search).get('color');
+             if (colorFromUrl && /^[0-9a-fA-F]{6}$/.test(colorFromUrl) && document.getElementById('posts-index')) {
+                 let hex = '#' + colorFromUrl.toUpperCase();
+                 colorSearch.querySelector('.js-color-search__picker').value = hex.toLowerCase();
+                 selectColor(hex, null);
+                 runColorSearch();
+             }
          }
 
          // Кнопка "Экспорт изображений" (страница /cabinet/posts) — открывает окно
@@ -2576,9 +3690,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  ]);
              case "posts":
              case "post-show":
+                 // пост уходит в корзину (PostController::destroy), а не удаляется навсегда
                  return new Map([
                      ['title', 'Вы уверены, что хотите удалить пост?'],
-                     ['sub-title', 'Вы не сможете восстановить пост после удаления!'],
+                     ['sub-title', 'Пост попадёт в корзину — оттуда его можно вернуть в течение 30 дней.'],
                  ]);
              case "hashtags":
                  return new Map([
@@ -2821,7 +3936,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              $(containerSelectedHashtagsTags2).append(postHashtag);
          });
 
-         localStorage.setItem('hashtags2', JSON.stringify(hashtags));
+         sessionStorage.setItem('hashtags2', JSON.stringify(hashtags));
      });
 
      // закрыть popup окно при клике вне его области
@@ -2855,10 +3970,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          console.log($('[data-action=save-request]').data('url'));
      });
 
-     //страница - список постов: добавить хештеги к посту из localStorage после нажатия на кнопку Сохранить в поп-ап окне
+     //страница - список постов: добавить хештеги к посту из sessionStorage после нажатия на кнопку Сохранить в поп-ап окне
      $(document).on('click', '#modal-add-hashtag [data-action=save-request]', function(event) {
+         // окно открыто для нескольких выбранных постов — сохраняет posts-bulk.js
+         if ($('#modal-add-hashtag').data('bulk')) {
+             return;
+         }
          //TODO
-         let hashtags = localStorage.getItem('hashtags2');
+         let hashtags = sessionStorage.getItem('hashtags2');
          console.log('hashtags' + hashtags);
 
          let actionurl = $(this).data('url');
@@ -2921,8 +4040,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  }
 
                  $('#modal-add-hashtag').modal('hide');
-                 if (localStorage.getItem('hashtags2') !== undefined && localStorage.getItem('hashtags2') !== null) {
-                     localStorage.removeItem('hashtags2');
+                 if (sessionStorage.getItem('hashtags2') !== undefined && sessionStorage.getItem('hashtags2') !== null) {
+                     sessionStorage.removeItem('hashtags2');
                  }
                  $('#modal-add-hashtag #b-selected-tags-2').empty();
 
@@ -2985,10 +4104,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  if (result.hasOwnProperty('images')) {
                      let uploadedImages = result['images'];
 
-                     if (localStorage.getItem('images') !== undefined && localStorage.getItem('images') !== null) {
-                         let savedImages = localStorage.getItem('images');
+                     if (sessionStorage.getItem('images') !== undefined && sessionStorage.getItem('images') !== null) {
+                         let savedImages = sessionStorage.getItem('images');
                          console.log('savedImages' + savedImages);
-                         //localStorage images
+                         //sessionStorage images
                          let lsImages = JSON.parse(savedImages);
                          console.log('lsImages' + lsImages);
 
@@ -3004,7 +4123,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          let images = Object.assign({}, lsImages, uploadedImages);
                          console.log('images' + images);
 
-                         localStorage.setItem('images', JSON.stringify(images));
+                         sessionStorage.setItem('images', JSON.stringify(images));
                      } else {
 
                          for (let key in uploadedImages) {
@@ -3016,10 +4135,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                              }
                          }
 
-                         localStorage.setItem('images', JSON.stringify(uploadedImages));
+                         sessionStorage.setItem('images', JSON.stringify(uploadedImages));
                      }
 
-                     console.log('TEST-------' + localStorage.getItem('images'));
+                     console.log('TEST-------' + sessionStorage.getItem('images'));
+
+                     autoSuggestHashtagsAfterUpload();
                  }
 
                  if (result.hasOwnProperty('title')) {
@@ -3152,10 +4273,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          const $btn = $(this);
          const actionurl = $btn.data('action');
 
-         // пути картинок во временной папке — из ответа загрузки (image_path), он же лежит в localStorage
+         // пути картинок во временной папке — из ответа загрузки (image_path), он же лежит в sessionStorage
          let imagePaths = [];
          try {
-             const lsImages = JSON.parse(localStorage.getItem('images') || '{}') || {};
+             const lsImages = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
              for (let key in lsImages) {
                  if (lsImages[key] && lsImages[key].image_path) {
                      imagePaths.push(lsImages[key].image_path);
@@ -3203,6 +4324,122 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  $btn.prop('disabled', false).html(btnHtml);
              },
          });
+     });
+
+     // Кнопка "Подобрать хештеги по картинке" на страницах создания и редактирования поста —
+     // подсказки из существующих тегов пользователя (PostController::suggestHashtags() /
+     // suggestHashtagsForPost()), клик по подсказке добавляет тег к выбранным так же, как клик
+     // по результату поиска. На редактировании (data-post-images) картинки сервер берёт из поста.
+     $(document).on('click', '.js-suggest-hashtags', function() {
+         const $btn = $(this);
+         const $suggested = $('#b-suggested-tags-2');
+         const fromPost = !!$btn.data('post-images');
+
+         let imagePaths = [];
+         if (!fromPost) {
+             try {
+                 const lsImages = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
+                 for (let key in lsImages) {
+                     if (lsImages[key] && lsImages[key].image_path) {
+                         imagePaths.push(lsImages[key].image_path);
+                     }
+                 }
+             } catch (e) {
+                 imagePaths = [];
+             }
+
+             if (!imagePaths.length) {
+                 toastr.warning('Сначала загрузите изображение');
+                 return;
+             }
+         }
+
+         let selectedIds = [];
+         try {
+             selectedIds = Object.keys(JSON.parse(sessionStorage.getItem('hashtags2') || '{}') || {});
+         } catch (e) {
+             selectedIds = [];
+         }
+
+         const btnHtml = $btn.html();
+         $btn.prop('disabled', true).text('Подбираю хештеги…');
+
+         $.ajax({
+             url: $btn.data('action'),
+             type: 'POST',
+             dataType: 'json',
+             headers: {'X-CSRF-TOKEN': $('meta[name = "csrf-token"]').attr('content')},
+             data: fromPost ? {'selected_ids': selectedIds} : {'image_paths': imagePaths, 'selected_ids': selectedIds},
+             success: function(response) {
+                 if (!response.status) {
+                     toastr.error(response.message || 'Не удалось подобрать хештеги');
+                     return;
+                 }
+                 if (response.warning) {
+                     toastr.warning(response.warning);
+                 }
+
+                 $suggested.empty();
+
+                 // режим "Добавлять сразу" (Настройки ИИ) — теги сразу в выбранные, без подсказок
+                 if (response.auto_apply && response.hashtags && response.hashtags.length) {
+                     response.hashtags.forEach(function(hashtag) {
+                         addHashtagToSelectedHashtags(hashtag.id, hashtag.title, 'hashtags2', searchInput2, $('#b-search__results-2'), containerSelectedHashtagsTags2);
+                     });
+                     toastr.success('Добавлены хештеги: ' + response.hashtags.map(function(hashtag) {
+                         return '#' + hashtag.title;
+                     }).join(', '));
+                     return;
+                 }
+
+                 (response.hashtags || []).forEach(function(hashtag) {
+                     $('<span class="tag">')
+                         .attr({'data-id': hashtag.id, 'data-name': hashtag.title})
+                         .attr('title', hashtag.source === 'color' ? 'По цвету' : 'По содержимому картинки')
+                         .text('+ #' + hashtag.title)
+                         .appendTo($suggested);
+                 });
+
+                 if (!response.hashtags || !response.hashtags.length) {
+                     toastr.info('Подходящих хештегов не нашлось');
+                 }
+             },
+             error: function(xhr) {
+                 const message = xhr.responseJSON && xhr.responseJSON.message;
+                 toastr.error(message || 'Не удалось подобрать хештеги');
+             },
+             complete: function() {
+                 $btn.prop('disabled', false).html(btnHtml);
+             },
+         });
+     });
+
+     // Режим "Добавлять сразу" из Настроек ИИ (data-auto="1" у кнопки на странице создания):
+     // после загрузки картинок сами нажимаем "Подобрать хештеги". Таймер — чтобы при загрузке
+     // нескольких файлов подряд был один запрос, а не по запросу на файл.
+     let autoSuggestHashtagsTimer = null;
+     function autoSuggestHashtagsAfterUpload() {
+         const $btn = $('.js-suggest-hashtags[data-auto="1"]');
+         if (!$btn.length || $btn.data('post-images')) {
+             return;
+         }
+         clearTimeout(autoSuggestHashtagsTimer);
+         autoSuggestHashtagsTimer = setTimeout(function() {
+             if (!$btn.prop('disabled')) {
+                 $btn.trigger('click');
+             }
+         }, 800);
+     }
+
+     $(document).on('click', '#b-suggested-tags-2 .tag', function() {
+         const hashtagId = this.getAttribute('data-id');
+         const hashtagTitle = this.getAttribute('data-name');
+
+         // тег могли уже добавить вручную, пока висела подсказка
+         if (!$(containerSelectedHashtagsTags2 + ' .tag[data-id="' + hashtagId + '"]').length) {
+             addHashtagToSelectedHashtags(hashtagId, hashtagTitle, 'hashtags2', searchInput2, $('#b-search__results-2'), containerSelectedHashtagsTags2);
+         }
+         $(this).remove();
      });
 
      //скопировать текст поста (страница - список постов)
@@ -3467,6 +4704,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      },
                      success: function () {
                          chip.remove();
+                         removeRelationRow(relatedHashtagId);
                          toastr.success('Связь удалена');
                      },
                      error: function () {
@@ -3496,6 +4734,93 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          container.querySelectorAll('.b-tags__item').forEach(function (chip) {
              bindRemove(chip, chip.getAttribute('data-id'));
          });
+
+         // ===== Направление связей (страница редактирования хештега, hashtags/edit.blade.php) =====
+         // галочка — "выбрали один хештег пары на форме поста — второй добавляется к посту сам",
+         // без неё — только предлагается (HashtagController::updateRelated, hashtag_relations.auto_add)
+         const relationsWrap = document.querySelector('.js-hashtag-relations-wrap');
+         const relationsList = relationsWrap && relationsWrap.querySelector('.js-hashtag-relations');
+
+         function addRelationRow(relatedHashtagId, relatedHashtagTitle, autoAdd, autoAddBack) {
+             if (!relationsList || relationsList.querySelector('[data-id="' + relatedHashtagId + '"]')) {
+                 return;
+             }
+             const hashtagTitle = relationsList.getAttribute('data-hashtag-title');
+
+             function switchLabel(direction, checked, from, to) {
+                 const label = document.createElement('label');
+                 label.className = 'b-hashtag-relations__switch';
+                 const checkbox = document.createElement('input');
+                 checkbox.type = 'checkbox';
+                 checkbox.className = 'js-hashtag-relation-auto';
+                 checkbox.setAttribute('data-direction', direction);
+                 checkbox.checked = !!checked;
+                 const text = document.createElement('span');
+                 text.textContent = 'выбрали «' + from + '» → добавлять «' + to + '»';
+                 label.appendChild(checkbox);
+                 label.appendChild(text);
+                 return label;
+             }
+
+             const row = document.createElement('li');
+             row.className = 'b-hashtag-relations__item';
+             row.setAttribute('data-id', relatedHashtagId);
+             const title = document.createElement('div');
+             title.className = 'b-hashtag-relations__title';
+             title.textContent = '#' + relatedHashtagTitle;
+             row.appendChild(title);
+             row.appendChild(switchLabel('forward', autoAdd, hashtagTitle, relatedHashtagTitle));
+             row.appendChild(switchLabel('back', autoAddBack, relatedHashtagTitle, hashtagTitle));
+             relationsList.appendChild(row);
+             relationsWrap.hidden = false;
+         }
+
+         function removeRelationRow(relatedHashtagId) {
+             if (!relationsList) {
+                 return;
+             }
+             const row = relationsList.querySelector('[data-id="' + relatedHashtagId + '"]');
+             if (row) {
+                 row.remove();
+             }
+             relationsWrap.hidden = !relationsList.children.length;
+         }
+
+         if (relationsList) {
+             relationsList.addEventListener('change', function (event) {
+                 const checkbox = event.target.closest('.js-hashtag-relation-auto');
+                 if (!checkbox) {
+                     return;
+                 }
+                 const relatedHashtagId = checkbox.closest('.b-hashtag-relations__item').getAttribute('data-id');
+                 checkbox.disabled = true;
+
+                 $.ajax({
+                     type: 'patch',
+                     url: attachUrl() + '/' + relatedHashtagId,
+                     headers: {'X-CSRF-TOKEN': csrfToken()},
+                     data: {
+                         direction: checkbox.getAttribute('data-direction'),
+                         auto_add: checkbox.checked ? 1 : 0,
+                     },
+                     success: function (response) {
+                         if (response && response.status === true) {
+                             toastr.success(checkbox.checked ? 'Будет добавляться к посту сам' : 'Будет только предлагаться');
+                         } else {
+                             checkbox.checked = !checkbox.checked;
+                             toastr.error((response && response.message) || 'Не удалось сохранить направление связи');
+                         }
+                     },
+                     error: function () {
+                         checkbox.checked = !checkbox.checked;
+                         toastr.error('Не удалось сохранить направление связи');
+                     },
+                     complete: function () {
+                         checkbox.disabled = false;
+                     },
+                 });
+             });
+         }
 
          let searchTimer = null;
 
@@ -3551,6 +4876,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                      success: function (attachResponse) {
                                          if (attachResponse.status === true) {
                                              appendChip(attachResponse.hashtag.id, attachResponse.hashtag.title);
+                                             addRelationRow(attachResponse.hashtag.id, attachResponse.hashtag.title, attachResponse.auto_add, attachResponse.auto_add_back);
                                              toastr.success('Хештег добавлен в связанные');
                                          } else {
                                              toastr.error(attachResponse.message || 'Не удалось добавить связь');
@@ -3598,6 +4924,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          const postId = panel.getAttribute('data-post-id');
          const addUrl = panel.getAttribute('data-add-action');
          const renameUrl = panel.getAttribute('data-rename-action');
+         const transformUrl = panel.getAttribute('data-transform-action');
          const deleteUrl = panel.getAttribute('data-delete-action');
          const confirmReplaceUrl = panel.getAttribute('data-confirm-replace-action');
          const confirmAddUrl = panel.getAttribute('data-confirm-add-action');
@@ -3725,6 +5052,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
 
          duplicateModal.on('hidden.bs.modal', function () {
+             // закрыли без выбора ("Отмена", крестик) — загруженная картинка в пост не пойдёт, удаляем её из
+             // временной папки (при подтверждении submitDuplicateChoice() обнуляет pendingDuplicateChoice раньше)
+             if (pendingDuplicateChoice && pendingDuplicateChoice.staged_image) {
+                 deleteTempFile(pendingDuplicateChoice.staged_image.image_name, pendingDuplicateChoice.staged_image.image_extension);
+             }
              pendingDuplicateChoice = null;
          });
 
@@ -3772,6 +5104,45 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  });
              });
 
+             // повернуть/отразить: сервер перезаписывает файлы на месте (оригинал и превью), путь тот же —
+             // поэтому превью обновляем с меткой времени, иначе браузер покажет картинку из кеша
+             const transformBtns = item.querySelectorAll('.js-post-images__transform');
+             transformBtns.forEach(function (transformBtn) {
+                 transformBtn.addEventListener('click', function () {
+                     clearError();
+                     transformBtns.forEach(function (btn) { btn.disabled = true; });
+
+                     $.ajax({
+                         type: 'post',
+                         url: transformUrl,
+                         headers: {
+                             'X-CSRF-TOKEN': csrfToken()
+                         },
+                         data: {
+                             name: item.getAttribute('data-name'),
+                             action: transformBtn.getAttribute('data-action'),
+                         },
+                         success: function (response) {
+                             if (response.status === true) {
+                                 let src = '/storage' + response.image.path + '?v=' + Date.now();
+                                 let thumb = item.querySelector('.b-post-images__thumb');
+                                 thumb.style.backgroundImage = 'url(' + src + ')';
+                                 thumb.setAttribute('data-src', src);
+                                 toastr.success(response.message);
+                             } else {
+                                 showError(response.message || 'Не удалось изменить изображение');
+                             }
+                         },
+                         error: function () {
+                             showError('Не удалось изменить изображение');
+                         },
+                         complete: function () {
+                             transformBtns.forEach(function (btn) { btn.disabled = false; });
+                         }
+                     });
+                 });
+             });
+
              deleteBtn.addEventListener('click', function () {
                  if (!confirm('Удалить это изображение?')) {
                      return;
@@ -3814,6 +5185,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
              item.innerHTML =
                  '<a class="b-post-images__thumb" data-fancybox="post-images" data-src="/storage' + path + '" style="background-image: url(/storage' + path + ')"></a>' +
+                 '<div class="b-post-images__transform">' +
+                     '<button type="button" class="js-post-images__transform" data-action="rotate_left" title="Повернуть влево"><i class="fas fa-undo"></i></button>' +
+                     '<button type="button" class="js-post-images__transform" data-action="rotate_right" title="Повернуть вправо"><i class="fas fa-redo"></i></button>' +
+                     '<button type="button" class="js-post-images__transform" data-action="flip_h" title="Отразить по горизонтали"><i class="fas fa-arrows-alt-h"></i></button>' +
+                     '<button type="button" class="js-post-images__transform" data-action="flip_v" title="Отразить по вертикали"><i class="fas fa-arrows-alt-v"></i></button>' +
+                 '</div>' +
                  '<div class="b-post-images__controls">' +
                      '<div class="b-post-images__rename">' +
                          '<input type="text" class="form-control form-control-sm js-post-images__name-input" value="' + name + '">' +

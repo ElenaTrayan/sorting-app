@@ -24,7 +24,7 @@
                         <i class="fas fa-image b-quote-dropzone__icon"></i>
                         <div>Перетащите файлы сюда или <span class="b-quote-dropzone__browse">выберите на устройстве</span></div>
                         <div class="text-muted small">PNG, JPG, WEBP, до 10 МБ (можно несколько)</div>
-                        <input type="file" class="js-quote-images-input" accept="image/png,image/jpeg,image/webp" multiple hidden>
+                        <input type="file" class="js-quote-images-input" accept="image/png,image/jpeg,image/webp,image/avif" multiple hidden>
                     </div>
                     <div class="b-quote-images-preview js-quote-images-preview"></div>
                     <div class="text-muted small mt-1 js-quote-images-count" style="display: none;"></div>

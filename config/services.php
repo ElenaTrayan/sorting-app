@@ -36,4 +36,11 @@ return [
         'key' => env('OCR_SPACE_API_KEY'),
     ],
 
+    // подсказки хештегов по картинке при создании поста (см. App\Components\HashtagSuggester);
+    // ключ: https://console.anthropic.com → API Keys
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+        'tags_model' => env('ANTHROPIC_TAGS_MODEL', 'claude-opus-5'),
+    ],
+
 ];

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\User;
 
+use App\Components\AvifImage;
 use App\Components\ImageReader;
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
@@ -275,7 +276,7 @@ class ContactController extends Controller
             'residence_lat' => 'nullable|numeric|between:-90,90',
             'residence_lng' => 'nullable|numeric|between:-180,180',
             'phone' => 'nullable|string|max:50',
-            'photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp',
+            'photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,avif',
             'hashtag_ids' => 'nullable|string',
         ]);
 
@@ -363,7 +364,7 @@ class ContactController extends Controller
             'residence_lat' => 'nullable|numeric|between:-90,90',
             'residence_lng' => 'nullable|numeric|between:-180,180',
             'phone' => 'nullable|string|max:50',
-            'photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp',
+            'photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,avif',
             'hashtag_ids' => 'nullable|string',
         ]);
 
@@ -422,7 +423,7 @@ class ContactController extends Controller
         $this->authorizeOwner($contact);
 
         $request->validate([
-            'image' => 'required|file|mimes:jpeg,png,jpg,gif,webp',
+            'image' => 'required|file|mimes:jpeg,png,jpg,gif,webp,avif',
             'caption' => 'nullable|string|max:255',
         ]);
 
@@ -462,7 +463,7 @@ class ContactController extends Controller
         $this->authorizeOwner($contact);
 
         $request->validate([
-            'image' => 'required|file|mimes:jpeg,png,jpg,gif,webp',
+            'image' => 'required|file|mimes:jpeg,png,jpg,gif,webp,avif',
             'caption' => 'nullable|string|max:255',
         ]);
 
@@ -533,7 +534,7 @@ class ContactController extends Controller
     {
         $request->validate([
             'images' => 'required|array|min:1',
-            'images.*' => 'file|mimes:jpeg,png,jpg,gif,webp|max:10240',
+            'images.*' => 'file|mimes:jpeg,png,jpg,gif,webp,avif|max:10240',
         ]);
 
         $reader = new ImageReader();
@@ -541,7 +542,8 @@ class ContactController extends Controller
 
         foreach ($request->file('images') as $image) {
             try {
-                $texts[] = $reader->recognizeText(file_get_contents($image->getRealPath()));
+                // OCR.space AVIF не принимает — отдаём ему WebP (см. AvifImage)
+                $texts[] = $reader->recognizeText(file_get_contents(AvifImage::normalize($image)->getRealPath()));
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error('ImageReader::recognizeText failed: ' . $e->getMessage());
 
@@ -583,7 +585,7 @@ class ContactController extends Controller
             'comment' => 'nullable|string|max:1000',
             'hashtag_ids' => 'nullable|string',
             'images' => 'nullable|array',
-            'images.*' => 'file|mimes:jpeg,png,jpg,gif,webp|max:10240',
+            'images.*' => 'file|mimes:jpeg,png,jpg,gif,webp,avif|max:10240',
         ]);
 
         $quote = ContactQuote::create([
@@ -670,6 +672,9 @@ class ContactController extends Controller
      */
     private function storeContactImage($file): array
     {
+        // AVIF сразу конвертируем в WebP (см. AvifImage)
+        $file = AvifImage::normalize($file);
+
         $extension = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
         $name = Str::random(20);
         $relativeDir = 'contacts/' . Auth::id();
