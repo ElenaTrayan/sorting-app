@@ -12,6 +12,7 @@ use App\Models\ContactPhoto;
 use App\Models\ContactQuote;
 use App\Models\ContactQuoteImage;
 use App\Models\ContactSocialLink;
+use App\Models\Hashtag;
 use App\Models\Post;
 use App\Services\Integrations\IntegrationManager;
 use Illuminate\Http\Request;
@@ -310,27 +311,29 @@ class ContactController extends Controller
 
         $contact->load(['hashtags', 'photos', 'conversations', 'socialLinks', 'quotes.hashtags', 'quotes.images', 'facts']);
 
-        $hashtagIds = $contact->hashtags->pluck('id');
+        [$identityIds, $byMatchIds] = $this->contactPostHashtagIds($contact);
         $relatedPosts = collect();
 
-        if ($hashtagIds->isNotEmpty()) {
+        if ($identityIds->isNotEmpty() || $byMatchIds->isNotEmpty()) {
             // одного общего хештега мало, чтобы считать пост "про этого человека" — у контакта
             // могут быть и широкие категориальные теги (например, "мужчины"), которые есть
             // и на совершенно посторонних постах. Требуем совпадения минимум по двум хештегам
             // (либо по одному, если у контакта их и всего один — иначе такие контакты вообще
-            // никогда не находили бы посты)
-            $minMatches = min(2, $hashtagIds->count());
+            // никогда не находили бы посты). Именной хештег (см. contactPostHashtagIds()) хватает и одного
+            $minMatches = min(2, $byMatchIds->count());
 
-            $candidatePosts = Post::whereHas('hashtags', function ($q) use ($hashtagIds) {
-                $q->whereIn('hashtags.id', $hashtagIds);
+            $candidatePosts = Post::whereHas('hashtags', function ($q) use ($identityIds, $byMatchIds) {
+                $q->whereIn('hashtags.id', $identityIds->merge($byMatchIds)->unique());
             })
                 ->where('user_id', Auth::id())
                 ->with(['hashtags', 'film'])
                 ->latest()
                 ->get();
 
-            $relatedPosts = $candidatePosts->filter(function ($post) use ($hashtagIds, $minMatches) {
-                return $post->hashtags->pluck('id')->intersect($hashtagIds)->count() >= $minMatches;
+            $relatedPosts = $candidatePosts->filter(function ($post) use ($identityIds, $byMatchIds, $minMatches) {
+                $postHashtagIds = $post->hashtags->pluck('id');
+                return $postHashtagIds->intersect($identityIds)->isNotEmpty()
+                    || ($byMatchIds->isNotEmpty() && $postHashtagIds->intersect($byMatchIds)->count() >= $minMatches);
             })->values();
 
             foreach ($relatedPosts as $post) {
@@ -351,6 +354,53 @@ class ContactController extends Controller
             'contact' => $contact,
             'relatedPosts' => $relatedPosts,
         ]);
+    }
+
+    /**
+     * Хештеги, по которым к контакту подбираются посты.
+     *
+     * Именные — пост с любым из них точно про этого человека:
+     *  - хештег с именем контакта (даже если его не добавили контакту; ударение в имени не мешает: "Ска́рсгард");
+     *  - хештеги контакта, кроме общих. Общие — те, что другой хештег контакта добавляет к посту автоматически
+     *    ("Роми Стрейд" → "девушка", "модель"): они есть на тысячах постов про других людей;
+     *  - другие написания именных: связанные, которые добавляются автоматически в обе стороны
+     *    ("Роми Стрейд" ↔ "Romee Strijd").
+     * По совпадению — если общих не нашлось, все хештеги контакта: пост подходит, если совпали хотя бы два
+     *
+     * @param Contact $contact хештеги уже загружены
+     * @return array [Collection $identityIds, Collection $byMatchIds]
+     */
+    private function contactPostHashtagIds(Contact $contact): array
+    {
+        $hashtagIds = $contact->hashtags->pluck('id');
+
+        $generalIds = $hashtagIds->isEmpty() ? collect() : DB::table('hashtag_relations')
+            ->whereIn('hashtag_id', $hashtagIds)
+            ->whereIn('related_hashtag_id', $hashtagIds)
+            ->where('auto_add', true)
+            ->pluck('related_hashtag_id')
+            ->unique();
+        $keyIds = $generalIds->isEmpty() ? collect() : $hashtagIds->diff($generalIds)->values();
+
+        $name = trim((string)$contact->name);
+        $names = array_values(array_unique(array_filter([$name, str_replace("\u{0301}", '', $name)])));
+        $nameIds = $names ? Hashtag::where('user_id', Auth::id())->whereIn('title', $names)->pluck('id') : collect();
+
+        $identityIds = $keyIds->merge($nameIds)->unique()->values();
+        if ($identityIds->isNotEmpty()) {
+            $aliasIds = DB::table('hashtag_relations as r')
+                ->join('hashtag_relations as back', function ($join) {
+                    $join->on('back.hashtag_id', '=', 'r.related_hashtag_id')
+                        ->on('back.related_hashtag_id', '=', 'r.hashtag_id');
+                })
+                ->whereIn('r.hashtag_id', $identityIds)
+                ->where('r.auto_add', true)
+                ->where('back.auto_add', true)
+                ->pluck('r.related_hashtag_id');
+            $identityIds = $identityIds->merge($aliasIds)->diff($generalIds)->unique()->values();
+        }
+
+        return [$identityIds, $keyIds->isEmpty() ? $hashtagIds : collect()];
     }
 
     public function update(Request $request, Contact $contact)
