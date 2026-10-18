@@ -8589,7 +8589,8 @@ margin: 0 0 20px 0;
     background-color: #f5f5f5;
 }
 
-/* окно "Похожая картинка уже есть на форме" (#modal-form-duplicate, create.blade.php): какая из двух лучше */
+/* окна "Похожая картинка уже есть" (#modal-form-duplicate в create.blade.php, #modal-post-group-duplicate
+   в group.blade.php): какая из двух лучше */
 .b-form-duplicate__better {
     display: inline-block;
     margin-left: 6px;
@@ -8601,7 +8602,8 @@ margin: 0 0 20px 0;
     font-weight: 600;
     vertical-align: middle;
 }
-#modal-form-duplicate .modal-footer {
+#modal-form-duplicate .modal-footer,
+#modal-post-group-duplicate .modal-footer {
     flex-wrap: wrap;
     gap: 6px;
 }

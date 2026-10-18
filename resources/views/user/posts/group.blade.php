@@ -303,20 +303,20 @@
                     <p class="js-post-group-duplicate-message"></p>
                     <div class="b-duplicate-choice__compare">
                         <div class="b-duplicate-choice__option">
-                            <div class="b-duplicate-choice__label">Новая</div>
+                            <div class="b-duplicate-choice__label">Новая <span class="b-form-duplicate__better js-post-group-duplicate-better-new">лучше качество</span></div>
                             <img class="js-post-group-duplicate-new b-duplicate-choice__thumb" src="" alt="">
                             <div class="js-post-group-duplicate-new-size text-muted"></div>
                         </div>
                         <div class="b-duplicate-choice__option">
-                            <div class="b-duplicate-choice__label">Уже есть в посте #<span class="js-post-group-duplicate-post"></span></div>
+                            <div class="b-duplicate-choice__label">Уже есть в посте #<span class="js-post-group-duplicate-post"></span> <span class="b-form-duplicate__better js-post-group-duplicate-better-old">лучше качество</span></div>
                             <img class="js-post-group-duplicate-old b-duplicate-choice__thumb" src="" alt="">
                             <div class="js-post-group-duplicate-old-size text-muted"></div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary js-post-group-duplicate-replace">Заменить старую новой</button>
-                    <button type="button" class="btn btn-primary js-post-group-duplicate-add">Это разные картинки — добавить</button>
+                    <button type="button" class="btn btn-primary js-post-group-duplicate-add">Это разные картинки — добавить отдельным постом</button>
+                    <button type="button" class="btn btn-outline-primary js-post-group-duplicate-replace">Заменить старую новой</button>
                     <button type="button" class="btn btn-secondary js-post-group-duplicate-skip">Не добавлять</button>
                 </div>
             </div>

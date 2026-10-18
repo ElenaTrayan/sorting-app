@@ -1487,25 +1487,33 @@ class PostController extends Controller
                 $saved = $uploadController->saveImageForPost($staged['data'], $userId, $categoryId, true);
 
                 if (!empty($saved['duplicate_choice']) || !empty($saved['duplicate_reject_choice'])) {
-                    $isBigger = !empty($saved['duplicate_choice']);
-                    $duplicate = $isBigger ? $saved['duplicate_choice'] : $saved['duplicate_reject_choice'];
+                    $duplicate = $saved['duplicate_choice'] ?? $saved['duplicate_reject_choice'];
                     $inThisGroup = $posts->contains('id', $duplicate->post_id);
                     $where = $inThisGroup ? 'в этой группе' : 'в посте #' . $duplicate->post_id;
+
+                    $disk = Storage::disk('local');
+                    $newFileSize = $disk->exists($saved['staged_image']['image_path']) ? $disk->size($saved['staged_image']['image_path']) : 0;
+                    $oldFileSize = $disk->exists($duplicate->path) ? $disk->size($duplicate->path) : 0;
+                    // лучше качество — больше пикселей, при равном разрешении — больший файл (как в окне формы создания)
+                    $newArea = $saved['new_width'] * $saved['new_height'];
+                    $oldArea = $duplicate->width * $duplicate->height;
+                    $newIsBetter = $newArea !== $oldArea ? $newArea > $oldArea : $newFileSize > $oldFileSize;
 
                     return response()->json([
                         'status' => false,
                         'needs_choice' => true,
-                        // новая картинка крупнее — можно заменить ею старую; не крупнее — возможно, это просто
-                        // другая картинка, её можно добавить как есть
-                        'mode' => $isBigger ? 'replace' : 'add',
-                        'message' => $isBigger
-                            ? 'Похожая картинка меньшего размера уже есть ' . $where . '. Заменить её новой?'
-                            : 'Похоже, такая картинка уже есть ' . $where . '. Это точно другая картинка?',
-                        'duplicate' => $this->formatDuplicateForFrontend($duplicate),
+                        // новая лучше — можно заменить ею старую; не лучше — возможно, это просто
+                        // другая картинка, её можно добавить отдельным постом
+                        'new_is_better' => $newIsBetter,
+                        'message' => $newIsBetter
+                            ? 'Похожая картинка, но хуже качеством, уже есть ' . $where . '. Заменить её новой?'
+                            : 'Похоже, такая картинка уже есть ' . $where . '. Если это другая картинка — добавьте её отдельным постом.',
+                        'duplicate' => $this->formatDuplicateForFrontend($duplicate) + ['file_size' => $oldFileSize],
                         'new_image' => [
                             'thumbnail_url' => '/storage/' . $saved['staged_image']['image_path'],
                             'width' => $saved['new_width'],
                             'height' => $saved['new_height'],
+                            'file_size' => $newFileSize,
                         ],
                         'staged_image' => $saved['staged_image'],
                     ]);

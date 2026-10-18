@@ -757,6 +757,18 @@
             });
     }
 
+    function formatFileSize(bytes) {
+        if (!bytes) {
+            return '';
+        }
+        return bytes >= 1048576 ? (bytes / 1048576).toFixed(1).replace('.', ',') + ' МБ' : Math.round(bytes / 1024) + ' КБ';
+    }
+
+    // разрешение и вес файла под картинкой в окне сравнения
+    function sizeText(image) {
+        return image.width + '×' + image.height + (image.file_size ? ' · ' + formatFileSize(image.file_size) : '');
+    }
+
     // Окно сравнения: загружаемая картинка похожа на уже существующую. Возвращает Promise с решением:
     // 'replace' (старую убрать из её поста, новую добавить), 'add' (это разные картинки) или null (не добавлять)
     function askAboutDuplicate(response) {
@@ -767,15 +779,16 @@
             $duplicateModal.find('.js-post-group-duplicate-message').text(response.message || '');
             $duplicateModal.find('.js-post-group-duplicate-post').text(response.duplicate.post_id);
             $duplicateModal.find('.js-post-group-duplicate-new').attr('src', response.new_image.thumbnail_url);
-            $duplicateModal.find('.js-post-group-duplicate-new-size').text(response.new_image.width + '×' + response.new_image.height);
+            $duplicateModal.find('.js-post-group-duplicate-new-size').text(sizeText(response.new_image));
             $duplicateModal.find('.js-post-group-duplicate-old').attr('src', response.duplicate.thumbnail_url);
-            $duplicateModal.find('.js-post-group-duplicate-old-size').text(response.duplicate.width + '×' + response.duplicate.height);
+            $duplicateModal.find('.js-post-group-duplicate-old-size').text(sizeText(response.duplicate));
 
-            // новая крупнее — предлагаем заменить; "добавить как другую" доступно всегда
-            $duplicateModal.find('.js-post-group-duplicate-replace').toggle(response.mode === 'replace');
-            $duplicateModal.find('.js-post-group-duplicate-add')
-                .toggleClass('btn-primary', response.mode !== 'replace')
-                .toggleClass('btn-outline-primary', response.mode === 'replace');
+            // какая лучше: больше пикселей, при равном разрешении — больший файл. Новая лучше — можно заменить
+            // ею старую; "это разные — добавить отдельным постом" доступно всегда
+            var newIsBetter = !!response.new_is_better;
+            $duplicateModal.find('.js-post-group-duplicate-better-new').toggle(newIsBetter);
+            $duplicateModal.find('.js-post-group-duplicate-better-old').toggle(!newIsBetter);
+            $duplicateModal.find('.js-post-group-duplicate-replace').toggle(newIsBetter);
 
             $duplicateModal.off('.duplicate');
             $duplicateModal.on('click.duplicate', '.js-post-group-duplicate-replace', function () {
