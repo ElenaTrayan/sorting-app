@@ -221,6 +221,21 @@
                             </div>
                         @endif
 
+                        {{-- дата пина (posts.event_date): день новости, день съёмки фото --}}
+                        @if ($post->event_date)
+                            <div class="b-post-show__divider"></div>
+
+                            <div class="b-post-show__section">
+                                <div class="b-post-show__section-head">
+                                    <i class="far fa-calendar-alt"></i>
+                                    <span class="b-post-show__section-label">Дата</span>
+                                </div>
+                                <div class="b-post-show__tags">
+                                    <span class="b-event-date-chip">{{ $post->eventDateLabel() }}</span>
+                                </div>
+                            </div>
+                        @endif
+
                         {{-- пост прикреплён к фильму как кадр/промо/видео (блок "Материалы" на странице фильма) --}}
                         @if ($post->filmPost)
                             <div class="b-post-show__divider"></div>

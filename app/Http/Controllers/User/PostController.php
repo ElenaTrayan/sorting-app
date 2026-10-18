@@ -35,6 +35,9 @@ use function PHPUnit\Framework\isJson;
 
 class PostController extends Controller
 {
+    // поле "Дата" заполнено, но это не дата (Post::parseEventDate())
+    private const EVENT_DATE_ERROR = 'Не понял дату — введите её как 12.03.2024, 03.2024, «март 2024» или 2024';
+
     /**
      * Display a listing of the resource.
      *
@@ -48,7 +51,8 @@ class PostController extends Controller
         // фильтр по отметке "Использовано" (posts.is_used): used=no — ещё не использованные, used=yes — использованные
         $activeUsed = in_array($request->get('used'), ['no', 'yes'], true) ? $request->get('used') : null;
         $activeType = in_array($request->get('type'), ['photo', 'video', 'carousel'], true) ? $request->get('type') : 'all';
-        $activeSort = in_array($request->get('sort'), ['old', 'title'], true) ? $request->get('sort') : 'new';
+        // 'date' — по дате пина (event_date, новые даты выше), посты без даты — в конце
+        $activeSort = in_array($request->get('sort'), ['old', 'title', 'date'], true) ? $request->get('sort') : 'new';
         // тип поста (колонка posts.type, см. Post::TYPE_LABELS) — отдельный фильтр, не путать с
         // типом медиа выше (вкладки "Фото/Видео/Карусель", параметр type); null — все типы
         $activePostType = array_key_exists((string) $request->get('post_type'), Post::TYPE_LABELS) ? $request->get('post_type') : null;
@@ -119,7 +123,7 @@ class PostController extends Controller
         // Группа в ленте — одна карточка-стопка (её первый пост, Post::scopeCollapsedGroups): и здесь,
         // и в выборке страницы ниже считаем и листаем карточки, а не посты; фильтры и тип медиа
         // у группы — по её первому посту
-        $lightPosts = Post::selectRaw('posts.id, posts.title, posts.created_at, posts.group_id, posts.sort_order, posts.small_image, posts.medium_image, posts.original_image, posts.video')
+        $lightPosts = Post::selectRaw('posts.id, posts.title, posts.created_at, posts.group_id, posts.sort_order, posts.small_image, posts.medium_image, posts.original_image, posts.video, posts.event_date')
             ->where('posts.user_id', auth()->id())
             ->when(!$ungrouped, function($q) {
                 $q->collapsedGroups((int)auth()->id());
@@ -151,7 +155,8 @@ class PostController extends Controller
         ];
 
         $baseSelect = 'posts.id, posts.title, posts.alias, posts.user_id, posts.category_id, posts.type, posts.film_post_id, posts.group_id,
-        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image, posts.video, posts.palette';
+        posts.status, posts.is_used, posts.content, posts.small_image, posts.medium_image, posts.original_image, posts.video, posts.palette,
+        posts.event_date, posts.event_date_precision';
 
         if ($activeType === 'all') {
             // без фильтра по типу медиа — обычная SQL-пагинация, как раньше
@@ -176,7 +181,14 @@ class PostController extends Controller
                     });
                 })
                 ->when($activeSort === 'title', function ($q) { $q->orderBy('posts.title'); })
-                ->when($activeSort !== 'title', function ($q) use ($activeSort) {
+                // по дате пина; у постов одной группы дата общая — дальше они идут вместе, по порядку в группе
+                ->when($activeSort === 'date', function ($q) {
+                    $q->orderByRaw('posts.event_date IS NULL')
+                        ->orderByDesc('posts.event_date')
+                        ->orderByRaw('COALESCE(posts.group_id, posts.id) desc')
+                        ->orderBy('posts.sort_order', 'asc');
+                })
+                ->when(!in_array($activeSort, ['title', 'date'], true), function ($q) use ($activeSort) {
                     // group_id = id одного из постов группы (обычно первого созданного), поэтому
                     // COALESCE(group_id, id) ставит карточку группы туда, где ей место по общему
                     // направлению сортировки, даже если первым в группе стоит более новый пост
@@ -196,9 +208,16 @@ class PostController extends Controller
             $groupKey = fn ($post) => $post->group_id ?? $post->id;
             // внутри группы (снята галочка "Свернуть группы") — по sort_order: сортировка в PHP 8 устойчивая,
             // поэтому сначала по sort_order, потом по группе, и порядок внутри группы сохраняется
-            $filtered = $activeSort === 'title'
-                ? $filtered->sortBy('title')
-                : $filtered->sortBy('sort_order')->sortBy($groupKey, SORT_REGULAR, $activeSort !== 'old');
+            if ($activeSort === 'title') {
+                $filtered = $filtered->sortBy('title');
+            } elseif ($activeSort === 'date') {
+                // как в SQL-ветке: по дате пина (новые выше), без даты — в конце; группа вместе, по порядку в ней
+                $filtered = $filtered->sortBy('sort_order')
+                    ->sortBy($groupKey, SORT_REGULAR, true)
+                    ->sortBy(fn ($post) => $post->event_date ? -$post->event_date->getTimestamp() : PHP_INT_MAX);
+            } else {
+                $filtered = $filtered->sortBy('sort_order')->sortBy($groupKey, SORT_REGULAR, $activeSort !== 'old');
+            }
             $orderedIds = $filtered->pluck('id')->values();
             $pageIds = $orderedIds->forPage($page, $perPage);
 
@@ -242,6 +261,11 @@ class PostController extends Controller
         // карточка без group_count показывается обычной, с чипом "Группа" (parts/post_items.blade.php)
         if (!$ungrouped) {
             Post::fillGroupCounts($posts);
+            // на стопке — только общие хештеги группы, без собственных хештегов её первого поста
+            Post::fillGroupCommonHashtags($posts);
+        } else {
+            // отдельные карточки постов групп: собственные хештеги — другим цветом
+            Post::fillGroupOwnHashtagIds($posts);
         }
 
         if ($request->ajax()) {
@@ -318,6 +342,11 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
+        // дату пина проверяем до того, как что-то сохранено: иначе часть постов успела бы создаться без неё
+        if (trim((string)$request->input('event_date')) !== '' && Post::parseEventDate($request->input('event_date')) === null) {
+            return response()->json(['status' => false, 'message' => self::EVENT_DATE_ERROR]);
+        }
+
         $user = auth()->user();
         //dd($request);
 
@@ -380,11 +409,11 @@ class PostController extends Controller
                     // записями (в отличие от "Один пост", где картинки объединяются в один),
                     // но получают общий group_id (= id первого созданного поста группы) и
                     // sort_order по порядку загрузки — см. posts.groups.show/reorder.
-                    // Группируются только посты из одних картинок (Post::groupKind()): с текстом или
-                    // с выбранным вручную типом (фильм, рецепт, одежда) посты создаются без группы
+                    // Группируются посты с картинками (Post::groupKind()): текст формы становится общим
+                    // текстом группы — он и так уходит в каждый пост. С выбранным вручную типом фильм,
+                    // рецепт или одежда посты создаются без группы; новость группируется
                     $shouldGroup = $request->boolean('groupPosts')
-                        && empty(strip_tags((string)$request->text))
-                        && !in_array($request->input('pin_type'), Post::MANUAL_TYPES, true);
+                        && (!in_array($request->input('pin_type'), Post::MANUAL_TYPES, true) || $request->input('pin_type') === Post::TYPE_NEWS);
                     $groupId = null;
                     $sortOrder = 0;
                     // картинки, из которых посты уже созданы: если на какой-то из следующих случится ошибка,
@@ -769,6 +798,12 @@ class PostController extends Controller
         $head = $posts->first();
         $kind = $this->groupKind($posts);
 
+        // хештеги: общие (есть у всех постов) — в блоке "Общее", собственные — на карточке каждого поста
+        $commonIds = Post::commonHashtagIds($posts);
+        foreach ($posts as $post) {
+            $post->own_hashtags = $post->hashtags->whereNotIn('id', $commonIds)->values();
+        }
+
         return view('user.posts.group', [
             'groupId' => $groupId,
             'posts' => $posts,
@@ -776,14 +811,17 @@ class PostController extends Controller
             // у группы текстов два режима: просмотр (тексты только читают, карточки можно переставлять) и
             // редактирование (?edit=1 — общие поля, тексты, состав группы). Группа изображений всегда редактируется
             'editing' => $kind !== Post::TYPE_TEXT || request()->boolean('edit'),
-            // общие поля — по первому посту; хештеги — всех постов сразу, чтобы ни один не потерялся
-            // (у групп, собранных до этой страницы, они могли разойтись); сохранение раздаёт их всем
+            // общие поля — по первому посту
             'title' => $head->title,
+            // у группы изображений текст общий (у группы текстов он у каждого поста свой)
+            'groupText' => $kind === Post::TYPE_PICTURE ? $this->resolvePictureGroupText($posts, collect())[0] : '',
+            'eventDateInput' => $head->eventDateInput(),
+            'eventDateLabel' => $head->eventDateLabel(),
             // отметка "Использовано" у группы одна на всех — по первому посту
             'isUsed' => (bool)$head->is_used,
             'headId' => $head->id,
             'categoryId' => $head->category_id,
-            'hashtags' => $posts->pluck('hashtags')->flatten()->unique('id')->values(),
+            'hashtags' => $head->hashtags->whereIn('id', $commonIds)->values(),
             'categories' => PostsCategory::where('user_id', auth()->id())->orderBy('title', 'DESC')->get(),
         ]);
     }
@@ -843,8 +881,9 @@ class PostController extends Controller
     }
 
     /**
-     * Сохраняет страницу группы: название, категория и хештеги — одни на все посты, у группы текстов —
-     * ещё текст каждого поста (texts[id поста])
+     * Сохраняет страницу группы: название, категория и дата — одни на все посты, хештеги — общие (hashtags) и
+     * собственные у каждого поста (own_hashtags); текст у группы изображений общий (group_text), у группы
+     * текстов — свой у каждого поста (texts[id поста])
      *
      * @param Request $request
      * @param int $groupId
@@ -858,33 +897,63 @@ class PostController extends Controller
         $data = $request->validate([
             'title' => ['nullable', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer'],
+            'event_date' => ['nullable', 'string', 'max:40'],
+            // общий текст группы изображений
+            'group_text' => ['nullable', 'string'],
             'hashtags' => ['nullable', 'string'],
+            'own_hashtags' => ['nullable', 'string'],
             'texts' => ['nullable', 'array'],
             'texts.*' => ['nullable', 'string'],
         ]);
 
-        // хештеги приходят как на форме поста: JSON {id: название}; не пришли — не трогаем
+        // дата пина у группы общая, как название; поле не пришло — не трогаем
+        $hasEventDate = $request->has('event_date');
+        if ($hasEventDate && trim((string)$request->input('event_date')) !== '' && Post::parseEventDate($request->input('event_date')) === null) {
+            return response()->json(['status' => false, 'message' => self::EVENT_DATE_ERROR], 422);
+        }
+
+        $userHashtagIds = fn (array $ids) => Hashtag::where('user_id', auth()->id())->whereIn('id', $ids)->pluck('id')->all();
+
+        // общие хештеги приходят как на форме поста: JSON {id: название}; не пришли — не трогаем
         $hashtagIds = null;
         if (isset($data['hashtags'])) {
             $requestHashtags = json_decode($data['hashtags'], true);
             if (is_array($requestHashtags)) {
-                $hashtagIds = Hashtag::where('user_id', auth()->id())->whereIn('id', array_keys($requestHashtags))->pluck('id')->all();
+                $hashtagIds = $userHashtagIds(array_keys($requestHashtags));
+            }
+        }
+
+        // собственные хештеги постов: JSON {id поста: [id хештегов]}; поста там нет — его собственные не меняем
+        $ownIds = [];
+        $requestOwn = json_decode($data['own_hashtags'] ?? '', true);
+        if (is_array($requestOwn)) {
+            foreach ($requestOwn as $postId => $ids) {
+                if ($posts->contains('id', (int)$postId) && is_array($ids)) {
+                    $ownIds[(int)$postId] = $userHashtagIds(array_map('intval', $ids));
+                }
             }
         }
 
         foreach ($posts as $post) {
             $post->title = (string)($data['title'] ?? '');
             $post->category_id = ($data['category_id'] ?? 0) ?: 0;
+            if ($hasEventDate) {
+                $post->setEventDateFromInput($request->input('event_date'));
+            }
             if ($isTextGroup && array_key_exists($post->id, $data['texts'] ?? [])) {
                 $post->content = $data['texts'][$post->id];
+            }
+            // группа изображений: текст общий — один и тот же у всех её постов (Post::groupKind())
+            if (!$isTextGroup && $request->has('group_text')) {
+                $post->content = (string)$request->input('group_text');
             }
             // cover_image/full_image/image_name — только для вьюхи (fillGroupImages()), колонок таких нет
             unset($post->cover_image, $post->full_image, $post->image_name);
             $post->save();
+        }
 
-            if ($hashtagIds !== null) {
-                $post->hashtags()->sync($hashtagIds);
-            }
+        if ($hashtagIds !== null || $ownIds) {
+            Post::syncGroupHashtags($posts, $hashtagIds ?? Post::commonHashtagIds($posts), $ownIds);
         }
 
         return response()->json(['status' => true, 'message' => 'Группа сохранена']);
@@ -1042,7 +1111,8 @@ class PostController extends Controller
 
     /**
      * Посты, которые можно добавить в группу — список для окна "Добавить посты" (post-group.js): того же вида,
-     * что и группа (изображения или тексты), и ещё не в группе. Поиск по названию, хештегу и тексту, ?page=N
+     * что и группа (изображения или тексты), и ещё не в группе; в группу изображений — без текста или с тем же
+     * текстом, что у группы. Поиск по названию, хештегу и тексту, ?page=N
      *
      * @param Request $request
      * @param int $groupId
@@ -1050,11 +1120,14 @@ class PostController extends Controller
      */
     public function groupCandidates(Request $request, $groupId)
     {
-        $kind = $this->groupKind($this->groupPosts($groupId));
+        $groupPosts = $this->groupPosts($groupId);
+        $kind = $this->groupKind($groupPosts);
+        // у группы изображений текст общий — посты со своим, другим текстом не предлагаем (resolvePictureGroupText())
+        $groupText = $kind === Post::TYPE_PICTURE ? $this->resolvePictureGroupText($groupPosts, collect())[0] : '';
         $search = ltrim(trim((string) $request->get('q', '')), '#');
 
         $candidates = Post::where('user_id', auth()->id())
-            ->where('type', $kind)
+            ->whereIn('type', $this->groupKindTypes($kind))
             ->whereNull('group_id')
             ->when($search !== '', function ($q) use ($search) {
                 $like = '%' . addcslashes($search, '%_\\') . '%';
@@ -1067,10 +1140,15 @@ class PostController extends Controller
                 });
             })
             ->orderByDesc('id')
-            ->simplePaginate(40, ['id', 'title', 'content', 'small_image', 'medium_image', 'original_image', 'video']);
+            ->simplePaginate(40, ['id', 'type', 'title', 'content', 'small_image', 'medium_image', 'original_image', 'video']);
+
+        $items = collect($candidates->items())->filter(function (Post $candidate) use ($kind, $groupText) {
+            return $candidate->groupKind() === $kind
+                && ($groupText === '' || $this->postPlainText($candidate->content) === '' || $this->isSamePostText($groupText, $candidate->content));
+        });
 
         return response()->json([
-            'items' => collect($candidates->items())->map(function (Post $candidate) {
+            'items' => $items->map(function (Post $candidate) {
                 $cover = $this->resolveCoverImagePath($candidate);
                 $text = trim(html_entity_decode(strip_tags((string)$candidate->content), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
@@ -1102,31 +1180,114 @@ class PostController extends Controller
         ]);
 
         $posts = $this->groupPosts($groupId);
-        $head = $posts->first();
+        $kind = $this->groupKind($posts);
 
         $added = Post::where('user_id', auth()->id())
             ->whereIn('id', $data['ids'])
-            ->where('type', $this->groupKind($posts))
+            ->whereIn('type', $this->groupKindTypes($kind))
             ->whereNull('group_id')
             ->with('hashtags:id')
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->filter(fn (Post $post) => $post->groupKind() === $kind)
+            ->values();
 
-        $this->addPostsToGroup($posts, $added, $groupId);
+        // у группы изображений текст общий: пост со своим, другим текстом не добавляем — его текст пропал бы
+        $skipped = 0;
+        $groupText = '';
+        if ($kind === Post::TYPE_PICTURE) {
+            [$groupText, $added, $rejected] = $this->resolvePictureGroupText($posts, $added);
+            $skipped = $rejected->count();
+        }
 
-        return response()->json(['attached' => $added->count()]);
+        $this->addPostsToGroup($posts, $added, $groupId, Post::commonHashtagIds($posts));
+        if ($groupText !== '') {
+            $this->applyPictureGroupText($posts->pluck('id')->concat($added->pluck('id'))->all(), $groupText);
+        }
+
+        return response()->json(['attached' => $added->count(), 'skipped' => $skipped]);
+    }
+
+    /**
+     * Типы постов, которые могут быть в группе этого вида (для выборки; точнее — Post::groupKind())
+     *
+     * @param string $kind Post::TYPE_PICTURE или Post::TYPE_TEXT
+     * @return string[]
+     */
+    private function groupKindTypes(string $kind): array
+    {
+        return $kind === Post::TYPE_TEXT
+            ? [Post::TYPE_TEXT]
+            : [Post::TYPE_PICTURE, Post::TYPE_TEXT_PICTURE, Post::TYPE_NEWS];
+    }
+
+    /**
+     * Текст группы изображений общий (Post::groupKind()): у каждого её поста он один и тот же. Определяет его
+     * по постам группы и добавляемым: пустой текст ничему не мешает, первый непустой становится текстом группы,
+     * а пост с другим текстом в группу не берём — иначе его текст пропал бы
+     *
+     * @param \Illuminate\Support\Collection $members посты группы (у новой группы — её первый пост)
+     * @param \Illuminate\Support\Collection $added добавляемые посты
+     * @return array [string $text ('' — текста у группы нет), Collection $accepted, Collection $rejected]
+     */
+    private function resolvePictureGroupText($members, $added): array
+    {
+        $text = '';
+        foreach ($members as $member) {
+            if ($this->postPlainText($member->content) !== '') {
+                $text = (string)$member->content;
+                break;
+            }
+        }
+
+        $accepted = collect();
+        $rejected = collect();
+        foreach ($added as $post) {
+            $own = $this->postPlainText($post->content);
+            if ($own !== '' && $text !== '' && !$this->isSamePostText($text, $post->content)) {
+                $rejected->push($post);
+                continue;
+            }
+            if ($text === '' && $own !== '') {
+                $text = (string)$post->content;
+            }
+            $accepted->push($post);
+        }
+
+        return [$text, $accepted, $rejected];
+    }
+
+    /**
+     * Ставит текст группы изображений всем её постам, у которых он не такой (пустой или иначе размечен).
+     * Через свежие модели и save(): тип поста по содержимому пересчитывается (Post::booted) — картинка с текстом
+     * становится "Текст + Изображение"
+     *
+     * @param int[] $postIds
+     * @param string $text
+     * @return void
+     */
+    private function applyPictureGroupText(array $postIds, string $text): void
+    {
+        Post::where('user_id', auth()->id())->whereIn('id', $postIds)->get()->each(function (Post $post) use ($text) {
+            if ((string)$post->content !== $text) {
+                $post->content = $text;
+                $post->save();
+            }
+        });
     }
 
     /**
      * Кладёт посты в конец группы: название и категория у них становятся как у первого поста группы,
-     * а хештеги объединяются — и у прежних постов группы, и у новых остаётся один общий набор
+     * общие хештеги группы ($commonHashtagIds) добавляются к их хештегам, а их прежние хештеги остаются
+     * у них собственными. У прежних постов группы хештеги не меняются
      *
-     * @param \Illuminate\Database\Eloquent\Collection $members посты группы по порядку, с hashtags
-     * @param \Illuminate\Database\Eloquent\Collection $added новые посты, с hashtags
+     * @param \Illuminate\Database\Eloquent\Collection $members посты группы по порядку
+     * @param \Illuminate\Database\Eloquent\Collection $added новые посты
      * @param int $groupId
+     * @param int[] $commonHashtagIds общие хештеги группы; у новой группы — пусто
      * @return void
      */
-    private function addPostsToGroup($members, $added, $groupId): void
+    private function addPostsToGroup($members, $added, $groupId, array $commonHashtagIds): void
     {
         if ($added->isEmpty()) {
             return;
@@ -1139,15 +1300,18 @@ class PostController extends Controller
             $post->sort_order = ++$sortOrder;
             $post->title = (string)$head->title;
             $post->category_id = $head->category_id ?: 0;
+            // дата у группы общая, как название; у новой группы (первый пост без даты) — свою не теряем
+            if ($head->event_date) {
+                $post->event_date = $head->event_date;
+                $post->event_date_precision = $head->event_date_precision;
+            }
             // отметка "Использовано" у группы тоже общая
             $post->is_used = (bool)$head->is_used;
             $post->save();
-        }
 
-        $all = $members->concat($added);
-        $hashtagIds = $all->pluck('hashtags')->flatten()->pluck('id')->unique()->values()->all();
-        foreach ($all as $post) {
-            $post->hashtags()->sync($hashtagIds);
+            if ($commonHashtagIds) {
+                $post->hashtags()->syncWithoutDetaching($commonHashtagIds);
+            }
         }
     }
 
@@ -1172,11 +1336,12 @@ class PostController extends Controller
         $posts = Post::where('user_id', auth()->id())->whereIn('id', $data['ids'])->with('hashtags:id')->orderBy('id')->get();
 
         if ($posts->contains(fn (Post $post) => $post->groupKind() === null)) {
-            return $fail('Группировать можно только посты из одних изображений или из одного текста — уберите из выбора остальные');
+            return $fail('Группировать можно посты с картинками (в том числе с текстом) или посты из одного текста — фильмы, рецепты, одежду и новости без картинки уберите из выбора');
         }
-        if ($posts->pluck('type')->unique()->count() > 1) {
-            return $fail('Изображения и тексты группируются отдельно — выберите посты одного вида');
+        if ($posts->map(fn (Post $post) => $post->groupKind())->unique()->count() > 1) {
+            return $fail('Посты с картинками и посты из одного текста группируются отдельно — выберите посты одного вида');
         }
+        $kind = $posts->first()->groupKind();
 
         $groupIds = $posts->pluck('group_id')->filter()->unique()->values();
         if ($groupIds->count() > 1) {
@@ -1188,8 +1353,8 @@ class PostController extends Controller
             $members = Post::where('group_id', $groupId)->where('user_id', auth()->id())->with('hashtags:id')->orderBy('sort_order')->orderBy('id')->get();
             $added = $posts->whereNull('group_id')->values();
 
-            if ($this->groupKind($members) !== $posts->first()->type) {
-                return $fail('Группа другого вида: изображения и тексты группируются отдельно');
+            if ($this->groupKind($members) !== $kind) {
+                return $fail('Группа другого вида: посты с картинками и посты из одного текста группируются отдельно');
             }
             if ($added->isEmpty()) {
                 return $fail('Все выбранные посты уже в одной группе');
@@ -1199,18 +1364,33 @@ class PostController extends Controller
                 return $fail('Выберите хотя бы два поста');
             }
 
-            // группы отдельной таблицей не заводим — id первого поста и есть group_id
-            $head = $posts->first();
-            $groupId = $head->id;
-            $head->group_id = $groupId;
-            $head->sort_order = 0;
-            $head->save();
-
             $members = $posts->take(1);
             $added = $posts->slice(1)->values();
         }
 
-        $this->addPostsToGroup($members, $added, $groupId);
+        // у группы изображений текст общий: посты с разным текстом не объединяем — чей-то текст пропал бы
+        $groupText = '';
+        if ($kind === Post::TYPE_PICTURE) {
+            [$groupText, , $rejected] = $this->resolvePictureGroupText($members, $added);
+            if ($rejected->isNotEmpty()) {
+                return $fail('У выбранных постов разный текст, а у группы картинок текст общий. Уберите из выбора посты с другим текстом или сделайте текст одинаковым');
+            }
+        }
+
+        if ($groupIds->count() === 0) {
+            // группы отдельной таблицей не заводим — id первого поста и есть group_id
+            $head = $members->first();
+            $groupId = $head->id;
+            $head->group_id = $groupId;
+            $head->sort_order = 0;
+            $head->save();
+        }
+
+        // у новой группы общих хештегов заранее нет: общими сами станут те, что есть у всех её постов
+        $this->addPostsToGroup($members, $added, $groupId, $groupIds->count() === 1 ? Post::commonHashtagIds($members) : []);
+        if ($groupText !== '') {
+            $this->applyPictureGroupText($members->pluck('id')->concat($added->pluck('id'))->all(), $groupText);
+        }
 
         return response()->json([
             'status' => true,
@@ -1338,9 +1518,15 @@ class PostController extends Controller
             }
 
             $post = $this->newGroupPost($posts, auth()->id() . '_' . ($posts->first()->category_id ?: 0) . '_' . $saved['original_image']['name']);
+            // текст у группы изображений общий; у группы новостей и новый пост — новость
+            $post->content = $this->resolvePictureGroupText($posts, collect())[0];
+            if ($posts->first()->type === Post::TYPE_NEWS) {
+                $post->type = Post::TYPE_NEWS;
+            }
             // сохраняет пост и хеш картинки (поиск дубликатов)
             $this->attachSavedImageToPost($post, $saved);
-            $post->hashtags()->sync($posts->first()->hashtags->pluck('id')->all());
+            // новый пост группы получает её общие хештеги, собственных у него пока нет
+            $post->hashtags()->sync(Post::commonHashtagIds($posts));
 
             return response()->json([
                 'status' => true,
@@ -1395,13 +1581,14 @@ class PostController extends Controller
 
         $post = $this->newGroupPost($posts, auth()->id() . '_' . ($posts->first()->category_id ?: 0) . '_' . time());
         $post->save();
-        $post->hashtags()->sync($posts->first()->hashtags->pluck('id')->all());
+        // новый пост группы получает её общие хештеги, собственных у него пока нет
+        $post->hashtags()->sync(Post::commonHashtagIds($posts));
 
         return response()->json(['status' => true, 'html' => $this->renderGroupItem($post, $groupId, Post::TYPE_TEXT, $posts->count() + 1)]);
     }
 
     /**
-     * Заготовка нового поста в конце группы — с её общими названием и категорией; ещё не сохранена
+     * Заготовка нового поста в конце группы — с её общими названием, категорией и датой; ещё не сохранена
      *
      * @param \Illuminate\Database\Eloquent\Collection $posts посты группы (groupPosts())
      * @param string $alias
@@ -1417,6 +1604,8 @@ class PostController extends Controller
         $post->sort_order = (int)$posts->max('sort_order') + 1;
         $post->title = (string)$head->title;
         $post->category_id = $head->category_id ?: 0;
+        $post->event_date = $head->event_date;
+        $post->event_date_precision = $head->event_date_precision;
         $post->is_used = (bool)$head->is_used;
         $post->alias = $this->freeAlias($alias);
 
@@ -1638,6 +1827,26 @@ class PostController extends Controller
 
         //dd($request);
 
+        // "Добавить тег" на карточке-стопке в "Все посты" (group_common=1): на ней показаны общие хештеги группы —
+        // их и меняем, собственные хештеги постов группы остаются. С отдельной карточки поста группы
+        // хештеги меняются ниже как обычно — только у этого поста (его собственные)
+        if (!empty($request->hashtags) && $request->boolean('group_common') && $post->group_id && $post->groupKind() !== null) {
+            $requestHashtags = json_decode($request->hashtags, true);
+            $commonIds = Hashtag::where('user_id', auth()->id())
+                ->whereIn('id', is_array($requestHashtags) ? array_keys($requestHashtags) : [])
+                ->pluck('id')
+                ->all();
+            $members = Post::where('group_id', $post->group_id)->where('user_id', auth()->id())->with('hashtags:id')->get();
+            Post::syncGroupHashtags($members, $commonIds);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Хештеги группы обновлены',
+                'type' => $post->type,
+                'type_label' => $post->typeLabel(),
+            ]);
+        }
+
         if (!empty($request->hashtags)) {
 
             //dd($request->hashtags);
@@ -1696,6 +1905,11 @@ class PostController extends Controller
                 : null;
         }
 
+        // дата пина (поле "Дата"); пусто — даты нет. Не дата — ничего не сохраняем, а говорим об этом
+        if ($request->has('event_date') && !$post->setEventDateFromInput($request->input('event_date'))) {
+            return response()->json(['status' => false, 'message' => self::EVENT_DATE_ERROR, 'errors' => self::EVENT_DATE_ERROR]);
+        }
+
         // Добавление/замена/переименование/удаление изображений поста больше не идёт через
         // этот общий save — теперь это отдельные немедленные AJAX-действия панели
         // "Изображения поста" (см. PostController::addImage(), ::renameImage(), ::deletePostFile()).
@@ -1731,17 +1945,6 @@ class PostController extends Controller
                 $this->removeHashtagsFromPost($post->id, $deleteHashtags);
             }
 
-            // у группы хештеги общие (страница группы): тег, добавленный или снятый у одного её поста
-            // (например, "Добавить тег" на "Все посты"), получают и остальные
-            if ($post->group_id && $post->groupKind() !== null && (!empty($addHashtags) || !empty($deleteHashtags))) {
-                $ownHashtagIds = fn (array $ids) => Hashtag::where('user_id', auth()->id())->whereIn('id', $ids)->pluck('id')->all();
-                $siblings = Post::where('group_id', $post->group_id)->where('user_id', auth()->id())->where('id', '!=', $post->id)->get();
-                foreach ($siblings as $sibling) {
-                    $sibling->hashtags()->syncWithoutDetaching($ownHashtagIds($addHashtags));
-                    $sibling->hashtags()->detach($ownHashtagIds($deleteHashtags));
-                }
-            }
-
             return response()->json([
                 'status' => true,
                 'message' => 'Пост был успешно обновлен',
@@ -1757,8 +1960,9 @@ class PostController extends Controller
 
     /**
      * Добавляет хештеги сразу нескольким постам — режим "Выбрать" на "Все посты" (/admin/posts-bulk.js).
-     * Только добавляет: хештеги, которые у постов уже есть, остаются. У постов из групп хештеги общие,
-     * поэтому их получает вся группа, даже если выбрали один её пост
+     * Только добавляет: хештеги, которые у постов уже есть, остаются. Отмеченная карточка-стопка — это вся
+     * группа (её id приходит в group_ids): хештеги получают все её посты, то есть они становятся общими.
+     * Отмеченная отдельная карточка поста группы (снята галочка "Свернуть группы") — хештеги только этому посту
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -1768,6 +1972,8 @@ class PostController extends Controller
         $data = $request->validate([
             'ids' => ['required', 'array', 'max:2000'],
             'ids.*' => ['integer'],
+            'group_ids' => ['nullable', 'array', 'max:2000'],
+            'group_ids.*' => ['integer'],
             // как на форме поста: JSON {id: название}
             'hashtags' => ['required', 'string'],
         ]);
@@ -1783,7 +1989,10 @@ class PostController extends Controller
 
         $posts = Post::where('user_id', auth()->id())->whereIn('id', $data['ids'])->get(['id', 'type', 'group_id']);
 
-        $groupIds = $posts->filter(fn (Post $post) => $post->group_id && $post->groupKind() !== null)->pluck('group_id')->unique();
+        $stackGroupIds = array_map('intval', $data['group_ids'] ?? []);
+        $groupIds = $posts->filter(fn (Post $post) => $post->group_id && $post->groupKind() !== null && in_array((int)$post->group_id, $stackGroupIds, true))
+            ->pluck('group_id')
+            ->unique();
         if ($groupIds->isNotEmpty()) {
             $posts = $posts->concat(
                 Post::where('user_id', auth()->id())->whereIn('group_id', $groupIds)->whereNotIn('id', $posts->pluck('id'))->get(['id', 'type', 'group_id'])
@@ -2113,6 +2322,10 @@ class PostController extends Controller
         // "это не дубликат, добавить всё равно" при повторной отправке формы
         // (см. PostController::store() и JS-обработчик #creationform)
         $forceDuplicateKeys = json_decode($request->force_duplicate_keys ?? '[]', true) ?: [];
+        // картинки, про которые при загрузке сказали "это разные" с похожей картинкой этой же формы (окно
+        // #modal-form-duplicate, admin.js): иначе вторая из них споткнулась бы о первую, уже сохранённую в пост
+        // этой же отправки. С картинками постов, что были до неё, их уже сравнил findDuplicatesBeforeCreate()
+        $forceDuplicateKeys = array_merge($forceDuplicateKeys, json_decode($request->form_distinct_keys ?? '[]', true) ?: []);
         // {image_name: {post_id, image_name}} — у этих картинок лучшая копия идёт в новый пост,
         // а старую копию из другого поста удаляем, когда новый пост сохранён (окно сравнения
         // дубликатов в режиме карусели, см. admin.js)
@@ -2130,6 +2343,9 @@ class PostController extends Controller
         if (in_array($request->input('pin_type'), Post::MANUAL_TYPES, true)) {
             $new_post->type = $request->input('pin_type');
         }
+
+        // дата пина — одна на все посты этой отправки формы (проверена в store())
+        $new_post->setEventDateFromInput($request->input('event_date'));
 
         if ($groupId !== null) {
             $new_post->group_id = $groupId;
@@ -2436,6 +2652,14 @@ class PostController extends Controller
             //dd($parser);
             //$parser = new SweetTvParser($request->link);
             $result = $parser->parse();
+
+            // дата публикации страницы — форма подставит её в поле "Дата" пина (event-date.js)
+            if (is_array($result) && empty($result['published_date'])) {
+                $publishedDate = $parser->getPublishedDate();
+                if ($publishedDate !== null) {
+                    $result['published_date'] = $publishedDate;
+                }
+            }
         }
 
         return $result;
@@ -3104,7 +3328,7 @@ class PostController extends Controller
                 'image_key' => $image['image_name'],
                 'staged_image' => $image,
                 'new_image' => [
-                    'thumbnail_url' => '/storage/' . ($image['m_image_path'] ?? $image['image_path']),
+                    'thumbnail_url' => '/storage/' . $this->stagedPreviewPath($image),
                     'width' => $found['width'],
                     'height' => $found['height'],
                     'file_size' => $found['file_size'],
@@ -3159,6 +3383,29 @@ class PostController extends Controller
         };
 
         return $normalize($a) === $normalize($b);
+    }
+
+    /**
+     * Путь (от корня storage) к превью картинки с формы создания: её средняя копия, если есть, иначе оригинал.
+     * m_image_path — не файл, а папка копии ("temp_directory/1/", у спарсенных — без слеша), сам файл —
+     * "<папка>/<m_image_name>.<image_extension>"; средней копии нет у картинок меньше 800×800
+     *
+     * @param array $image элемент images формы создания
+     * @return string
+     */
+    private function stagedPreviewPath(array $image): string
+    {
+        // имя приходит с фронтенда — без папок и "..", как и image_name в isOwnStagedImage()
+        $safeName = fn ($name) => !preg_match('/[\/\\\\]|\.\./', (string)$name);
+        if (!empty($image['m_image_path']) && !empty($image['m_image_name']) && !empty($image['image_extension'])
+            && $safeName($image['m_image_name']) && $safeName($image['image_extension'])) {
+            $mediumPath = rtrim((string)$image['m_image_path'], '/') . '/' . $image['m_image_name'] . '.' . $image['image_extension'];
+            if (Storage::exists($mediumPath)) {
+                return $mediumPath;
+            }
+        }
+
+        return (string)$image['image_path'];
     }
 
     /**

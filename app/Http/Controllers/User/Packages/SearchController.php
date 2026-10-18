@@ -121,33 +121,68 @@ class SearchController extends Controller
      */
     public function searchPostsByHashtags(Request $request)
     {
+        // период по дате пина (блок "Период" в поп-апе поиска) — искать можно и по нему одному, без хештегов
+        $requestPeriod = $this->periodFromRequest($request);
+        // новый поиск (хештеги или период пришли в запросе), а не следующая страница уже начатого (всё — из сессии)
+        $isNewSearch = $request->ajax() && (!empty($request->hashtags) || $requestPeriod !== null);
+        $period = null;
+
         //TODO
-        if ($request->ajax() && !empty($request->hashtags)) {
-            $hashtags = $request->hashtags;
+        if ($isNewSearch) {
+            $hashtags = $request->hashtags ?? [];
             $excludeHashtags = $request->excludeHashtags ?? [];
+            $period = $requestPeriod;
             session(['hashtags' => $hashtags]);
             session(['excludeHashtags' => $excludeHashtags]);
+            session(['searchPeriod' => $period]);
         } elseif ($request->session()->has('hashtags')) {
             $hashtags = session('hashtags');
             $excludeHashtags = session('excludeHashtags', []);
+            $period = session('searchPeriod');
         }
 
-        if (!empty($hashtags)) {
+        if (!empty($hashtags) || $period !== null) {
 
             $user = auth()->user();
 
-            $hashtagsIds = array_keys($hashtags);
+            $hashtagsIds = array_keys($hashtags ?: []);
             $excludeHashtagsIds = !empty($excludeHashtags) ? array_keys($excludeHashtags) : [];
 
-            // группа — одна карточка-стопка, как в ленте "Все посты" (хештеги у группы общие); снята галочка
-            // "Свернуть группы" — как и в ленте, посты групп отдельными карточками
+            // группа — одна карточка-стопка, как в ленте "Все посты"; снята галочка "Свернуть группы" — как и
+            // в ленте, посты групп отдельными карточками
             $groupsExpanded = Post::feedGroupsExpanded();
-            $posts = $this->buildHashtagFilteredPostsQuery($hashtagsIds, $excludeHashtagsIds, $user->id)
-                ->when(!$groupsExpanded, function ($q) use ($user) {
-                    $q->collapsedGroups((int)$user->id);
-                })
+            // группы развёрнуты самим поиском — admin.js снимет галочку "Свернуть группы" (заголовок X-Groups-Expanded)
+            $expandedBySearch = false;
+            $query = $this->buildHashtagFilteredPostsQuery($hashtagsIds, $excludeHashtagsIds, $user->id);
+            $this->applyPeriod($query, $period);
+            if (!$groupsExpanded) {
+                $matched = (clone $query)->get(['id', 'group_id']);
+
+                if ($isNewSearch && $this->hasPartlyMatchedGroups($matched, (int)$user->id)) {
+                    // в какой-то группе нашлись не все посты — значит, по их собственным хештегам: показываем
+                    // только найденные посты, отдельными карточками, а не всю группу стопкой. Следующие страницы
+                    // идут уже без стопок — по cookie, которую ставит admin.js вместе с галочкой
+                    $groupsExpanded = $expandedBySearch = true;
+                } else {
+                    // все найденные группы подошли целиком (по общим хештегам) — каждая одной стопкой, своим
+                    // первым постом. Сюда же попадают следующие страницы поиска, если галочку после него отметили снова
+                    $headIds = Post::groupHeadIdsByGroup((int)$user->id);
+                    $ids = $matched
+                        ->map(fn (Post $post) => $post->group_id && isset($headIds[$post->group_id]) ? $headIds[$post->group_id] : $post->id)
+                        ->unique()
+                        ->values()
+                        ->all();
+                    $query = Post::where('user_id', $user->id)->whereIn('id', $ids);
+                }
+            }
+            $posts = $query
                 ->with(['hashtags', 'film', 'wardrobeItems:id,post_id', 'filmPost:id,title'])
-                ->latest()
+                // с периодом — по дате пина (новые даты выше), без него — как раньше, по дате добавления
+                ->when($period !== null, function ($q) {
+                    $q->orderByDesc('posts.event_date')->orderByDesc('posts.id');
+                }, function ($q) {
+                    $q->latest();
+                })
                 ->paginate(20);
 
 //            $posts = Post::whereHas('hashtags', function($q) use ($hashtagsIds) {
@@ -170,20 +205,94 @@ class SearchController extends Controller
             }
             if (!$groupsExpanded) {
                 Post::fillGroupCounts($posts);
+                // на стопке — только общие хештеги группы, без собственных хештегов её первого поста
+                Post::fillGroupCommonHashtags($posts);
+            } else {
+                // отдельные карточки постов групп: собственные хештеги — другим цветом
+                Post::fillGroupOwnHashtagIds($posts);
             }
 
-            if ($request->ajax()) {
-                return view('user.posts.parts.post_items', [
-                    'posts' => $posts,
-                ]);
-            }
-
-            return view('user.posts.parts.post_items', [
+            $response = response()->view('user.posts.parts.post_items', [
                 'posts' => $posts,
             ]);
+
+            return $expandedBySearch ? $response->header('X-Groups-Expanded', '1') : $response;
         }
 
         return response()->json(['status' => false]);
+    }
+
+    /**
+     * Период поиска по дате пина из запроса (блок "Период" в поп-апе поиска): date_from / date_to ('Y-m-d',
+     * любой можно не задавать) или on_this_day ('MM-DD' — "в этот день" в любом году)
+     *
+     * @param Request $request
+     * @return array|null ['from' => ?string, 'to' => ?string, 'day' => ?string]; null — период не задан
+     */
+    private function periodFromRequest(Request $request): ?array
+    {
+        $date = function ($value): ?string {
+            return is_string($value) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1])
+                ? $value
+                : null;
+        };
+
+        $day = $request->input('on_this_day');
+        if (is_string($day) && preg_match('/^(\d{2})-(\d{2})$/', $day, $m) && checkdate((int)$m[1], (int)$m[2], 2000)) {
+            return ['from' => null, 'to' => null, 'day' => $day];
+        }
+
+        $from = $date($request->input('date_from'));
+        $to = $date($request->input('date_to'));
+        if ($from && $to && $from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return $from || $to ? ['from' => $from, 'to' => $to, 'day' => null] : null;
+    }
+
+    /**
+     * Условие периода по дате пина (см. periodFromRequest()) — Post::scopeEventDateBetween / scopeEventDateOnDay
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param array|null $period
+     * @return void
+     */
+    private function applyPeriod($query, ?array $period): void
+    {
+        if ($period === null) {
+            return;
+        }
+        if (!empty($period['day'])) {
+            [$month, $day] = array_map('intval', explode('-', $period['day']));
+            $query->eventDateOnDay($month, $day);
+            return;
+        }
+        $query->eventDateBetween($period['from'] ?? null, $period['to'] ?? null);
+    }
+
+    /**
+     * Есть ли среди найденных постов группа, найденная не целиком — то есть по собственным хештегам её постов,
+     * а не по общим (общие есть у всех постов группы)
+     *
+     * @param \Illuminate\Support\Collection $matched найденные посты (id, group_id)
+     * @param int $userId
+     * @return bool
+     */
+    private function hasPartlyMatchedGroups($matched, int $userId): bool
+    {
+        $matchedByGroup = $matched->whereNotNull('group_id')->countBy('group_id');
+        if ($matchedByGroup->isEmpty()) {
+            return false;
+        }
+
+        $sizes = Post::whereIn('group_id', $matchedByGroup->keys())
+            ->where('user_id', $userId)
+            ->selectRaw('group_id, count(*) as total')
+            ->groupBy('group_id')
+            ->pluck('total', 'group_id');
+
+        return $matchedByGroup->contains(fn ($count, $groupId) => $count < (int)($sizes[$groupId] ?? 0));
     }
 
     /**
@@ -304,17 +413,20 @@ class SearchController extends Controller
     {
         $hashtags = session('hashtags');
         $excludeHashtags = session('excludeHashtags', []);
+        $period = session('searchPeriod');
 
-        if (empty($hashtags)) {
+        if (empty($hashtags) && $period === null) {
             return redirect()->route('posts.index')->with('errors', 'Сначала выполните поиск по хештегам — экспортируются картинки из результатов поиска.');
         }
 
         $user = auth()->user();
-        $hashtagsIds = array_keys($hashtags);
+        $hashtagsIds = array_keys($hashtags ?: []);
         $excludeHashtagsIds = !empty($excludeHashtags) ? array_keys($excludeHashtags) : [];
 
-        $posts = $this->buildHashtagFilteredPostsQuery($hashtagsIds, $excludeHashtagsIds, $user->id)
-            ->get(['id', 'original_image']);
+        $query = $this->buildHashtagFilteredPostsQuery($hashtagsIds, $excludeHashtagsIds, $user->id);
+        // тот же период, что у поиска на экране
+        $this->applyPeriod($query, $period);
+        $posts = $query->get(['id', 'original_image']);
 
         if ($posts->isEmpty()) {
             return redirect()->route('posts.index')->with('errors', 'По текущему поиску не найдено ни одного поста.');

@@ -7,7 +7,11 @@
      @param string           $kind      Post::TYPE_PICTURE или Post::TYPE_TEXT
      @param int              $position  номер по порядку, с 1 (показываем только у текстов)
      @param bool             $editing   группа текстов: true — редактор текста и кнопки "убрать/удалить",
-                                        false — просмотр: текст только читают, карточку можно перетащить --}}
+                                        false — просмотр: текст только читают, карточку можно перетащить
+
+     Под картинкой / текстом — собственные хештеги поста (в дополнение к общим хештегам группы): $post->own_hashtags
+     (PostController::showGroup()); у только что добавленного поста их нет. Добавляют и убирают их в post-group.js,
+     сохраняет кнопка "Сохранить" (PostController::updateGroup, own_hashtags) --}}
 @php $isText = $kind === \App\Models\Post::TYPE_TEXT; @endphp
 <li class="b-post-group__item {{ $isText ? 'b-post-group__item--text' : 'b-post-group__item--picture' }} {{ $isText && !$editing ? 'b-post-group__item--view' : '' }} js-post-group-item" id="post-{{ $post->id }}" data-id="{{ $post->id }}">
     @if ($isText)
@@ -33,7 +37,10 @@
         @else
             <div class="b-post-group__empty-text">Текста пока нет</div>
         @endif
+        @include('user.posts.parts.group_item_own_tags')
     @else
+        {{-- сама плитка 170×170; под ней — собственные хештеги поста --}}
+        <div class="b-post-group__tile">
         @if ($post->video_url)
             <a href="{{ $post->video_url }}" data-fancybox="post-group" class="b-post-group__media">
                 <video src="{{ $post->video_url }}" preload="metadata" muted></video>
@@ -74,5 +81,7 @@
                 @endforeach
             </span>
         @endif
+        </div>
+        @include('user.posts.parts.group_item_own_tags')
     @endif
 </li>

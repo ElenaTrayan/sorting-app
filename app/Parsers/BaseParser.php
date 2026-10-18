@@ -114,4 +114,50 @@ abstract class BaseParser
         return trim($title);
     }
 
+    /**
+     * Дата публикации страницы — для поля "Дата" пина (PostController::getParsedPostInfo, event-date.js).
+     * Ищем там, где её указывают новостные сайты: <meta property="article:published_time">, itemprop="datePublished",
+     * JSON-LD (datePublished), <time datetime> в статье
+     *
+     * @return string|null 'Y-m-d'; null — страница не загружена или даты нет
+     */
+    public function getPublishedDate(): ?string
+    {
+        if (!$this->dom instanceof \DOMDocument) {
+            return null;
+        }
+
+        $candidates = [];
+        $xpath = new \DOMXPath($this->dom);
+
+        foreach ($xpath->query('//meta[@property="article:published_time" or @property="og:published_time"'
+            . ' or @name="article:published_time" or @name="pubdate" or @name="publish-date" or @itemprop="datePublished"]') as $meta) {
+            $candidates[] = $meta->getAttribute('content');
+        }
+        foreach ($xpath->query('//*[@itemprop="datePublished" and not(self::meta)]') as $element) {
+            $candidates[] = $element->getAttribute('datetime') ?: $element->getAttribute('content') ?: $element->textContent;
+        }
+        foreach ($xpath->query('//script[@type="application/ld+json"]') as $script) {
+            $json = json_decode(trim($script->textContent), true);
+            if (is_array($json)) {
+                array_walk_recursive($json, function ($value, $key) use (&$candidates) {
+                    if ($key === 'datePublished' && is_string($value)) {
+                        $candidates[] = $value;
+                    }
+                });
+            }
+        }
+        foreach ($xpath->query('//article//time[@datetime]') as $time) {
+            $candidates[] = $time->getAttribute('datetime');
+        }
+
+        foreach ($candidates as $candidate) {
+            if (preg_match('/^\s*(\d{4})-(\d{2})-(\d{2})/', (string)$candidate, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
+                return $m[1] . '-' . $m[2] . '-' . $m[3];
+            }
+        }
+
+        return null;
+    }
+
 }

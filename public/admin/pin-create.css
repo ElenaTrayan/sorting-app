@@ -983,6 +983,47 @@
 .b-suggested-tags .tag:hover {
     opacity: 1;
 }
+/* поле "Дата" пина (parts/event_date_field.blade.php, event-date.js) */
+.b-event-date__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.b-event-date__input {
+    max-width: 260px;
+}
+.b-event-date__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f7a54;
+    white-space: nowrap;
+}
+.b-event-date__label.is-error {
+    color: #c0392b;
+}
+.b-event-date__source {
+    font-size: 12px;
+    color: #1f7a54;
+}
+.b-event-date__source.is-warning {
+    color: #b26a00;
+}
+
+/* связанные подсказки сверх первых 10 — по кнопке "ещё N" (admin.js, refreshRelatedSuggestions) */
+.b-suggested-tags__more {
+    align-self: center;
+    padding: 3px 10px;
+    border: 0;
+    border-radius: 12px;
+    background: #eef0fe;
+    color: #7367f0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.b-suggested-tags__more:hover {
+    background: #e2e5fd;
+}
 
 /* ===== Окно сравнения с постом, где уже есть такая же картинка (#modal-duplicate-merge, admin.js askAboutDuplicate) ===== */
 .b-dup-merge .modal-content {

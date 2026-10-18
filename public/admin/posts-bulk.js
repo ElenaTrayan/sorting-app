@@ -3,7 +3,7 @@
 // Действия:
 //  - "Добавить хештеги" — то же окно #modal-add-hashtag, что и у "Добавить тег" в меню карточки (блок хештегов
 //    в нём обслуживает admin.js), но хештеги получают все отмеченные посты (PostController::bulkAddHashtags;
-//    он только добавляет — прежние хештеги постов остаются);
+//    он только добавляет — прежние хештеги постов остаются); отмеченная стопка — вся группа (общие хештеги);
 //  - "Сгруппировать" — новая группа из отмеченных или добавление в группу, посты которой есть среди них
 //    (bulkGroup; что можно группировать, проверяет сервер), после — страница группы;
 //  - "Сменить категорию" — одна категория всем отмеченным (bulkSetCategory);
@@ -171,15 +171,20 @@
                 $item.append($footer);
             }
         }
+        // отдельная карточка поста группы получает хештеги только себе — это его собственные, другим цветом
+        var isGroupPostCard = $item.is('[data-group-id]') && !$item.hasClass('grid-item--stack');
         hashtags.forEach(function (hashtag) {
             if ($tags.find('li[data-id="' + hashtag.id + '"]').length) {
                 return;
             }
-            $('<li></li>')
+            var $li = $('<li></li>')
                 .attr('data-id', hashtag.id)
                 .attr('data-title', hashtag.title)
                 .append($('<a rel="tag" href="#"></a>').text('#' + hashtag.title))
                 .appendTo($tags);
+            if (isGroupPostCard) {
+                $li.addClass('tags__own').attr('title', 'Хештег только этого поста группы');
+            }
         });
     }
 
@@ -203,7 +208,15 @@
             url: bar.dataset.hashtagsAction,
             type: 'POST',
             headers: csrfHeaders,
-            data: {ids: selectedIds(), hashtags: JSON.stringify(hashtags)},
+            data: {
+                ids: selectedIds(),
+                // отмеченные стопки — вся группа: хештеги получат все её посты (станут общими); отдельная карточка
+                // поста группы — только этот пост (PostController::bulkAddHashtags)
+                group_ids: selectedGroups().map(function (group) {
+                    return group.id;
+                }),
+                hashtags: JSON.stringify(hashtags),
+            },
         })
             .done(function (response) {
                 response.post_ids.forEach(function (id) {

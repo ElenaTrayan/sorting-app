@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -34,10 +35,12 @@ class Post extends Model
     public const TYPE_RECIPE = 'recipe';
     // одежда, обувь, аксессуары — такой пин можно добавить в "Мой гардероб" (wardrobe_items.post_id)
     public const TYPE_CLOTHES = 'clothes';
+    // новость — своих полей нет, главное у неё — дата (event_date, она есть у пина любого типа)
+    public const TYPE_NEWS = 'news';
 
     public const CONTENT_TYPES = [self::TYPE_TEXT_PICTURE, self::TYPE_PICTURE, self::TYPE_TEXT];
     // выбираются вручную — по содержимому не пересчитываются
-    public const MANUAL_TYPES = [self::TYPE_FILM, self::TYPE_RECIPE, self::TYPE_CLOTHES];
+    public const MANUAL_TYPES = [self::TYPE_FILM, self::TYPE_RECIPE, self::TYPE_CLOTHES, self::TYPE_NEWS];
 
     public const TYPE_LABELS = [
         self::TYPE_TEXT_PICTURE => 'Текст + Изображение',
@@ -46,7 +49,19 @@ class Post extends Model
         self::TYPE_FILM => 'Фильм / Сериал',
         self::TYPE_RECIPE => 'Рецепт',
         self::TYPE_CLOTHES => 'Одежда',
+        self::TYPE_NEWS => 'Новость',
     ];
+
+    // Дата пина (event_date) — когда это было: день новости, день съёмки фото и т.п. Если известны только месяц
+    // или год, в event_date — первый день месяца/года, а точность — в event_date_precision
+    public const DATE_DAY = 'day';
+    public const DATE_MONTH = 'month';
+    public const DATE_YEAR = 'year';
+
+    // месяцы для разбора даты, введённой словами ("12 марта 2024", "март 2024") — по началу слова
+    private const MONTH_STEMS = ['янв', 'фев', 'мар', 'апр', 'ма', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    private const MONTHS_NOMINATIVE = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+    private const MONTHS_GENITIVE = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
     // материалы фильма — посты, прикреплённые к пину "Фильм / Сериал" (film_post_id), и их разделы в блоке
     // "Материалы" на странице фильма. Кадр/промо выбирают при прикреплении (film_material_kind),
@@ -93,6 +108,8 @@ class Post extends Model
         'palette' => 'array',
         // палитру поправили вручную (PostController::updatePalette) — см. booted()
         'palette_edited' => 'boolean',
+        // дата пина, см. DATE_* и setEventDateFromInput()
+        'event_date' => 'date',
     ];
 
     protected static function booted()
@@ -167,15 +184,30 @@ class Post extends Model
     }
 
     /**
-     * Вид группы, в которую можно положить этот пост. Группируются только посты "Изображение" и только посты
-     * "Текст" (между собой не смешиваются): у группы общие название, категория и хештеги, у текстов — ещё
-     * и свой текст у каждого поста. Пост с текстом и картинкой, фильм, рецепт, одежда — не группируются
+     * Вид группы, в которую можно положить этот пост. Группы бывают двух видов, между собой не смешиваются:
+     *  - изображения (TYPE_PICTURE) — посты с картинкой или видео: "Изображение", "Текст + Изображение" и
+     *    "Новость" с картинкой. Текст у такой группы общий (как название): у каждого её поста в content лежит
+     *    один и тот же текст группы, правят его на странице группы (PostController::updateGroup);
+     *  - тексты (TYPE_TEXT) — посты "Текст", у каждого свой текст.
+     * Фильм, рецепт, одежда и новость без картинки не группируются
      *
      * @return string|null TYPE_PICTURE, TYPE_TEXT или null — группировать нельзя
      */
     public function groupKind(): ?string
     {
-        return in_array($this->type, [self::TYPE_PICTURE, self::TYPE_TEXT], true) ? $this->type : null;
+        if ($this->type === self::TYPE_TEXT) {
+            return self::TYPE_TEXT;
+        }
+        if (in_array($this->type, [self::TYPE_PICTURE, self::TYPE_TEXT_PICTURE], true)) {
+            return self::TYPE_PICTURE;
+        }
+        // новость уже в группе — значит, с картинкой её туда и пустили; group_id проверяем первым: местами посты
+        // загружают без колонок картинок (только id, type, group_id), и detectContentType() их бы не увидел
+        if ($this->type === self::TYPE_NEWS && ($this->group_id || $this->detectContentType() !== self::TYPE_TEXT)) {
+            return self::TYPE_PICTURE;
+        }
+
+        return null;
     }
 
     // cookie галочки "Свернуть группы" в ленте (posts/index.blade.php, admin.js): "1" — галочка снята, посты групп
@@ -195,8 +227,9 @@ class Post extends Model
 
     /**
      * Лента, в которой группа — одна карточка: из постов группы остаётся только первый (по sort_order, как на
-     * странице группы), посты без группы — все. Остальные условия запроса (хештеги, тип...) проверяются
-     * у этого первого поста: название, категория и хештеги у группы общие. Сколько постов в группе —
+     * странице группы), посты без группы — все. Остальные условия запроса (тип...) проверяются
+     * у этого первого поста: название и категория у группы общие. Хештеги у постов группы бывают и собственные —
+     * поиск по хештегам находит группу по любому её посту сам (SearchController). Сколько постов в группе —
      * fillGroupCounts()
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
@@ -222,14 +255,149 @@ class Post extends Model
      */
     public static function groupHeadIds(int $userId): array
     {
+        return array_values(static::groupHeadIdsByGroup($userId));
+    }
+
+    /**
+     * То же, что groupHeadIds(), с ключами — id групп
+     *
+     * @param int $userId
+     * @return int[] [group_id => id первого поста]
+     */
+    public static function groupHeadIdsByGroup(int $userId): array
+    {
         return static::where('user_id', $userId)
             ->whereNotNull('group_id')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get(['id', 'group_id'])
             ->unique('group_id')
-            ->pluck('id')
+            ->pluck('id', 'group_id')
             ->all();
+    }
+
+    /**
+     * Общие хештеги группы — те, что есть у каждого её поста; остальные хештеги поста — его собственные.
+     * Отдельно общие нигде не хранятся: у каждого поста группы в hashtag_post лежат и общие, и собственные
+     *
+     * @param iterable $posts все посты группы, с загруженными hashtags
+     * @return int[]
+     */
+    public static function commonHashtagIds(iterable $posts): array
+    {
+        $common = null;
+        foreach ($posts as $post) {
+            $ids = $post->hashtags->pluck('id')->map(fn ($id) => (int)$id)->all();
+            $common = $common === null ? $ids : array_values(array_intersect($common, $ids));
+        }
+
+        return $common ?? [];
+    }
+
+    /**
+     * Хештеги постов группы: общие становятся $commonIds, собственные у каждого поста — из $ownIds
+     * (нет там поста — его собственные остаются прежними)
+     *
+     * @param iterable $posts все посты группы, с загруженными hashtags
+     * @param int[] $commonIds
+     * @param array $ownIds [post_id => int[]]
+     * @return void
+     */
+    public static function syncGroupHashtags(iterable $posts, array $commonIds, array $ownIds = []): void
+    {
+        $oldCommon = static::commonHashtagIds($posts);
+        foreach ($posts as $post) {
+            $own = array_key_exists($post->id, $ownIds)
+                ? $ownIds[$post->id]
+                : array_diff($post->hashtags->pluck('id')->all(), $oldCommon);
+            $post->hashtags()->sync(array_values(array_unique(array_map('intval', array_merge($commonIds, $own)))));
+        }
+    }
+
+    /**
+     * Карточкам-стопкам (после fillGroupCounts()) оставляет из загруженных hashtags только общие хештеги группы:
+     * у первого поста бывают и собственные, а стопка — это вся группа. Только для показа
+     *
+     * @param iterable $posts
+     * @return void
+     */
+    public static function fillGroupCommonHashtags(iterable $posts): void
+    {
+        $stacks = [];
+        foreach ($posts as $post) {
+            if ($post->group_id && isset($post->group_count) && $post->relationLoaded('hashtags')) {
+                $stacks[] = $post;
+            }
+        }
+        $common = static::commonHashtagIdsByGroup(array_map(fn ($post) => $post->group_id, $stacks));
+
+        foreach ($stacks as $post) {
+            $commonIds = $common[$post->group_id] ?? [];
+            $post->setRelation('hashtags', $post->hashtags->filter(fn ($hashtag) => in_array((int)$hashtag->id, $commonIds, true))->values());
+        }
+    }
+
+    /**
+     * Отдельным карточкам постов групп в ленте (снята галочка "Свернуть группы") проставляет own_hashtag_ids —
+     * какие из их хештегов собственные, не общие для группы: на карточке они другого цвета
+     * (parts/post_items.blade.php). Только для показа
+     *
+     * @param iterable $posts
+     * @return void
+     */
+    public static function fillGroupOwnHashtagIds(iterable $posts): void
+    {
+        $groupPosts = [];
+        foreach ($posts as $post) {
+            if ($post->group_id && !isset($post->group_count) && $post->relationLoaded('hashtags')) {
+                $groupPosts[] = $post;
+            }
+        }
+        $common = static::commonHashtagIdsByGroup(array_map(fn ($post) => $post->group_id, $groupPosts));
+
+        foreach ($groupPosts as $post) {
+            $commonIds = $common[$post->group_id] ?? [];
+            $post->own_hashtag_ids = $post->hashtags->pluck('id')->map(fn ($id) => (int)$id)->diff($commonIds)->values()->all();
+        }
+    }
+
+    /**
+     * Общие хештеги сразу нескольких групп пользователя — одним запросом: сколько постов группы помечено
+     * каждым хештегом, общий — тот, что у всех её постов (см. commonHashtagIds())
+     *
+     * @param int[] $groupIds
+     * @return array [group_id => int[]]
+     */
+    private static function commonHashtagIdsByGroup(array $groupIds): array
+    {
+        $groupIds = array_values(array_unique($groupIds));
+        if (!$groupIds) {
+            return [];
+        }
+
+        $sizes = static::whereIn('group_id', $groupIds)
+            ->where('user_id', auth()->id())
+            ->selectRaw('group_id, count(*) as total')
+            ->groupBy('group_id')
+            ->pluck('total', 'group_id');
+
+        $rows = DB::table('hashtag_post')
+            ->join('posts', 'posts.id', '=', 'hashtag_post.post_id')
+            ->whereIn('posts.group_id', $groupIds)
+            ->where('posts.user_id', auth()->id())
+            ->whereNull('posts.deleted_at')
+            ->selectRaw('posts.group_id, hashtag_post.hashtag_id, count(distinct posts.id) as total')
+            ->groupBy('posts.group_id', 'hashtag_post.hashtag_id')
+            ->get();
+
+        $common = [];
+        foreach ($rows as $row) {
+            if ((int)$row->total >= (int)($sizes[$row->group_id] ?? PHP_INT_MAX)) {
+                $common[$row->group_id][] = (int)$row->hashtag_id;
+            }
+        }
+
+        return $common;
     }
 
     /**
@@ -360,6 +528,169 @@ class Post extends Model
     public function typeLabel(): string
     {
         return self::TYPE_LABELS[$this->type] ?? self::TYPE_LABELS[self::TYPE_TEXT_PICTURE];
+    }
+
+    /**
+     * Разбирает дату пина, как её вводят в поле "Дата": "12.03.2024", "2024-03-12", "12 марта 2024" — день;
+     * "03.2024", "2024-03", "март 2024" — месяц; "2024" — год. Точность определяется по тому, что введено
+     *
+     * @param string|null $input
+     * @return array|null ['date' => 'Y-m-d', 'precision' => DATE_*]; null — пусто или не дата
+     */
+    public static function parseEventDate(?string $input): ?array
+    {
+        $text = mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string)$input)));
+        $text = rtrim(preg_replace('/\s*(г\.?|года?)$/u', '', $text));
+        if ($text === '') {
+            return null;
+        }
+
+        $make = function (int $year, int $month, int $day, string $precision) {
+            if ($year < 1000 || $year > 2999 || !checkdate($month, $day, $year)) {
+                return null;
+            }
+            return ['date' => sprintf('%04d-%02d-%02d', $year, $month, $day), 'precision' => $precision];
+        };
+        $monthByWord = function (string $word): ?int {
+            foreach (self::MONTH_STEMS as $index => $stem) {
+                if (mb_strpos($word, $stem) === 0) {
+                    return $index + 1;
+                }
+            }
+            return null;
+        };
+
+        if (preg_match('/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/u', $text, $m)) {
+            return $make((int)$m[3], (int)$m[2], (int)$m[1], self::DATE_DAY);
+        }
+        if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/u', $text, $m)) {
+            return $make((int)$m[1], (int)$m[2], (int)$m[3], self::DATE_DAY);
+        }
+        if (preg_match('/^(\d{1,2})[.\/-](\d{4})$/u', $text, $m)) {
+            return $make((int)$m[2], (int)$m[1], 1, self::DATE_MONTH);
+        }
+        if (preg_match('/^(\d{4})-(\d{1,2})$/u', $text, $m)) {
+            return $make((int)$m[1], (int)$m[2], 1, self::DATE_MONTH);
+        }
+        if (preg_match('/^(\d{4})$/u', $text, $m)) {
+            return $make((int)$m[1], 1, 1, self::DATE_YEAR);
+        }
+        if (preg_match('/^(\d{1,2}) (\p{L}+) (\d{4})$/u', $text, $m) && ($month = $monthByWord($m[2]))) {
+            return $make((int)$m[3], $month, (int)$m[1], self::DATE_DAY);
+        }
+        if (preg_match('/^(\p{L}+) (\d{4})$/u', $text, $m) && ($month = $monthByWord($m[1]))) {
+            return $make((int)$m[2], $month, 1, self::DATE_MONTH);
+        }
+
+        return null;
+    }
+
+    /**
+     * Ставит дату пина из поля "Дата" (не сохраняет). Пустое поле — даты нет
+     *
+     * @param string|null $input
+     * @return bool false — введено, но это не дата (дату не трогаем)
+     */
+    public function setEventDateFromInput(?string $input): bool
+    {
+        if (trim((string)$input) === '') {
+            $this->event_date = null;
+            $this->event_date_precision = null;
+            return true;
+        }
+
+        $parsed = static::parseEventDate($input);
+        if ($parsed === null) {
+            return false;
+        }
+
+        $this->event_date = $parsed['date'];
+        $this->event_date_precision = $parsed['precision'];
+        return true;
+    }
+
+    /**
+     * Дата пина для карточки и страницы поста: "12 марта 2024", "март 2024", "2024"; null — даты нет
+     *
+     * @return string|null
+     */
+    public function eventDateLabel(): ?string
+    {
+        if (!$this->event_date) {
+            return null;
+        }
+
+        $month = (int)$this->event_date->format('n') - 1;
+        switch ($this->event_date_precision) {
+            case self::DATE_YEAR:
+                return $this->event_date->format('Y');
+            case self::DATE_MONTH:
+                return self::MONTHS_NOMINATIVE[$month] . ' ' . $this->event_date->format('Y');
+            default:
+                return $this->event_date->format('j') . ' ' . self::MONTHS_GENITIVE[$month] . ' ' . $this->event_date->format('Y');
+        }
+    }
+
+    /**
+     * Дата пина для поля "Дата" на формах: "12.03.2024", "03.2024", "2024"; '' — даты нет
+     *
+     * @return string
+     */
+    public function eventDateInput(): string
+    {
+        if (!$this->event_date) {
+            return '';
+        }
+
+        switch ($this->event_date_precision) {
+            case self::DATE_YEAR:
+                return $this->event_date->format('Y');
+            case self::DATE_MONTH:
+                return $this->event_date->format('m.Y');
+            default:
+                return $this->event_date->format('d.m.Y');
+        }
+    }
+
+    /**
+     * Посты, дата которых попадает в период [$from, $to] (включительно). Дата с точностью до месяца или года —
+     * это весь месяц/год: "март 2024" попадает в период "10–20 марта 2024"
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string|null $from 'Y-m-d'; null — без начала
+     * @param string|null $to 'Y-m-d'; null — без конца
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeEventDateBetween($query, ?string $from, ?string $to)
+    {
+        $query->whereNotNull('posts.event_date');
+        if ($to) {
+            $query->where('posts.event_date', '<=', $to);
+        }
+        if ($from) {
+            // конец периода даты (не включительно) — позже начала искомого
+            $query->whereRaw("(CASE posts.event_date_precision
+                    WHEN 'year' THEN DATE_ADD(posts.event_date, INTERVAL 1 YEAR)
+                    WHEN 'month' THEN DATE_ADD(posts.event_date, INTERVAL 1 MONTH)
+                    ELSE DATE_ADD(posts.event_date, INTERVAL 1 DAY) END) > ?", [$from]);
+        }
+
+        return $query;
+    }
+
+    /**
+     * "В этот день": посты, дата которых (с точностью до дня) — тот же день и месяц в любом году
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param int $month
+     * @param int $day
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeEventDateOnDay($query, int $month, int $day)
+    {
+        return $query->where('posts.event_date_precision', self::DATE_DAY)
+            ->whereMonth('posts.event_date', $month)
+            ->whereDay('posts.event_date', $day);
     }
 
     /**

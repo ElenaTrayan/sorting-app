@@ -449,15 +449,29 @@ class HashtagController extends Controller
             ->groupBy('related_hashtag_id')
             ->pluck('auto_add', 'related_hashtag_id');
 
+        // сколько постов пользователя (не в корзине) помечено каждым связанным — подсказки на форме поста идут
+        // от частых к редким, а не по алфавиту: у общего тега ("актриса") связанных бывают десятки
+        $usage = DB::table('hashtag_post')
+            ->join('posts', 'posts.id', '=', 'hashtag_post.post_id')
+            ->whereIn('hashtag_post.hashtag_id', $autoAddByRelatedId->keys())
+            ->where('posts.user_id', $user->id)
+            ->whereNull('posts.deleted_at')
+            ->selectRaw('hashtag_post.hashtag_id, count(distinct posts.id) as total')
+            ->groupBy('hashtag_post.hashtag_id')
+            ->pluck('total', 'hashtag_id');
+
         $related = Hashtag::where('user_id', $user->id)
             ->whereIn('id', $autoAddByRelatedId->keys())
             ->whereNotIn('id', $selectedIds)
             ->orderBy('title', 'asc')
             ->get(['id', 'title']);
 
-        $related->each(function (Hashtag $hashtag) use ($autoAddByRelatedId) {
+        $related->each(function (Hashtag $hashtag) use ($autoAddByRelatedId, $usage) {
             $hashtag->setAttribute('auto', (bool)$autoAddByRelatedId[$hashtag->id]);
+            $hashtag->setAttribute('usage', (int)($usage[$hashtag->id] ?? 0));
         });
+        // частые — первыми, при равном числе постов — по алфавиту (сортировка устойчивая)
+        $related = $related->sortByDesc('usage')->values();
 
         return response()->json(['status' => true, 'hashtags' => $related]);
     }

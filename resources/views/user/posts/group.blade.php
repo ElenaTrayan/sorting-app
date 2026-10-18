@@ -4,7 +4,8 @@
 
 {{-- Страница группы постов: на ней группу и смотрят, и редактируют — своих страниц у постов группы нет
      (PostController::show()/edit() ведут сюда). Группа бывает из изображений или из текстов:
-     название, категория и хештеги у неё общие, у текстов — ещё и свой текст у каждого поста.
+     название и категория у неё общие, хештеги — общие (блок "Общее") и у каждого поста ещё свои (под его
+     карточкой, parts/group_item_own_tags.blade.php), у текстов — ещё и свой текст у каждого поста.
      Поведение — /admin/post-group.js; блок хештегов — тот же, что на форме поста (admin.js,
      #search-input-2/#add-tag/#b-search__results-2/#b-selected-tags-2). --}}
 
@@ -120,13 +121,15 @@
              data-candidates-url="{{ route('posts.groups.candidates', $groupId) }}"
              data-attach-url="{{ route('posts.groups.attach', $groupId) }}"
              data-upload-action="{{ route('posts.groups.upload', $groupId) }}"
-             data-add-text-action="{{ route('posts.groups.add-text', $groupId) }}">
+             data-add-text-action="{{ route('posts.groups.add-text', $groupId) }}"
+             data-hashtag-search-action="{{ route('search.hashtag') }}"
+             data-hashtag-store-action="{{ route('hashtags.store') }}">
 
             <div class="b-post-group__intro">
                 <h1 class="b-post-group__title">{{ $isText ? 'Группа текстов' : 'Группа изображений' }}</h1>
                 <p class="b-post-group__hint">
                     <span class="js-post-group-count" data-forms="пост,поста,постов">{{ $posts->count() }} {{ $pluralizePosts($posts->count()) }}</span>
-                    · название, категория и хештеги — общие для всех постов группы{{ $isText ? ', текст у каждого свой' : '' }}
+                    · {{ $isText ? 'название и категория' : 'название, категория и текст' }} — общие для всех постов группы, хештеги — общие и у каждого поста свои{{ $isText ? ', текст у каждого свой' : '' }}
                     {{-- знаков во всех текстах группы — считает post-group.js --}}
                     @if ($isText)
                         · <span class="b-post-group__chars-total js-post-group-chars-total" title="Знаков во всех текстах группы, с пробелами"></span>
@@ -140,6 +143,9 @@
                 @php $groupCategory = $categories->firstWhere('id', $categoryId); @endphp
                 <section class="b-pin-card">
                     <h2 class="b-post-show__title">{{ $title ?: 'Без названия' }}</h2>
+                    @if ($eventDateLabel)
+                        <div class="b-event-date-chip" title="Дата группы"><i class="far fa-calendar-alt"></i> {{ $eventDateLabel }}</div>
+                    @endif
                     @if ($hashtags->isNotEmpty() || $groupCategory)
                         <div class="b-post-show__tags">
                             @foreach ($hashtags as $hashtag)
@@ -175,10 +181,19 @@
                                 @endforeach
                             </select>
                         </div>
+                        {{-- дата у группы общая, как название (PostController::updateGroup) --}}
+                        @include('user.posts.parts.event_date_field', ['value' => $eventDateInput])
+                        {{-- у группы изображений текст общий — сохраняется у всех её постов (у группы текстов свой у каждого) --}}
+                        @unless ($isText)
+                            <div class="b-pin-field b-pin-field--wide b-post-group__text">
+                                <label for="group-text">Текст группы <span class="b-pin-card__badge">общий для всех постов</span></label>
+                                <textarea name="group_text" id="group-text" placeholder="Общий текст для всех постов группы…">{{ $groupText }}</textarea>
+                            </div>
+                        @endunless
                     </div>
 
                     <div class="b-post-group__tags">
-                        <label for="search-input-2">Хештеги</label>
+                        <label for="search-input-2">Общие хештеги <span class="b-post-group__tags-hint">— у всех постов группы; свои хештеги поста — под его карточкой</span></label>
                         <div class="b-add-tag b-pin-tags">
                             <div class="input-group input-group-sm add-tag b-pin-tags__row">
                                 <input id="search-input-2" type="text" class="b-pin-input" placeholder="Найти или создать тег…" data-action="{{ route('search.hashtag') }}">
@@ -218,7 +233,7 @@
 
                 @if ($editing)
                 <div class="b-pin-create__footer">
-                    <span class="b-pin-create__footer-hint">Порядок и состав группы сохраняются сразу — кнопка сохраняет {{ $isText ? 'название, категорию, хештеги и тексты' : 'название, категорию и хештеги' }}</span>
+                    <span class="b-pin-create__footer-hint">Порядок и состав группы сохраняются сразу — кнопка сохраняет {{ $isText ? 'название, категорию, хештеги и тексты' : 'название, категорию, текст, дату и хештеги' }}</span>
                     <div class="b-pin-create__footer-actions">
                         <button type="button" class="b-pin-btn b-pin-btn--primary js-post-group-save"><span>✓</span> Сохранить</button>
                     </div>
@@ -240,8 +255,9 @@
                     <input type="text" class="form-control js-post-group-search" placeholder="Поиск по названию, тексту или хештегу">
                 </div>
                 <p class="b-post-group__hint mb-3">
-                    Здесь только {{ $isText ? 'посты с одним текстом' : 'посты из одних изображений' }}, которые ещё не в группе.
-                    Название и категория у добавленных станут общими с группой, их хештеги добавятся к хештегам группы.
+                    Здесь только {{ $isText ? 'посты с одним текстом' : 'посты с картинками — без текста или с тем же текстом, что у группы' }}, которые ещё не в группе.
+                    Название и категория у добавленных станут общими с группой, общие хештеги группы добавятся к ним,
+                    а их прежние хештеги останутся у них как собственные.
                 </p>
                 <div class="b-film-materials__candidates js-post-group-candidates"></div>
                 <div class="b-film-materials__empty js-post-group-none" style="display: none">Подходящих постов не найдено.</div>
@@ -324,6 +340,7 @@
 
 @push('footer-scripts')
     <script src="/admin/palette-editor.js?v={{ filemtime(public_path('admin/palette-editor.js')) }}"></script>
+    <script src="/admin/event-date.js?v={{ filemtime(public_path('admin/event-date.js')) }}"></script>
     <script src="/admin/post-group.js?v={{ filemtime(public_path('admin/post-group.js')) }}"></script>
 @endpush
 

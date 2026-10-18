@@ -143,6 +143,13 @@
                 </a>
             @endif
 
+            {{-- дата пина (posts.event_date): день новости, день съёмки фото; у группы она общая --}}
+            @if ($post->event_date)
+                <span class="b-card__film-chip b-card__date-chip" title="Дата">
+                    <i class="far fa-calendar-alt"></i> {{ $post->eventDateLabel() }}
+                </span>
+            @endif
+
             {{-- пост группы там, где группы не сворачиваются в стопку (поиск по цвету, страница контакта) --}}
             @if (!empty($post->group_id) && !$isStack)
                 <a href="{{ $groupUrl }}#post-{{ $post->id }}" class="b-card__film-chip b-card__group-chip" title="Открыть группу">
@@ -154,8 +161,11 @@
         @if (!empty($post->hashtags) && $post->hashtags->isNotEmpty())
             <div class="b-card__footer">
                 <ul class="tags">
+                    {{-- у отдельной карточки поста группы собственные хештеги (не общие для группы) — другим цветом,
+                         Post::fillGroupOwnHashtagIds() --}}
                     @foreach($post->hashtags as $hashtag)
-                        <li data-id="{{ $hashtag->id }}" data-title="{{ $hashtag->title }}">
+                        @php $isOwnHashtag = in_array((int)$hashtag->id, $post->own_hashtag_ids ?? [], true); @endphp
+                        <li data-id="{{ $hashtag->id }}" data-title="{{ $hashtag->title }}" @if ($isOwnHashtag) class="tags__own" title="Хештег только этого поста группы" @endif>
                             <a rel="tag" href="#">#{{ $hashtag->title }}</a>
                         </li>
                     @endforeach

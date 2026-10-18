@@ -81,9 +81,12 @@ class UploadImageController extends Controller
             // можно переиспользовать при повторной загрузке, см. stageFileToTempDirectory()
             $ownStagedNames = array_values(array_filter((array)request()->input('staged_names', []), 'is_string'));
 
-            // Картинку, похожая на которую уже стоит на этой же форме (ещё не сохранённую), на форму не пускаем.
-            // Дубли среди картинок уже добавленных постов ищутся при сохранении поста (PostController::store)
+            // Картинку, похожая на которую уже стоит на этой же форме (ещё не сохранённую), сразу на форму не
+            // ставим: она остаётся во временной папке, а форма спрашивает в окне сравнения, разные ли это картинки
+            // (form_duplicates, admin.js showNextFormDuplicate). Дубли среди картинок уже добавленных постов
+            // ищутся при сохранении поста (PostController::store)
             $rejected = [];
+            $formDuplicates = [];
             $formHashes = $this->stagedImageHashes($ownStagedNames);
 
             foreach (request()->file('files') as $file) {
@@ -91,10 +94,9 @@ class UploadImageController extends Controller
 
                 // тот же файл повторно загрузили на эту же форму — он уже проверен и стоит на ней
                 if (!in_array($staged['name'], $ownStagedNames, true)) {
-                    $reason = $this->stagedDuplicateReason($staged['data'], $formHashes);
-                    if ($reason !== null) {
-                        $this->deleteStagedImage($staged['data']);
-                        $rejected[] = ['file' => $file->getClientOriginalName()] + $reason;
+                    $match = $this->stagedDuplicateOf($staged['name'], $staged['data'], $formHashes);
+                    if ($match !== null) {
+                        $formDuplicates[] = $this->formDuplicateInfo($file->getClientOriginalName(), $staged, $match);
                         continue;
                     }
                 }
@@ -107,6 +109,7 @@ class UploadImageController extends Controller
                 // (object): пустой список должен уйти как {}, а не [] — форма складывает его со своим объектом картинок
                 'images' => (object)$images,
                 'rejected' => $rejected,
+                'form_duplicates' => $formDuplicates,
             ]);
 
         } catch (Exception $exception) {
@@ -126,7 +129,7 @@ class UploadImageController extends Controller
      * Хеши и размеры картинки для сравнения "та же ли это картинка" (см. DUPLICATE_*_THRESHOLD)
      *
      * @param string $absolutePath
-     * @return array|null ['phash', 'perceptual', 'width', 'height']; null — не картинка или хеш не посчитать
+     * @return array|null ['phash', 'perceptual', 'width', 'height', 'file_size']; null — не картинка или хеш не посчитать
      */
     private function imageFingerprint(string $absolutePath): ?array
     {
@@ -141,6 +144,7 @@ class UploadImageController extends Controller
                 'perceptual' => self::computePerceptualHash($absolutePath),
                 'width' => $size[0],
                 'height' => $size[1],
+                'file_size' => filesize($absolutePath) ?: 0,
             ];
         } catch (\Throwable $e) {
             return null;
@@ -148,10 +152,49 @@ class UploadImageController extends Controller
     }
 
     /**
+     * Данные для окна сравнения на форме создания (admin.js showNextFormDuplicate): только что загруженная
+     * картинка и похожая на неё, которая уже стоит на форме
+     *
+     * @param string $fileName имя загруженного файла — для подписи
+     * @param array $staged ['name' => ..., 'data' => ...] из stageFileToTempDirectory()
+     * @param array $match отпечаток той, что уже на форме (stagedImageHashes()), и новой — ['existing', 'new']
+     * @return array
+     */
+    private function formDuplicateInfo(string $fileName, array $staged, array $match): array
+    {
+        $new = $match['new'];
+        $existing = $match['existing'];
+        $newArea = $new['width'] * $new['height'];
+        $oldArea = $existing['width'] * $existing['height'];
+
+        return [
+            'file' => $fileName,
+            // имя и данные новой картинки — форма добавит её, если скажут "это разные"
+            'name' => $staged['name'],
+            'image' => $staged['data'],
+            'new_image' => [
+                'thumbnail_url' => '/storage/' . $staged['data']['image_path'],
+                'width' => $new['width'],
+                'height' => $new['height'],
+                'file_size' => $new['file_size'],
+            ],
+            'existing' => [
+                'name' => $existing['name'],
+                'thumbnail_url' => '/storage/' . $existing['path'],
+                'width' => $existing['width'],
+                'height' => $existing['height'],
+                'file_size' => $existing['file_size'],
+            ],
+            // лучше качество — больше пикселей, при равном разрешении — больший файл
+            'new_is_better' => $newArea !== $oldArea ? $newArea > $oldArea : $new['file_size'] > $existing['file_size'],
+        ];
+    }
+
+    /**
      * Отпечатки картинок, уже стоящих на форме создания (их файлы — во временной папке пользователя)
      *
      * @param string[] $stagedNames имена картинок формы
-     * @return array[] см. imageFingerprint()
+     * @return array[] см. imageFingerprint(), плюс 'name' (имя картинки на форме) и 'path' (от корня storage)
      */
     private function stagedImageHashes(array $stagedNames): array
     {
@@ -163,12 +206,13 @@ class UploadImageController extends Controller
         $hashes = [];
         foreach ($disk->files('temp_directory/' . Auth::id()) as $path) {
             // оригинал называется ровно как картинка на форме; у small/medium копий в имени ещё и размер
-            if (!in_array(pathinfo($path, PATHINFO_FILENAME), $stagedNames, true)) {
+            $name = pathinfo($path, PATHINFO_FILENAME);
+            if (!in_array($name, $stagedNames, true)) {
                 continue;
             }
             $fingerprint = $this->imageFingerprint($disk->path($path));
             if ($fingerprint !== null) {
-                $hashes[] = $fingerprint;
+                $hashes[] = $fingerprint + ['name' => $name, 'path' => $path];
             }
         }
 
@@ -176,17 +220,17 @@ class UploadImageController extends Controller
     }
 
     /**
-     * Почему только что загруженную на форму создания картинку нельзя на ней оставить: такая уже стоит
-     * на этой же форме. С картинками уже добавленных постов здесь не сравниваем — это делается при
-     * сохранении поста (PostController::findDuplicatesBeforeCreate), там пользователь и выбирает, что делать.
-     * Картинку, которая проверку прошла, запоминает в $formHashes — следующие файлы той же загрузки
+     * Похожая картинка, которая уже стоит на этой же форме создания. С картинками уже добавленных постов здесь
+     * не сравниваем — это делается при сохранении поста (PostController::findDuplicatesBeforeCreate).
+     * Картинку, у которой похожей нет, запоминает в $formHashes — следующие файлы той же загрузки
      * сравниваются и с ней
      *
-     * @param array $image данные загруженной картинки (image_path, ...)
+     * @param string $name имя только что загруженной картинки
+     * @param array $image её данные (image_path, ...)
      * @param array[] $formHashes отпечатки картинок формы, см. stagedImageHashes()
-     * @return array|null ['message' => ...]; null — картинка новая
+     * @return array|null ['existing' => отпечаток той, что на форме, 'new' => отпечаток новой]; null — похожей нет
      */
-    private function stagedDuplicateReason(array $image, array &$formHashes): ?array
+    private function stagedDuplicateOf(string $name, array $image, array &$formHashes): ?array
     {
         $fingerprint = $this->imageFingerprint(Storage::disk('local')->path('/' . $image['image_path']));
         if ($fingerprint === null) {
@@ -195,11 +239,11 @@ class UploadImageController extends Controller
 
         foreach ($formHashes as $other) {
             if ($this->isSameImage($fingerprint, $other)) {
-                return ['message' => 'такая картинка уже добавлена на эту форму'];
+                return ['existing' => $other, 'new' => $fingerprint];
             }
         }
 
-        $formHashes[] = $fingerprint;
+        $formHashes[] = $fingerprint + ['name' => $name, 'path' => $image['image_path']];
 
         return null;
     }
@@ -221,29 +265,6 @@ class UploadImageController extends Controller
 
         return Hash::fromBits($a['phash'])->distance(Hash::fromBits($b['phash'])) <= self::DUPLICATE_DIFF_HASH_THRESHOLD
             && Hash::fromBits($a['perceptual'])->distance(Hash::fromBits($b['perceptual'])) <= self::DUPLICATE_PERCEPTUAL_HASH_THRESHOLD;
-    }
-
-    /**
-     * Удаляет из временной папки картинку, которую на форму не пустили, вместе с её small/medium копиями
-     *
-     * @param array $image данные загруженной картинки (image_name, ...)
-     * @return void
-     */
-    private function deleteStagedImage(array $image): void
-    {
-        if (empty($image['image_name'])) {
-            return;
-        }
-
-        $disk = Storage::disk('local');
-        // оригинал называется как сама картинка, копии — "<имя>_<ширина>_<высота>"; ищем по имени в своей
-        // временной папке, а не по путям из данных: у копий там лежит папка, а не путь к файлу
-        $own = '/^' . preg_quote($image['image_name'], '/') . '(_\d+_\d+)?$/u';
-        foreach ($disk->files('temp_directory/' . Auth::id()) as $path) {
-            if (preg_match($own, pathinfo($path, PATHINFO_FILENAME))) {
-                $disk->delete($path);
-            }
-        }
     }
 
     /**
@@ -307,15 +328,52 @@ class UploadImageController extends Controller
             throw new Exception(self::EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY);
         }
 
+        $data = $this->saveSmallAndMediumImageSizesToTempDirectory(
+            $path,
+            $imageName,
+            $path_info['extension'],
+            $tempPathForImage . '/'
+        );
+        // дата съёмки из EXIF — форма создания подставит её в поле "Дата" пина (event-date.js)
+        $takenAt = self::exifTakenAt(Storage::path($path));
+        if ($takenAt !== null) {
+            $data['taken_at'] = $takenAt;
+        }
+
         return [
             'name' => $imageName,
-            'data' => $this->saveSmallAndMediumImageSizesToTempDirectory(
-                $path,
-                $imageName,
-                $path_info['extension'],
-                $tempPathForImage . '/'
-            ),
+            'data' => $data,
         ];
+    }
+
+    /**
+     * Дата съёмки фото из EXIF (DateTimeOriginal, иначе DateTimeDigitized) — её пишут камера и телефон.
+     * У картинок из интернета и мессенджеров EXIF обычно вырезан — тогда null
+     *
+     * @param string $absolutePath
+     * @return string|null 'Y-m-d'
+     */
+    public static function exifTakenAt(string $absolutePath): ?string
+    {
+        if (!function_exists('exif_read_data') || !is_file($absolutePath)) {
+            return null;
+        }
+
+        try {
+            $exif = @exif_read_data($absolutePath, 'EXIF');
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        // "2024:03:12 14:22:05"; камеры без часов пишут "0000:00:00 00:00:00"
+        foreach (['DateTimeOriginal', 'DateTimeDigitized'] as $key) {
+            if (!empty($exif[$key]) && preg_match('/^(\d{4}):(\d{2}):(\d{2})/', (string)$exif[$key], $m)
+                && (int)$m[1] >= 1900 && checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
+                return $m[1] . '-' . $m[2] . '-' . $m[3];
+            }
+        }
+
+        return null;
     }
 
     /**

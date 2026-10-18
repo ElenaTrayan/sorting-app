@@ -112,6 +112,29 @@
                             </div>
                         </div>
 
+                        @if ($searchContext === 'posts')
+                            {{-- период по дате пина (posts.event_date): вместе с хештегами или сам по себе.
+                                 "В этот день" — тот же день и месяц в любом году. Разбирает admin.js (searchPeriod()),
+                                 ищет SearchController::searchPostsByHashtags --}}
+                            <div class="b-search-period js-search-period">
+                                <span class="b-hashtags-section-head__title">Период <i class="fas fa-info-circle" title="Посты, дата которых попадает в период. Дата «март 2024» — это весь март. Можно искать и без хэштегов"></i></span>
+                                <div class="b-search-period__row">
+                                    <input type="date" class="b-search-period__input js-search-period-from" aria-label="С">
+                                    <span class="b-search-period__dash">—</span>
+                                    <input type="date" class="b-search-period__input js-search-period-to" aria-label="По">
+                                    <button type="button" class="b-search-period__clear js-search-period-clear" title="Без периода">×</button>
+                                </div>
+                                <div class="b-search-period__presets">
+                                    <button type="button" class="b-search-period__preset js-search-period-preset" data-preset="week">Эта неделя</button>
+                                    <button type="button" class="b-search-period__preset js-search-period-preset" data-preset="month">Этот месяц</button>
+                                    <button type="button" class="b-search-period__preset js-search-period-preset" data-preset="year">Этот год</button>
+                                    <button type="button" class="b-search-period__preset js-search-period-preset" data-preset="last-year">Прошлый год</button>
+                                    <button type="button" class="b-search-period__preset js-search-period-preset" data-preset="on-this-day">В этот день</button>
+                                </div>
+                                <span class="b-search-period__note js-search-period-note" hidden></span>
+                            </div>
+                        @endif
+
                     </div>
                     @if ($searchContext === 'posts')
                         {{-- цвет, выбранный на вкладке "Поиск по цвету": "Найти" ищет и по нему (admin.js) --}}

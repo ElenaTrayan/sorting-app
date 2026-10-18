@@ -447,6 +447,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              reloadFeedCards();
          });
 
+         // поиск по хештегам нашёл посты групп по их собственным хештегам и сам показал их отдельными карточками —
+         // снимаем галочку и запоминаем это: следующие страницы поиска тоже придут без стопок. Карточки уже
+         // правильные, перегружать их не нужно
+         $(document).on('posts:groups-expanded-by-search', function () {
+             if (!collapseGroupsCheckbox.checked) {
+                 return;
+             }
+             collapseGroupsCheckbox.checked = false;
+             saveCollapseGroups(false);
+             toastr.info('Найдены посты групп по их собственным хештегам — показаны только они, «Свернуть группы» снята');
+         });
+
          // cookie потерялась (очистили cookie), а выбор в localStorage остался — восстанавливаем его
          let storedCollapseGroups = null;
          try { storedCollapseGroups = localStorage.getItem(collapseGroupsStorageKey); } catch (e) {}
@@ -498,6 +510,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          sessionStorage.removeItem('images');
          sessionStorage.removeItem('hashtags2');
          sessionStorage.removeItem('postVideo');
+         sessionStorage.removeItem('formDistinctKeys');
      }
 
      $.ajaxSetup({ headers: { 'csrftoken' : '{{ csrf_token() }}' } });
@@ -812,74 +825,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      console.log(uploadedImages);
 
-                     // похожие картинки сервер на форму не пустил (уже есть в каком-то посте или на этой же
-                     // форме, UploadImageController::uploadImagesToTempDirectory) — говорим, какие и почему
+                     // картинки, которые на форму не попали по другой причине, — говорим, какие и почему
                      showRejectedUploads(response.rejected || []);
 
-                     if (sessionStorage.getItem('images') !== undefined && sessionStorage.getItem('images') !== null) {
-                         let savedImages = sessionStorage.getItem('images');
-                         console.log('savedImages' + savedImages);
-                         let images = JSON.parse(savedImages);
-                         console.log('images' + images);
-
-                         images = Object.assign({}, images, uploadedImages);
-                         console.log('images' + images);
-
-                         sessionStorage.setItem('images', JSON.stringify(images));
-                     } else {
-                         sessionStorage.setItem('images', JSON.stringify(response.images));
-                     }
-
-                     console.log(sessionStorage.getItem('images'));
-
                      // подбор хештегов по картинкам — один раз, когда загрузится вся очередь (runUploadQueue)
+                     addImagesToCreationForm(uploadedImages, files.length === 1 ? files[0] : null);
 
-                     // Отобразить загруженные картинки
-                     if (uploadedImages) {
-
-                         // Обертка для картинки со ссылкой
-                         // let img = '<div class="image" data-name="1">' +
-                         //     '<span style="background-image: url(0)"></span>' +
-                         //     '<i class="js-delete-image fas fa-times-circle"></i>' +
-                         //     '</div>';
-
-                         for (let key in uploadedImages) {
-                             if (uploadedImages.hasOwnProperty(key)) {
-                                 console.log(uploadedImages[key]);
-                                 console.log(uploadedImages[key]['image_name']);
-
-                                 // тот же файл загрузили повторно — сервер вернул то же имя, превью уже есть
-                                 let alreadyShown = $('.js-upload-image-section .images .image').filter(function () {
-                                     return this.dataset.name === uploadedImages[key]['image_name'];
-                                 }).length > 0;
-                                 if (alreadyShown) {
-                                     continue;
-                                 }
-
-                                 let img = '<div class="image" data-name="' + uploadedImages[key]['image_name'] + '" data-extension="' + uploadedImages[key]['image_extension'] + '">';
-
-                                 if (uploadedImages[key]['small'] !== undefined) {
-                                     img += '<span style="background-image: url(/storage/' + uploadedImages[key]['s_image_path'] + ')"></span>' +
-                                         '<i class="js-delete-image temp fas fa-times-circle" data-action="/cabinet/delete-download-file"></i>' +
-                                         '</div>';
-                                 } else {
-                                     img += '<span style="background-image: url(/storage/' + uploadedImages[key]['image_path'] + ')"></span>' +
-                                         '<i class="js-delete-image temp fas fa-times-circle" data-action="/cabinet/delete-download-file"></i>' +
-                                         '</div>';
-                                 }
-
-                                 // Добавить в контейнер — перед заготовками ещё не загруженных файлов,
-                                 // чтобы картинки шли в том порядке, в каком их выбрали
-                                 let pending = $('.js-upload-image-section .images .image-uploading').not('.is-active').first();
-                                 if (pending.length) {
-                                     $(img).insertBefore(pending);
-                                 } else {
-                                     $('.js-upload-image-section .images').append(img);
-                                 }
-                             }
-                         }
-
-                     }
+                     // похожие на картинки этой же формы сервер не добавил, а оставил во временной папке —
+                     // спрашиваем в окне сравнения, что с каждой делать (UploadImageController::uploadImagesToTempDirectory)
+                     queueFormDuplicates(response.form_duplicates || [], files.length === 1 ? files[0] : null);
                  }
              },
              error: function(response) {
@@ -889,8 +843,156 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      }
 
-     // Список картинок, которые не попали на форму создания, потому что такие уже стоят на этой форме:
-     // в блоке предупреждения под загрузкой (post_url — если сервер укажет пост, где картинка уже лежит)
+     // Загруженные картинки — на форму создания: в sessionStorage "images" (их отправит форма) и превью в дропзоне.
+     // Дата пина (поле "Дата", event-date.js): дата съёмки из EXIF (её достал сервер), а если её нет — дата файла;
+     // подставлять ли (поле заполнено руками, уже есть дата надёжнее) — решает event-date.js
+     //
+     // @param {Object} uploadedImages {имя: данные картинки} из ответа сервера
+     // @param {File|null} file загруженный файл (для даты файла), если картинка одна
+     function addImagesToCreationForm(uploadedImages, file) {
+         if (!uploadedImages) {
+             return;
+         }
+
+         let images = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
+         sessionStorage.setItem('images', JSON.stringify(Object.assign({}, images, uploadedImages)));
+
+         Object.keys(uploadedImages).forEach(function (key) {
+             let image = uploadedImages[key];
+
+             if (window.EventDateField) {
+                 if (image && image.taken_at) {
+                     window.EventDateField.suggest(image.taken_at, 'exif');
+                 } else if (file && file.lastModified) {
+                     window.EventDateField.suggest(new Date(file.lastModified), 'file');
+                 }
+             }
+
+             // тот же файл загрузили повторно — сервер вернул то же имя, превью уже есть
+             let alreadyShown = $('.js-upload-image-section .images .image').filter(function () {
+                 return this.dataset.name === image['image_name'];
+             }).length > 0;
+             if (alreadyShown) {
+                 return;
+             }
+
+             let img = $('<div class="image"></div>')
+                 .attr('data-name', image['image_name'])
+                 .attr('data-extension', image['image_extension'])
+                 .append($('<span></span>').css('background-image', 'url(/storage/' + image['image_path'] + ')'))
+                 .append('<i class="js-delete-image temp fas fa-times-circle" data-action="/cabinet/delete-download-file"></i>');
+
+             // в контейнер — перед заготовками ещё не загруженных файлов, чтобы картинки шли в том порядке,
+             // в каком их выбрали
+             let pending = $('.js-upload-image-section .images .image-uploading').not('.is-active').first();
+             if (pending.length) {
+                 img.insertBefore(pending);
+             } else {
+                 $('.js-upload-image-section .images').append(img);
+             }
+         });
+     }
+
+     // ===== Похожая картинка уже стоит на форме создания (окно #modal-form-duplicate, create.blade.php) =====
+     // Сервер такую картинку на форму не добавил, а оставил во временной папке и прислал сравнение
+     // (form_duplicates). Окна по одному: файлы грузятся очередью, похожих может оказаться несколько.
+     // "Это разные картинки" — добавляем её на форму как обычно, а её имя кладём в formDistinctKeys: при
+     // сохранении она не споткнётся о соседку по форме (form_distinct_keys, PostController::createPost),
+     // с картинками уже сохранённых постов её всё равно сравнят. "Заменить" — та, что на форме, уходит, эта
+     // встаёт. "Не добавлять" — её файлы удаляем из временной папки
+     let formDuplicatesQueue = [];
+     let formDuplicateOpen = false;
+
+     function formDistinctKeys() {
+         try {
+             return JSON.parse(sessionStorage.getItem('formDistinctKeys') || '[]') || [];
+         } catch (e) {
+             return [];
+         }
+     }
+
+     function queueFormDuplicates(duplicates, file) {
+         duplicates.forEach(function (duplicate) {
+             formDuplicatesQueue.push({duplicate: duplicate, file: file});
+         });
+         showNextFormDuplicate();
+     }
+
+     function formatFileSize(bytes) {
+         if (!bytes) {
+             return '';
+         }
+         return bytes >= 1048576 ? (bytes / 1048576).toFixed(1).replace('.', ',') + ' МБ' : Math.round(bytes / 1024) + ' КБ';
+     }
+
+     function showNextFormDuplicate() {
+         let modal = $('#modal-form-duplicate');
+         if (formDuplicateOpen || !formDuplicatesQueue.length || !modal.length) {
+             return;
+         }
+         formDuplicateOpen = true;
+
+         let item = formDuplicatesQueue.shift();
+         let duplicate = item.duplicate;
+         let decision = 'skip';
+         let sizeText = function (image) {
+             return image.width + '×' + image.height + (image.file_size ? ' · ' + formatFileSize(image.file_size) : '');
+         };
+
+         modal.find('.js-form-duplicate-file').text(duplicate.file);
+         modal.find('.js-form-duplicate-new').attr('src', duplicate.new_image.thumbnail_url);
+         modal.find('.js-form-duplicate-new-size').text(sizeText(duplicate.new_image));
+         modal.find('.js-form-duplicate-old').attr('src', duplicate.existing.thumbnail_url);
+         modal.find('.js-form-duplicate-old-size').text(sizeText(duplicate.existing));
+         // какая лучше: больше пикселей, при равном разрешении — больший файл
+         let newIsBetter = duplicate.new_is_better;
+         modal.find('.js-form-duplicate-better-new').toggle(!!newIsBetter);
+         modal.find('.js-form-duplicate-better-old').toggle(!newIsBetter);
+         modal.find('.js-form-duplicate-replace').toggle(!!newIsBetter);
+
+         modal.off('.formDuplicate');
+         modal.on('click.formDuplicate', '[data-decision]', function () {
+             decision = this.getAttribute('data-decision');
+             modal.modal('hide');
+         });
+         modal.one('hidden.bs.modal', function () {
+             modal.off('.formDuplicate');
+             applyFormDuplicateDecision(duplicate, decision, item.file);
+             formDuplicateOpen = false;
+             showNextFormDuplicate();
+         });
+
+         modal.modal({backdrop: 'static', keyboard: false, show: true});
+     }
+
+     function applyFormDuplicateDecision(duplicate, decision, file) {
+         let added = {};
+         added[duplicate.name] = duplicate.image;
+
+         if (decision === 'add') {
+             let keys = formDistinctKeys();
+             keys.push(duplicate.name);
+             sessionStorage.setItem('formDistinctKeys', JSON.stringify(keys));
+             addImagesToCreationForm(added, file);
+             return;
+         }
+         if (decision === 'replace') {
+             // старую — с формы и из временной папки, новую — на её место
+             let old = (JSON.parse(sessionStorage.getItem('images') || '{}') || {})[duplicate.existing.name];
+             removeImageFromCreationForm(duplicate.existing.name);
+             if (old) {
+                 deleteTempFile(old.image_name, old.image_extension);
+             }
+             addImagesToCreationForm(added, file);
+             return;
+         }
+         // не добавлять — файлы этой картинки во временной папке больше не нужны
+         deleteTempFile(duplicate.image.image_name, duplicate.image.image_extension);
+         showRejectedUploads([{file: duplicate.file, message: 'не добавлена — такая картинка уже есть на форме'}]);
+     }
+
+     // Список картинок, которые не попали на форму создания: в блоке предупреждения под загрузкой
+     // (post_url — если сервер укажет пост, где картинка уже лежит)
      function showRejectedUploads(rejected) {
          let block = $('.js-error-block');
          if (!rejected.length) {
@@ -1047,6 +1149,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          if (sessionStorage.getItem('images') !== undefined && sessionStorage.getItem('images') !== null) {
              sessionStorage.removeItem('images');
          }
+         sessionStorage.removeItem('formDistinctKeys');
 
          $('.js-images').empty();
      }
@@ -1160,6 +1263,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
 
          $(containerSelectedHashtagsTags2).empty();
+         // подсказки (связанные хештеги, подбор по картинке) относились к прошлому посту
+         $('#b-suggested-tags-2').empty();
+         // и удалённые в прошлом посте связанные хештеги в новом снова можно подставлять
+         dismissedRelatedHashtags = {};
      }
 
      //отправка формы создания поста (на странице /cabinet/posts/create)
@@ -1220,7 +1327,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          data.push({name: 'numberOfPosts', value: numberOfPosts});
          data.push({name: 'groupPosts', value: groupPosts});
          data.push({name: 'force_duplicate_keys', value: JSON.stringify(duplicateState.forceKeys)});
+         // картинки, про которые в окне сравнения сказали "это разные" с картинкой этой же формы (showNextFormDuplicate)
+         data.push({name: 'form_distinct_keys', value: JSON.stringify(formDistinctKeys())});
          data.push({name: 'replace_duplicates', value: JSON.stringify(duplicateState.replaceDuplicates)});
+
+         // про похожую картинку ещё не решили (окно сравнения) — без решения она в пост не попадёт
+         if (formDuplicateOpen || formDuplicatesQueue.length) {
+             toastr.info('Сначала решите, что делать с похожей картинкой, — окно сравнения открыто');
+             return;
+         }
 
          // картинки или видео ещё грузятся — сохранять рано: в пост попало бы не всё
          if (uploadInProgress() || videoUploading) {
@@ -2689,18 +2804,73 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          // в тот же список, что и "Подобрать хештеги по картинке": клик по подсказке добавляет тег
          // (обработчик '#b-suggested-tags-2 .tag' ниже), а у добавленного подтянутся уже его связанные
-         function suggestRelatedTag(id, title, parentTitle) {
+         function suggestRelatedTag(id, title, parentTitle, usage) {
              const suggested = document.getElementById('b-suggested-tags-2');
              if (!suggested || suggested.querySelector('.tag[data-id="' + id + '"]')) {
                  return;
              }
              const tag = document.createElement('span');
-             tag.className = 'tag';
+             tag.className = 'tag js-related-suggestion';
              tag.setAttribute('data-id', id);
              tag.setAttribute('data-name', title);
-             tag.setAttribute('title', 'Связан с #' + parentTitle + ' — нажмите, чтобы добавить');
+             tag.setAttribute('data-usage', usage || 0);
+             tag.setAttribute('title', 'Связан с #' + parentTitle + ' · постов: ' + (usage || 0) + ' — нажмите, чтобы добавить');
              tag.textContent = '+ #' + title;
              suggested.appendChild(tag);
+         }
+
+         // Связанных у общего тега бывают десятки ("актриса" — имена актрис): показываем первые
+         // RELATED_SUGGESTIONS_SHOWN самых частых (по числу постов, HashtagController::relatedFor), остальные —
+         // по кнопке "ещё N". Подсказки по картинке не трогаем. Пересчитываем при любом изменении списка:
+         // подсказки приходят от нескольких выбранных тегов, их выбирают и убирают
+         const RELATED_SUGGESTIONS_SHOWN = 10;
+         let relatedSuggestionsExpanded = false;
+         const suggestedList = document.getElementById('b-suggested-tags-2');
+
+         function refreshRelatedSuggestions() {
+             const related = Array.prototype.slice.call(suggestedList.querySelectorAll('.js-related-suggestion'));
+             let more = suggestedList.querySelector('.js-related-suggestions-more');
+
+             // частые — первыми; при равном числе постов — по алфавиту
+             related.sort(function (a, b) {
+                 return (+b.getAttribute('data-usage') - +a.getAttribute('data-usage'))
+                     || a.getAttribute('data-name').localeCompare(b.getAttribute('data-name'), 'ru');
+             });
+             related.forEach(function (tag, index) {
+                 suggestedList.appendChild(tag);
+                 tag.style.display = relatedSuggestionsExpanded || index < RELATED_SUGGESTIONS_SHOWN ? '' : 'none';
+             });
+
+             const hiddenCount = related.length - RELATED_SUGGESTIONS_SHOWN;
+             if (hiddenCount <= 0) {
+                 if (more) {
+                     more.remove();
+                 }
+                 return;
+             }
+             if (!more) {
+                 more = document.createElement('button');
+                 more.type = 'button';
+                 more.className = 'b-suggested-tags__more js-related-suggestions-more';
+             }
+             more.textContent = relatedSuggestionsExpanded ? 'свернуть' : 'ещё ' + hiddenCount;
+             suggestedList.appendChild(more);
+         }
+
+         if (suggestedList) {
+             // список меняет и сам refreshRelatedSuggestions() — на это время наблюдение отключаем
+             const suggestionsObserver = new MutationObserver(function () {
+                 suggestionsObserver.disconnect();
+                 refreshRelatedSuggestions();
+                 suggestionsObserver.observe(suggestedList, {childList: true});
+             });
+             suggestionsObserver.observe(suggestedList, {childList: true});
+
+             $(suggestedList).on('click', '.js-related-suggestions-more', function (e) {
+                 e.preventDefault();
+                 relatedSuggestionsExpanded = !relatedSuggestionsExpanded;
+                 refreshRelatedSuggestions();
+             });
          }
 
          function loadRelated(id, title) {
@@ -2733,7 +2903,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                  added.push('#' + related.title);
                              }
                          } else {
-                             suggestRelatedTag(relatedId, related.title, title);
+                             suggestRelatedTag(relatedId, related.title, title, related.usage);
                          }
                      });
 
@@ -3222,10 +3392,104 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              clearAllBtn.addEventListener('click', clearAllHashtags);
          }
 
+         // ===== Период по дате пина (блок "Период" во вкладке хэштегов, только на постах) =====
+         // "с — по" (любой край можно оставить пустым), быстрые кнопки, "В этот день" — тот же день и месяц в любом
+         // году. Уходит в поиск вместе с хэштегами (SearchController::periodFromRequest), можно искать и без них
+         const periodBlock = document.querySelector('.js-search-period');
+         // "В этот день": 'MM-DD'; null — обычный период из полей
+         let periodOnThisDay = null;
+         const PERIOD_MONTHS_GENITIVE = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+         function periodIso(date) {
+             return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+         }
+
+         function setSearchPeriod(from, to, preset) {
+             if (!periodBlock) {
+                 return;
+             }
+             periodBlock.querySelector('.js-search-period-from').value = from || '';
+             periodBlock.querySelector('.js-search-period-to').value = to || '';
+             periodOnThisDay = null;
+             periodBlock.querySelector('.js-search-period-note').hidden = true;
+             periodBlock.querySelectorAll('.js-search-period-preset').forEach(function (btn) {
+                 btn.classList.toggle('is-active', btn.getAttribute('data-preset') === preset);
+             });
+         }
+
+         function clearSearchPeriod() {
+             setSearchPeriod('', '', null);
+         }
+
+         // период для запроса поиска; null — не задан
+         function searchPeriod() {
+             if (!periodBlock) {
+                 return null;
+             }
+             if (periodOnThisDay) {
+                 return {on_this_day: periodOnThisDay};
+             }
+             let from = periodBlock.querySelector('.js-search-period-from').value;
+             let to = periodBlock.querySelector('.js-search-period-to').value;
+             return from || to ? {date_from: from, date_to: to} : null;
+         }
+
+         if (periodBlock) {
+             periodBlock.addEventListener('click', function (e) {
+                 let presetBtn = e.target.closest('.js-search-period-preset');
+                 if (e.target.closest('.js-search-period-clear')) {
+                     clearSearchPeriod();
+                     return;
+                 }
+                 if (!presetBtn) {
+                     return;
+                 }
+
+                 let today = new Date();
+                 let year = today.getFullYear();
+                 let month = today.getMonth();
+                 switch (presetBtn.getAttribute('data-preset')) {
+                     case 'week': {
+                         // неделя с понедельника
+                         let monday = new Date(year, month, today.getDate() - ((today.getDay() + 6) % 7));
+                         setSearchPeriod(periodIso(monday), periodIso(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)), 'week');
+                         break;
+                     }
+                     case 'month':
+                         setSearchPeriod(periodIso(new Date(year, month, 1)), periodIso(new Date(year, month + 1, 0)), 'month');
+                         break;
+                     case 'year':
+                         setSearchPeriod(year + '-01-01', year + '-12-31', 'year');
+                         break;
+                     case 'last-year':
+                         setSearchPeriod((year - 1) + '-01-01', (year - 1) + '-12-31', 'last-year');
+                         break;
+                     case 'on-this-day': {
+                         setSearchPeriod('', '', 'on-this-day');
+                         periodOnThisDay = String(month + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+                         let note = periodBlock.querySelector('.js-search-period-note');
+                         note.textContent = today.getDate() + ' ' + PERIOD_MONTHS_GENITIVE[month] + ' — в любом году (только точные даты)';
+                         note.hidden = false;
+                         break;
+                     }
+                 }
+             });
+
+             // даты поменяли руками — это уже свой период, не быстрая кнопка
+             periodBlock.addEventListener('change', function (e) {
+                 if (e.target.matches('.js-search-period-from, .js-search-period-to')) {
+                     let from = periodBlock.querySelector('.js-search-period-from').value;
+                     let to = periodBlock.querySelector('.js-search-period-to').value;
+                     setSearchPeriod(from, to, null);
+                 }
+             });
+         }
+
          const searchResetBtn = document.querySelector('.js-b-search-reset');
          if (searchResetBtn) {
              searchResetBtn.addEventListener('click', function () {
                  clearAllHashtags();
+                 clearSearchPeriod();
                  // цвет — часть того же поиска
                  clearColorSelection();
 
@@ -3337,8 +3601,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      return;
                  }
 
-                 if (!Object.keys(hashtagSearchState.include).length) {
-                     toastr.warning('Выберите хотя бы один хэштег для поиска');
+                 // период по дате пина — можно искать и только по нему
+                 let period = searchPeriod();
+                 if (!Object.keys(hashtagSearchState.include).length && !period) {
+                     toastr.warning(periodBlock ? 'Выберите хотя бы один хэштег или период' : 'Выберите хотя бы один хэштег для поиска');
                      return;
                  }
 
@@ -3365,14 +3631,19 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      headers: {
                          'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                      },
-                     data: {
+                     data: Object.assign({
                          hashtags: hashtagSearchState.include,
                          excludeHashtags: hashtagSearchState.exclude,
-                     },
-                     success: function (response) {
+                     }, period || {}),
+                     success: function (response, status, xhr) {
                          replacePostsGrid(response);
                          // следующие страницы — тот же адрес: хэштеги сервер помнит в сессии
                          startPostsSearch(searchUrl);
+                         // поиск нашёл посты групп по их собственным хештегам и показал только их, без стопок —
+                         // снимаем галочку "Свернуть группы" (SearchController::searchPostsByHashtags)
+                         if (xhr.getResponseHeader('X-Groups-Expanded') === '1') {
+                             $(document).trigger('posts:groups-expanded-by-search');
+                         }
                      },
                      error: function () {
                          toastr.error('Не удалось выполнить поиск');
@@ -4133,6 +4404,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          let actionurl = $(this).data('url');
          let postId = $(this).data('post-id');
+         // карточка-стопка группы: на ней общие хештеги группы — их и меняем (PostController::update, group_common);
+         // отдельная карточка поста группы — только хештеги этого поста
+         let groupCommon = $('.grid-item[data-id=' + postId + ']').hasClass('grid-item--stack') ? 1 : 0;
 
          $.ajaxSetup({
              headers: {
@@ -4144,7 +4418,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              url: actionurl,
              type: 'PUT',
              dataType: 'application/json',
-             data: {'hashtags': hashtags},
+             data: {'hashtags': hashtags, 'group_common': groupCommon},
              complete: function(response) {
                  console.log("ответ");
                  console.log(response.responseText);
@@ -4170,6 +4444,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      // });
 
                      let postHashtagsElement = postElement.find('.tags');
+                     // отдельная карточка поста группы: общие хештеги группы — те, что были без пометки tags__own;
+                     // остальные (и только что добавленные) — собственные хештеги поста, другим цветом
+                     let isGroupPostCard = postElement.is('[data-group-id]') && !postElement.hasClass('grid-item--stack');
+                     let groupCommonIds = postHashtagsElement.find('li:not(.tags__own)').map(function () {
+                         return String(this.getAttribute('data-id'));
+                     }).get();
                      postHashtagsElement.empty();
 
                      const savedHashtags = JSON.parse(hashtags);
@@ -4179,7 +4459,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      for (key in savedHashtags) {
                          console.log(key);
-                         let postHashtag = '<li data-id="' + key + '" data-title="' + savedHashtags[key] + '"><a rel="tag" href="#">#' + savedHashtags[key] + '</a></li>';
+                         let postHashtag = $('<li data-id="' + key + '" data-title="' + savedHashtags[key] + '"><a rel="tag" href="#">#' + savedHashtags[key] + '</a></li>');
+                         if (isGroupPostCard && groupCommonIds.indexOf(String(key)) === -1) {
+                             postHashtag.addClass('tags__own').attr('title', 'Хештег только этого поста группы');
+                         }
                          postHashtagsElement.append(postHashtag);
                      }
 
@@ -4237,6 +4520,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      return;
                  }
                  console.log('response' + result);
+
+                 // дата публикации страницы — в поле "Дата" пина (event-date.js). Не у фильма: у страницы фильма
+                 // datePublished — дата выхода, а не то, о чём пин
+                 if (result && result.published_date && window.EventDateField && $('#pin-type').val() !== 'film') {
+                     window.EventDateField.suggest(result.published_date, 'link');
+                 }
 
                  // let uploadedImages = result['images'];
                  // console.log('uploadedImages' + uploadedImages);

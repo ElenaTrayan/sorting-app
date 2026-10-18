@@ -74,7 +74,7 @@
                 @include('user.includes.modal_delete_item')
 
                 @php
-                    $postsSortLabels = ['new' => 'Сначала новые', 'old' => 'Сначала старые', 'title' => 'По названию А-Я'];
+                    $postsSortLabels = ['new' => 'Сначала новые', 'old' => 'Сначала старые', 'title' => 'По названию А-Я', 'date' => 'По дате пина'];
                 @endphp
                 <div class="b-posts-toolbar">
                     <div class="b-posts-toolbar__tabs">
@@ -157,6 +157,8 @@
                             <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'sort' => 'new', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'new') is-active @endif">Сначала новые</a></li>
                             <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'sort' => 'old', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'old') is-active @endif">Сначала старые</a></li>
                             <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'sort' => 'title', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'title') is-active @endif">По названию А-Я</a></li>
+                            {{-- по дате пина (posts.event_date): день новости, день съёмки; посты без даты — в конце --}}
+                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'sort' => 'date', 'page' => null]) }}" class="b-posts-sort__option @if ($activeSort === 'date') is-active @endif">По дате пина</a></li>
                         </ul>
                     </div>
 
@@ -245,7 +247,8 @@
                             </div>
                             <div class="modal-body">
                                 <p>Группируются только посты из одних изображений или из одного текста — и только одного вида.</p>
-                                <p class="mb-0">Название и категория у постов станут общими — как у первого из них, хештеги объединятся.
+                                <p class="mb-0">Название и категория у постов станут общими — как у первого из них. Хештеги останутся у каждого поста
+                                    свои; те, что есть у всех, станут общими хештегами группы.
                                     Если среди выбранных есть посты уже существующей группы, остальные добавятся в неё.</p>
                             </div>
                             <div class="modal-footer">

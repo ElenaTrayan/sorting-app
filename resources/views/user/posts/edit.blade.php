@@ -99,6 +99,13 @@
                                     <span class="b-pin-type__desc">Можно добавить в гардероб</span>
                                 </span>
                             </button>
+                            <button type="button" class="b-pin-type {{ $postType === 'news' ? 'is-active' : '' }}" data-type="news">
+                                <span class="b-pin-type__icon">📰</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Новость</span>
+                                    <span class="b-pin-type__desc">Событие с датой</span>
+                                </span>
+                            </button>
                         </div>
                     </section>
 
@@ -129,6 +136,7 @@
                                     @endforeach
                                 </select>
                             </div>
+                            @include('user.posts.parts.event_date_field', ['value' => $post->eventDateInput()])
                         </div>
                     </section>
 
@@ -355,6 +363,7 @@
 @push('footer-scripts')
     <script src="/admin/film-fields.js?v={{ filemtime(public_path('admin/film-fields.js')) }}"></script>
     <script src="/admin/palette-editor.js?v={{ filemtime(public_path('admin/palette-editor.js')) }}"></script>
+    <script src="/admin/event-date.js?v={{ filemtime(public_path('admin/event-date.js')) }}"></script>
     <script src="/admin/post-edit.js?v={{ filemtime(public_path('admin/post-edit.js')) }}"></script>
     <script>
         // просмотр изображений поста в полном размере (в том числе добавленных динамически) —

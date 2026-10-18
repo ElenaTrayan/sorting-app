@@ -1630,6 +1630,25 @@ text-align: center;
     max-width: calc(100% - 30px);
     font-size: 12px;
 }
+/* дата пина (posts.event_date) — на карточке и на странице группы */
+.b-card__date-chip,
+.b-card__date-chip:hover,
+.b-event-date-chip {
+    background: #eaf6f0;
+    color: #1f7a54;
+    cursor: default;
+}
+.b-event-date-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    margin: 4px 0 8px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+}
 /* пост из группы — чип ведёт на страницу группы (posts/group.blade.php) */
 .b-card__group-chip,
 .b-card__group-chip:hover {
@@ -2025,6 +2044,10 @@ text-align: center;
     font-weight: 700;
     color: #4a4859;
 }
+.b-post-group__tags-hint {
+    font-weight: 500;
+    color: #8b8b99;
+}
 .b-post-group__errors {
     margin-top: 12px;
     padding: 10px 14px;
@@ -2045,17 +2068,126 @@ text-align: center;
 .b-post-group__list.b-post-group__list--text {
     margin-top: 12px;
 }
+/* элемент списка — плитка 170×170 (.b-post-group__tile) и под ней собственные хештеги поста; высота у всех
+   элементов одна (теги в одну строку), иначе плитки на float цеплялись бы друг за друга */
 .b-post-group__item.b-post-group__item--picture {
-    position: relative;
     float: left;
     display: block;
     width: 170px;
-    height: 170px;
     margin: 6px;
     padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: grab;
+}
+.b-post-group__tile {
+    position: relative;
+    width: 170px;
+    height: 170px;
+    border: 1px solid #ececf1;
     border-radius: 12px;
     overflow: hidden;
-    cursor: grab;
+}
+/* собственные хештеги поста группы (parts/group_item_own_tags.blade.php, post-group.js) */
+.b-post-group__own-tags {
+    margin-top: 10px;
+    cursor: default;
+}
+.b-post-group__item--picture .b-post-group__own-tags {
+    margin-top: 6px;
+}
+.b-post-group__own-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.b-post-group__item--picture .b-post-group__own-tag-list {
+    flex-wrap: nowrap;
+    height: 24px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+.b-post-group__own-tag {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 2px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 11px;
+    background: #fff4e5;
+    color: #b26a00;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.b-post-group__own-tag-remove {
+    padding: 0 0 0 2px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 14px;
+    line-height: 1;
+    opacity: .6;
+    cursor: pointer;
+}
+.b-post-group__own-tag-remove:hover {
+    opacity: 1;
+}
+.b-post-group__own-tag-field {
+    position: relative;
+    margin-top: 4px;
+}
+.b-post-group__own-tag-input {
+    width: 100%;
+    max-width: 260px;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px dashed #d9d7e3;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 12px;
+    color: #4a4a56;
+}
+.b-post-group__own-tag-input:focus {
+    outline: none;
+    border-style: solid;
+    border-color: #7367f0;
+}
+.b-post-group__own-tag-results {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    left: 0;
+    min-width: 170px;
+    max-width: 260px;
+    max-height: 220px;
+    margin: 4px 0 0;
+    padding: 4px;
+    overflow-y: auto;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #ececf1;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(23, 23, 36, .12);
+}
+.b-post-group__own-tag-results li {
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: #4a4a56;
+    cursor: pointer;
+}
+.b-post-group__own-tag-results li:hover,
+.b-post-group__own-tag-results li.is-active {
+    background: #eef0fe;
+    color: #7367f0;
+}
+.b-post-group__own-tag-results li.is-hint {
+    color: #a3a1b4;
+    cursor: default;
+    background: none;
 }
 .b-post-group__item.b-post-group__item--text {
     display: block;
@@ -3049,6 +3181,17 @@ margin: 0 0 20px 0;
 .tags li a:hover {
     color: #343a40;
 }
+/* собственный хештег поста группы (не общий для группы) — как на странице группы, .b-post-group__own-tag */
+.tags li.tags__own {
+    background: #fff4e5;
+}
+.tags li.tags__own:hover {
+    background: #ffe8c7;
+}
+.tags li.tags__own a,
+.tags li.tags__own a:hover {
+    color: #b26a00;
+}
 .tags li i {
     position: absolute;
     top: -5px;
@@ -3541,6 +3684,75 @@ margin: 0 0 20px 0;
     border-radius: 12px;
     padding: 14px;
     margin-top: 10px;
+}
+
+/* --- период по дате пина (search_widget.blade.php, admin.js searchPeriod()) --- */
+.b-search-period {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+}
+.b-search-period__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.b-search-period__input {
+    flex: 1 1 140px;
+    min-width: 0;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 13px;
+    color: #4a4a56;
+}
+.b-search-period__input:focus {
+    outline: none;
+    border-color: #7367f0;
+}
+.b-search-period__dash {
+    color: #8b8b99;
+}
+.b-search-period__clear {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #f1f1f6;
+    color: #6f6d80;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+.b-search-period__presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-search-period__preset {
+    padding: 4px 10px;
+    border: 1px solid #e6e6ee;
+    border-radius: 14px;
+    background: #fff;
+    color: #4a4a56;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.b-search-period__preset:hover,
+.b-search-period__preset.is-active {
+    border-color: #7367f0;
+    background: #eef0fe;
+    color: #7367f0;
+}
+.b-search-period__note {
+    font-size: 12px;
+    color: #1f7a54;
 }
 
 /* --- футер: "Сбросить" + "Найти" --- */
@@ -8375,6 +8587,23 @@ margin: 0 0 20px 0;
     border: 1px solid #e2e2e2;
     border-radius: 4px;
     background-color: #f5f5f5;
+}
+
+/* окно "Похожая картинка уже есть на форме" (#modal-form-duplicate, create.blade.php): какая из двух лучше */
+.b-form-duplicate__better {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: #eaf6f0;
+    color: #1f7a54;
+    font-size: 11px;
+    font-weight: 600;
+    vertical-align: middle;
+}
+#modal-form-duplicate .modal-footer {
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 /* Прелоадер подгрузки следующих постов при скролле (см. loadMoreData() в admin.js) */

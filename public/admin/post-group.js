@@ -1,4 +1,5 @@
 // Страница группы постов (resources/views/user/posts/group.blade.php): общие название, категория и хештеги,
+// собственные хештеги каждого поста (под его карточкой),
 // порядок постов перетаскиванием, просмотр картинок в Fancybox, у группы текстов — редактор текста каждого поста;
 // добавление постов в группу (свои посты из окна, новые картинки, новый текст) и удаление из неё.
 // Сервер — PostController::updateGroup/reorderGroup/groupCandidates/attachToGroup/uploadToGroup/addTextToGroup/
@@ -27,7 +28,8 @@
         dirty = true;
     }
 
-    $form.on('input change', 'input, select, textarea', markDirty);
+    // поле поиска собственного хештега поста — не правка: сам хештег отмечает addOwnTag()
+    $form.on('input change', 'input:not(.js-post-group-own-tag-input), select, textarea', markDirty);
     // хештеги добавляет и убирает admin.js — следим за самим списком выбранных
     if (editing) {
         new MutationObserver(markDirty).observe(document.getElementById('b-selected-tags-2'), {childList: true});
@@ -153,6 +155,22 @@
     initEditors('textarea.js-post-group-text');
     updateChars();
 
+    // общий текст группы изображений (поле "Текст группы" в блоке "Общее") — тот же редактор, что у текстов
+    if (!isText && document.getElementById('group-text') && typeof tinymce !== 'undefined') {
+        tinymce.init({
+            selector: '#group-text',
+            plugins: 'autolink lists link',
+            toolbar: 'undo redo | bold italic | bullist numlist | link',
+            menubar: false,
+            statusbar: false,
+            height: 200,
+            content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+            setup: function (editor) {
+                editor.on('input change undo redo', markDirty);
+            },
+        });
+    }
+
     // ===== сохранение =====
 
     function selectedHashtags() {
@@ -163,6 +181,17 @@
         return JSON.stringify(hashtags);
     }
 
+    // собственные хештеги каждого поста: {id поста: [id хештегов]}
+    function ownHashtags() {
+        var own = {};
+        $list.children('.js-post-group-item').each(function () {
+            own[$(this).data('id')] = $(this).find('.js-post-group-own-tag').map(function () {
+                return this.getAttribute('data-id');
+            }).get();
+        });
+        return JSON.stringify(own);
+    }
+
     function save() {
         // TinyMCE переносит текст в свой textarea только по triggerSave()
         if (typeof tinymce !== 'undefined') {
@@ -171,6 +200,9 @@
 
         var data = $form.serializeArray();
         data.push({name: 'hashtags', value: selectedHashtags()});
+        if (editing) {
+            data.push({name: 'own_hashtags', value: ownHashtags()});
+        }
 
         var $button = $group.find('.js-post-group-save').prop('disabled', true);
 
@@ -180,8 +212,9 @@
                 toastr.success(response.message || 'Группа сохранена');
             })
             .fail(function (xhr) {
-                var errors = xhr.responseJSON && xhr.responseJSON.errors;
-                toastr.error(errors ? Object.values(errors)[0][0] : 'Не удалось сохранить группу');
+                var json = xhr.responseJSON || {};
+                // ошибки валидации — {errors: {поле: [текст]}}; своя проверка (например, даты) — {message}
+                toastr.error(json.errors ? Object.values(json.errors)[0][0] : (json.message || 'Не удалось сохранить группу'));
             })
             .always(function () {
                 $button.prop('disabled', false);
@@ -210,6 +243,172 @@
         e.preventDefault();
     });
     $group.on('click', '.js-post-group-save', save);
+
+    // ===== собственные хештеги поста (под карточкой, parts/group_item_own_tags.blade.php) =====
+    // В дополнение к общим хештегам группы. Поле под карточкой ищет хештеги пользователя (тот же поиск, что у
+    // блока общих хештегов, SearchController::searchHashtag) и создаёт новый, если такого нет (HashtagController::store).
+    // Сохраняются вместе с группой — кнопкой "Сохранить" (own_hashtags)
+
+    var ownTagSearchTimer = null;
+    var ownTagRequest = null;
+
+    function escapeHtml(text) {
+        return $('<div>').text(text).html();
+    }
+
+    // хештеги, которые предлагать посту не нужно: общие (они у него и так есть) и уже добавленные ему
+    function takenHashtags($item) {
+        var taken = {};
+        $('#b-selected-tags-2 .tag').each(function () {
+            taken[this.getAttribute('data-id')] = this.getAttribute('data-name');
+        });
+        $item.find('.js-post-group-own-tag').each(function () {
+            taken[this.getAttribute('data-id')] = this.getAttribute('data-name');
+        });
+        return taken;
+    }
+
+    function addOwnTag($item, id, title) {
+        if (takenHashtags($item)[id] !== undefined) {
+            toastr.info('#' + title + ' уже есть у этого поста');
+            return;
+        }
+        $('<span class="b-post-group__own-tag js-post-group-own-tag" title="Хештег только этого поста"></span>')
+            .attr('data-id', id)
+            .attr('data-name', title)
+            .text('#' + title)
+            .append('<button type="button" class="b-post-group__own-tag-remove js-post-group-own-tag-remove" title="Убрать хештег у этого поста">&times;</button>')
+            .appendTo($item.find('.js-post-group-own-tags'));
+        markDirty();
+    }
+
+    function hideOwnTagResults($field) {
+        $field.find('.js-post-group-own-tag-results').prop('hidden', true).empty();
+    }
+
+    function showOwnTagResults($input, query, hashtags) {
+        var $results = $input.siblings('.js-post-group-own-tag-results').empty();
+        var taken = takenHashtags($input.closest('.js-post-group-item'));
+        // такой хештег у поста уже есть (общий или свой) — поиск его не вернёт, но и создавать его не нужно
+        var exact = Object.keys(taken).some(function (id) {
+            return String(taken[id]).toLowerCase() === query.toLowerCase();
+        });
+
+        hashtags.slice(0, 8).forEach(function (hashtag) {
+            exact = exact || hashtag.title.toLowerCase() === query.toLowerCase();
+            $('<li class="js-post-group-own-tag-option"></li>')
+                .attr('data-id', hashtag.id)
+                .attr('data-name', hashtag.title)
+                .text('#' + hashtag.title)
+                .appendTo($results);
+        });
+        if (!exact) {
+            $('<li class="js-post-group-own-tag-create"></li>')
+                .attr('data-name', query)
+                .html('Создать <b>#' + escapeHtml(query) + '</b>')
+                .appendTo($results);
+        }
+
+        $results.children().first().addClass('is-active');
+        $results.prop('hidden', false);
+    }
+
+    function searchOwnTags($input) {
+        var query = $.trim($input.val()).replace(/^#/, '');
+        if (ownTagRequest) {
+            ownTagRequest.abort();
+        }
+        if (!query) {
+            hideOwnTagResults($input.parent());
+            return;
+        }
+
+        ownTagRequest = $.ajax({
+            url: group.dataset.hashtagSearchAction,
+            type: 'POST',
+            headers: csrfHeaders,
+            data: {search: query, hashtags: takenHashtags($input.closest('.js-post-group-item'))},
+        })
+            .done(function (response) {
+                showOwnTagResults($input, query, response && response.status ? response.hashtags : []);
+            });
+    }
+
+    // выбрать подсказку: готовый хештег или "Создать #..."
+    function pickOwnTagOption($option) {
+        var $field = $option.closest('.b-post-group__own-tag-field');
+        var $input = $field.find('.js-post-group-own-tag-input');
+        var $item = $option.closest('.js-post-group-item');
+
+        hideOwnTagResults($field);
+        $input.val('');
+
+        // attr, а не data(): data() превращает название вроде "2024" в число
+        if ($option.hasClass('js-post-group-own-tag-option')) {
+            addOwnTag($item, $option.attr('data-id'), $option.attr('data-name'));
+            return;
+        }
+
+        var title = $option.attr('data-name');
+        $input.prop('disabled', true);
+        $.ajax({url: group.dataset.hashtagStoreAction, type: 'POST', headers: csrfHeaders, data: {title: title}, dataType: 'json'})
+            .done(function (response) {
+                if (response && response.status && response.info) {
+                    addOwnTag($item, String(response.info.id), response.info.title);
+                } else {
+                    toastr.error((response && response.message) || 'Не удалось создать хештег');
+                }
+            })
+            .fail(function () {
+                toastr.error('Не удалось создать хештег #' + title);
+            })
+            .always(function () {
+                $input.prop('disabled', false).trigger('focus');
+            });
+    }
+
+    $list.on('input', '.js-post-group-own-tag-input', function () {
+        var $input = $(this);
+        clearTimeout(ownTagSearchTimer);
+        ownTagSearchTimer = setTimeout(function () {
+            searchOwnTags($input);
+        }, 250);
+    });
+
+    $list.on('keydown', '.js-post-group-own-tag-input', function (e) {
+        var $results = $(this).siblings('.js-post-group-own-tag-results');
+        var $options = $results.children();
+        var $active = $options.filter('.is-active');
+
+        if (e.key === 'Escape') {
+            hideOwnTagResults($(this).parent());
+        } else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && $options.length) {
+            e.preventDefault();
+            var index = $options.index($active) + (e.key === 'ArrowDown' ? 1 : -1);
+            $options.removeClass('is-active').eq((index + $options.length) % $options.length).addClass('is-active');
+        } else if (e.key === 'Enter') {
+            // Enter в поле не отправляет форму группы — только выбирает подсказку
+            e.preventDefault();
+            if (!$results.prop('hidden') && $active.length) {
+                pickOwnTagOption($active);
+            }
+        }
+    });
+
+    // mousedown, а не click: иначе поле успеет потерять фокус и спрятать подсказки до клика
+    $list.on('mousedown', '.js-post-group-own-tag-results li', function (e) {
+        e.preventDefault();
+        pickOwnTagOption($(this));
+    });
+
+    $list.on('blur', '.js-post-group-own-tag-input', function () {
+        hideOwnTagResults($(this).parent());
+    });
+
+    $list.on('click', '.js-post-group-own-tag-remove', function () {
+        $(this).closest('.js-post-group-own-tag').remove();
+        markDirty();
+    });
 
     // ===== отметка "Использовано" — одна на всю группу =====
 
@@ -296,7 +495,7 @@
             // тексты при редактировании — только за ручку (в карточке редактор); картинки и тексты
             // в режиме просмотра — за саму карточку
             handle: isText && editing ? '.js-post-group-handle' : false,
-            cancel: 'input, textarea, button, select, option, .b-post-group__note',
+            cancel: 'input, textarea, button, select, option, .b-post-group__note, .b-post-group__own-tags',
             axis: isText ? 'y' : false,
             distance: 6,
             tolerance: 'pointer',
@@ -725,7 +924,17 @@
         // хештеги добавленных постов сливаются с хештегами группы на сервере — проще перерисовать страницу
         afterSave(function () {
             $.ajax({url: group.dataset.attachUrl, type: 'POST', headers: csrfHeaders, data: {ids: Object.keys(selected)}})
-                .done(function () {
+                .done(function (response) {
+                    // у группы картинок текст общий: посты с другим текстом сервер не добавил — говорим об этом,
+                    // пока страница не перезагрузилась
+                    if (response && response.skipped) {
+                        $modal.modal('hide');
+                        toastr.warning('Не добавлено постов: ' + response.skipped + ' — у них другой текст, а у группы картинок текст общий');
+                        setTimeout(function () {
+                            leaveTo(null);
+                        }, 3000);
+                        return;
+                    }
                     leaveTo(null);
                 })
                 .fail(function () {

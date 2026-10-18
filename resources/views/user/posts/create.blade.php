@@ -127,6 +127,14 @@
                                     <span class="b-pin-type__desc">Одежда, обувь, аксессуары</span>
                                 </span>
                             </button>
+                            {{-- своих полей у новости нет — главное у неё дата (поле "Дата" ниже, оно есть у любого пина) --}}
+                            <button type="button" class="b-pin-type" data-type="news">
+                                <span class="b-pin-type__icon">📰</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Новость</span>
+                                    <span class="b-pin-type__desc">Событие с датой</span>
+                                </span>
+                            </button>
                         </div>
                     </section>
 
@@ -168,7 +176,7 @@
                                 <span class="b-pin-checkbox__box"></span>
                                 <span class="b-pin-checkbox__text">
                                     <span>Сгруппировать посты</span>
-                                    <span class="b-pin-card__desc">Объединить несколько пинов в одну группу. Только для пинов из одних изображений — с текстом пины создаются без группы.</span>
+                                    <span class="b-pin-card__desc">Объединить несколько пинов в одну группу. Текст станет общим текстом группы — его потом правят на странице группы. Фильмы, рецепты и одежда не группируются.</span>
                                 </span>
                             </label>
                         </div>
@@ -232,6 +240,7 @@
                                     @endforeach
                                 </select>
                             </div>
+                            @include('user.posts.parts.event_date_field', ['value' => ''])
                         </div>
 
                         <div class="b-parsing-type-blocks">
@@ -314,6 +323,40 @@
     {{-- окно сравнения с уже существующим постом, в котором нашлась такая же картинка
          (заполняет askAboutDuplicate() в admin.js). Вне формы — иначе его радиокнопки
          попадут в serializeArray() формы создания --}}
+    {{-- только что загруженная картинка похожа на ту, что уже стоит на этой форме (UploadImageController::
+         uploadImagesToTempDirectory, form_duplicates): сравнить размеры и решить — это разные картинки (отдельный
+         пост), заменить ту, что на форме, или не добавлять (admin.js, showNextFormDuplicate) --}}
+    <div class="modal fade" id="modal-form-duplicate" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Похожая картинка уже есть на форме</h5>
+                </div>
+                <div class="modal-body">
+                    <p>«<span class="js-form-duplicate-file"></span>» похожа на картинку, которую вы уже добавили. Если это разные
+                        картинки (например, другой кадр той же серии), добавьте её — для неё будет создан отдельный пост.</p>
+                    <div class="b-duplicate-choice__compare">
+                        <div class="b-duplicate-choice__option">
+                            <div class="b-duplicate-choice__label">Новая <span class="b-form-duplicate__better js-form-duplicate-better-new">лучше качество</span></div>
+                            <img class="js-form-duplicate-new b-duplicate-choice__thumb" src="" alt="">
+                            <div class="js-form-duplicate-new-size text-muted"></div>
+                        </div>
+                        <div class="b-duplicate-choice__option">
+                            <div class="b-duplicate-choice__label">Уже на форме <span class="b-form-duplicate__better js-form-duplicate-better-old">лучше качество</span></div>
+                            <img class="js-form-duplicate-old b-duplicate-choice__thumb" src="" alt="">
+                            <div class="js-form-duplicate-old-size text-muted"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-decision="add">Это разные картинки — добавить отдельным постом</button>
+                    <button type="button" class="btn btn-outline-primary js-form-duplicate-replace" data-decision="replace">Заменить ту, что на форме</button>
+                    <button type="button" class="btn btn-secondary" data-decision="skip">Не добавлять</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade b-dup-merge" id="modal-duplicate-merge" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
@@ -339,5 +382,6 @@
 
 @push('footer-scripts')
     <script src="/admin/film-fields.js?v={{ filemtime(public_path('admin/film-fields.js')) }}"></script>
+    <script src="/admin/event-date.js?v={{ filemtime(public_path('admin/event-date.js')) }}"></script>
     <script src="/admin/pin-create.js?v={{ filemtime(public_path('admin/pin-create.js')) }}"></script>
 @endpush
