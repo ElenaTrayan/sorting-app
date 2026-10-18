@@ -3304,6 +3304,10 @@ margin: 0 0 20px 0;
 .b-tags__dropdown-item:active {
     background: #8762c20d;
 }
+.b-tags__dropdown-item--create {
+    color: #8762c2;
+    font-style: italic;
+}
 
 /* Адаптивность */
 @media (max-width: 768px) {

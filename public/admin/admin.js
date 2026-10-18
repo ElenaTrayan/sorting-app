@@ -1840,6 +1840,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // копим выбранные хештеги локально (чипы), а отправляются они одним запросом
      // вместе с самим хештегом при нажатии "Добавить" (см. related_hashtag_ids ниже).
      let createPageRelatedHashtags = {}; // { id: title }
+     // новые (ещё не существующие) хештеги, введённые в пикере — создаются на сервере
+     // вместе с основным хештегом и сразу привязываются к нему (related_hashtag_titles ниже)
+     let createPageNewRelatedTitles = [];
 
      (function () {
          const picker = document.querySelector('.js-hashtag-related-picker');
@@ -1852,24 +1855,99 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          const dropdown = document.getElementById('related-hashtags-dropdown');
          const searchUrl = picker.getAttribute('data-search-action');
 
-         function appendChip(id, title) {
+         // результаты последнего поиска — чтобы по Enter выбрать существующий хештег,
+         // если введённое название совпадает с ним точно
+         let lastFoundHashtags = [];
+
+         function normalize(title) {
+             return title.trim().toLowerCase();
+         }
+
+         function isAlreadyChosen(title) {
+             const normalized = normalize(title);
+             return Object.values(createPageRelatedHashtags).some(t => normalize(t) === normalized)
+                 || createPageNewRelatedTitles.some(t => normalize(t) === normalized);
+         }
+
+         function hideDropdown() {
+             dropdown.innerHTML = '';
+             dropdown.style.display = 'none';
+         }
+
+         function resetInput() {
+             input.value = '';
+             lastFoundHashtags = [];
+             hideDropdown();
+             input.focus();
+         }
+
+         function appendChip(id, title, isNew) {
              let chip = document.createElement('div');
              chip.classList.add('b-tags__item');
-             chip.setAttribute('data-id', id);
+             if (isNew) {
+                 chip.setAttribute('data-new', '1');
+                 chip.setAttribute('title', 'Новый хештег — будет создан вместе с этим');
+             } else {
+                 chip.setAttribute('data-id', id);
+             }
              chip.setAttribute('data-name', title);
-             chip.textContent = title;
+             chip.textContent = isNew ? title + ' (новый)' : title;
 
              let removeBtn = document.createElement('span');
              removeBtn.classList.add('close');
              removeBtn.innerHTML = '&times;';
              removeBtn.addEventListener('click', function () {
-                 delete createPageRelatedHashtags[id];
+                 if (isNew) {
+                     createPageNewRelatedTitles = createPageNewRelatedTitles.filter(t => t !== title);
+                 } else {
+                     delete createPageRelatedHashtags[id];
+                 }
                  chip.remove();
              });
 
              chip.appendChild(removeBtn);
              container.appendChild(chip);
          }
+
+         function chooseExisting(item) {
+             createPageRelatedHashtags[item.id] = item.title;
+             appendChip(item.id, item.title, false);
+             resetInput();
+         }
+
+         function chooseNew(title) {
+             if (!title.length || isAlreadyChosen(title)) {
+                 resetInput();
+                 return;
+             }
+             if (normalize(title) === normalize($('#title').val() || '')) {
+                 toastr.error('Хештег не может быть связан сам с собой');
+                 return;
+             }
+             createPageNewRelatedTitles.push(title);
+             appendChip(null, title, true);
+             resetInput();
+         }
+
+         // Enter: точное совпадение с найденным — берём существующий, иначе создаём новый
+         input.addEventListener('keydown', function (event) {
+             if (event.key !== 'Enter') {
+                 return;
+             }
+             event.preventDefault();
+
+             const query = input.value.trim();
+             if (!query.length) {
+                 return;
+             }
+
+             const exact = lastFoundHashtags.find(item => normalize(item.title) === normalize(query));
+             if (exact) {
+                 chooseExisting(exact);
+             } else {
+                 chooseNew(query);
+             }
+         });
 
          let searchTimer = null;
 
@@ -1879,8 +1957,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              clearTimeout(searchTimer);
 
              if (!query.length) {
-                 dropdown.innerHTML = '';
-                 dropdown.style.display = 'none';
+                 lastFoundHashtags = [];
+                 hideDropdown();
                  return;
              }
 
@@ -1896,16 +1974,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          hashtags: createPageRelatedHashtags,
                      },
                      success: function (response) {
-                         dropdown.innerHTML = '';
-
-                         let items = (response && response.hashtags) ? response.hashtags : [];
-
-                         if (!items.length) {
-                             dropdown.style.display = 'none';
+                         // пока шёл запрос, поле могли изменить — старый ответ не показываем
+                         if (input.value.trim() !== query) {
                              return;
                          }
 
-                         dropdown.style.display = 'block';
+                         dropdown.innerHTML = '';
+
+                         let items = (response && response.hashtags) ? response.hashtags : [];
+                         lastFoundHashtags = items;
 
                          items.forEach(function (item) {
                              let li = document.createElement('li');
@@ -1913,21 +1990,31 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                              li.textContent = item.title;
 
                              li.addEventListener('click', function () {
-                                 createPageRelatedHashtags[item.id] = item.title;
-                                 appendChip(item.id, item.title);
-
-                                 input.value = '';
-                                 dropdown.innerHTML = '';
-                                 dropdown.style.display = 'none';
-                                 input.focus();
+                                 chooseExisting(item);
                              });
 
                              dropdown.appendChild(li);
                          });
+
+                         // точного совпадения среди существующих нет — предлагаем создать новый
+                         const hasExact = items.some(item => normalize(item.title) === normalize(query));
+                         if (!hasExact && !isAlreadyChosen(query)) {
+                             let li = document.createElement('li');
+                             li.classList.add('b-tags__dropdown-item', 'b-tags__dropdown-item--create');
+                             li.textContent = '+ Создать «' + query + '»';
+
+                             li.addEventListener('click', function () {
+                                 chooseNew(query);
+                             });
+
+                             dropdown.appendChild(li);
+                         }
+
+                         dropdown.style.display = dropdown.children.length ? 'block' : 'none';
                      },
                      error: function () {
-                         dropdown.innerHTML = '';
-                         dropdown.style.display = 'none';
+                         lastFoundHashtags = [];
+                         hideDropdown();
                      }
                  });
              }, 250);
@@ -2004,6 +2091,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          Object.keys(createPageRelatedHashtags).forEach(function (relatedId) {
                              submitData.push({name: 'related_hashtag_ids[]', value: relatedId});
                          });
+                         createPageNewRelatedTitles.forEach(function (relatedTitle) {
+                             submitData.push({name: 'related_hashtag_titles[]', value: relatedTitle});
+                         });
 
                          $.ajax({
                              type: 'post',
@@ -2021,6 +2111,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                              text: createResponse.info.title,
                                          })
                                      );
+                                     // и новые связанные хештеги, созданные заодно
+                                     (createResponse.created_related || []).forEach(function (created) {
+                                         $('#parent_id').append($('<option>', {value: created.id, text: created.title}));
+                                     });
 
                                      // очищаем форму (и пикер связанных хештегов) для ввода следующего хештега —
                                      // без перезагрузки страницы
@@ -2030,6 +2124,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                      fieldTitle.focus();
 
                                      createPageRelatedHashtags = {};
+                                     createPageNewRelatedTitles = [];
                                      let relatedContainer = document.getElementById('related-hashtags-container');
                                      if (relatedContainer) {
                                          relatedContainer.innerHTML = '';
@@ -2050,10 +2145,66 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          console.log('errors' + errors);
      });
 
-     $(document).on('input', '#hashtags-create #title', function() {
-         console.log('TITLE');
-         $(this).removeClass('is-invalid');
-         $(this).next('.error').removeClass('active');
+     // проверка "такой хештег уже существует" прямо при вводе названия — на страницах создания
+     // (а не только по кнопке "Добавить") и редактирования (там сам хештег дублем не считается)
+     let createTitleCheckTimer = null;
+
+     $(document).on('input', '#hashtags-create #title, #hashtags-edit #title', function() {
+         let fieldTitle = $(this);
+         let errorMessageElement = fieldTitle.next('.error');
+         let query = fieldTitle.val().trim();
+         let ownId = String(fieldTitle.data('hashtag-id') || '');
+
+         fieldTitle.removeClass('is-invalid');
+         errorMessageElement.removeClass('active').text('');
+
+         clearTimeout(createTitleCheckTimer);
+
+         if (!query.length) {
+             return;
+         }
+
+         createTitleCheckTimer = setTimeout(function () {
+             $.ajax({
+                 type: 'post',
+                 url: fieldTitle.data('action'),
+                 headers: {
+                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                 },
+                 data: {'title': query},
+                 success: function (response) {
+                     // пока шёл запрос, название могли изменить — старый ответ не показываем
+                     if (fieldTitle.val().trim() !== query) {
+                         return;
+                     }
+
+                     let existing = ((response && response.hashtags) || []).find(function (hashtag) {
+                         return String(hashtag.id) !== ownId;
+                     });
+
+                     if (existing) {
+                         let editUrl = String(fieldTitle.data('edit-url') || '').replace('__ID__', existing.id);
+
+                         fieldTitle.addClass('is-invalid');
+                         errorMessageElement
+                             .empty()
+                             .append(document.createTextNode('Такой хештег уже существует! '))
+                             .append($('<a>', {href: editUrl, target: '_blank', text: 'Открыть «' + existing.title + '»'}))
+                             .addClass('active');
+                     }
+                 }
+             });
+         }, 300);
+     });
+
+     // страница редактирования: пока название совпадает с другим хештегом — не сохраняем
+     // (на сервере update() проверяет то же самое)
+     $(document).on('submit', '#hashtags-edit', function(e) {
+         let fieldTitle = $(this).find('#title');
+         if (fieldTitle.hasClass('is-invalid')) {
+             e.preventDefault();
+             fieldTitle.focus();
+         }
      });
 
      // searchInput1
@@ -4822,6 +4973,84 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
          }
 
+         // результаты последнего поиска — чтобы по Enter выбрать существующий хештег,
+         // если введённое название совпадает с ним точно
+         let lastFoundHashtags = [];
+
+         function normalize(title) {
+             return title.trim().toLowerCase();
+         }
+
+         function isAlreadyRelated(title) {
+             const normalized = normalize(title);
+             return Array.from(container.querySelectorAll('.b-tags__item'))
+                 .some(chip => normalize(chip.getAttribute('data-name') || '') === normalized);
+         }
+
+         function resetInput() {
+             input.value = '';
+             lastFoundHashtags = [];
+             dropdown.innerHTML = '';
+             dropdown.style.display = 'none';
+             input.focus();
+         }
+
+         // data — {related_hashtag_id} для существующего или {related_hashtag_title} для нового
+         function attachRelated(data) {
+             $.ajax({
+                 type: 'post',
+                 url: attachUrl(),
+                 headers: {
+                     'X-CSRF-TOKEN': csrfToken()
+                 },
+                 data: data,
+                 success: function (attachResponse) {
+                     if (attachResponse.status === true) {
+                         if (!container.querySelector('.b-tags__item[data-id="' + attachResponse.hashtag.id + '"]')) {
+                             appendChip(attachResponse.hashtag.id, attachResponse.hashtag.title);
+                         }
+                         addRelationRow(attachResponse.hashtag.id, attachResponse.hashtag.title, attachResponse.auto_add, attachResponse.auto_add_back);
+                         toastr.success(attachResponse.created ? 'Хештег создан и добавлен в связанные' : 'Хештег добавлен в связанные');
+                     } else {
+                         toastr.error(attachResponse.message || 'Не удалось добавить связь');
+                     }
+                 },
+                 error: function () {
+                     toastr.error('Не удалось добавить связь');
+                 }
+             });
+
+             resetInput();
+         }
+
+         function attachNew(title) {
+             if (!title.length || isAlreadyRelated(title)) {
+                 resetInput();
+                 return;
+             }
+             attachRelated({related_hashtag_title: title});
+         }
+
+         // Enter: точное совпадение с найденным — берём существующий, иначе создаём новый
+         input.addEventListener('keydown', function (event) {
+             if (event.key !== 'Enter') {
+                 return;
+             }
+             event.preventDefault();
+
+             const query = input.value.trim();
+             if (!query.length) {
+                 return;
+             }
+
+             const exact = lastFoundHashtags.find(item => normalize(item.title) === normalize(query));
+             if (exact) {
+                 attachRelated({related_hashtag_id: exact.id});
+             } else {
+                 attachNew(query);
+             }
+         });
+
          let searchTimer = null;
 
          input.addEventListener('input', function () {
@@ -4830,6 +5059,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              clearTimeout(searchTimer);
 
              if (!query.length) {
+                 lastFoundHashtags = [];
                  dropdown.innerHTML = '';
                  dropdown.style.display = 'none';
                  return;
@@ -4847,16 +5077,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          hashtags: getSelectedHashtags(),
                      },
                      success: function (response) {
-                         dropdown.innerHTML = '';
-
-                         let items = (response && response.hashtags) ? response.hashtags : [];
-
-                         if (!items.length) {
-                             dropdown.style.display = 'none';
+                         // пока шёл запрос, поле могли изменить — старый ответ не показываем
+                         if (input.value.trim() !== query) {
                              return;
                          }
 
-                         dropdown.style.display = 'block';
+                         dropdown.innerHTML = '';
+
+                         let items = (response && response.hashtags) ? response.hashtags : [];
+                         lastFoundHashtags = items;
 
                          items.forEach(function (item) {
                              let li = document.createElement('li');
@@ -4864,39 +5093,32 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                              li.textContent = item.title;
 
                              li.addEventListener('click', function () {
-                                 $.ajax({
-                                     type: 'post',
-                                     url: attachUrl(),
-                                     headers: {
-                                         'X-CSRF-TOKEN': csrfToken()
-                                     },
-                                     data: {
-                                         related_hashtag_id: item.id,
-                                     },
-                                     success: function (attachResponse) {
-                                         if (attachResponse.status === true) {
-                                             appendChip(attachResponse.hashtag.id, attachResponse.hashtag.title);
-                                             addRelationRow(attachResponse.hashtag.id, attachResponse.hashtag.title, attachResponse.auto_add, attachResponse.auto_add_back);
-                                             toastr.success('Хештег добавлен в связанные');
-                                         } else {
-                                             toastr.error(attachResponse.message || 'Не удалось добавить связь');
-                                         }
-                                     },
-                                     error: function () {
-                                         toastr.error('Не удалось добавить связь');
-                                     }
-                                 });
-
-                                 input.value = '';
-                                 dropdown.innerHTML = '';
-                                 dropdown.style.display = 'none';
-                                 input.focus();
+                                 attachRelated({related_hashtag_id: item.id});
                              });
 
                              dropdown.appendChild(li);
                          });
+
+                         // точного совпадения нет (и это не сам хештег / не уже связанный) — предлагаем создать новый.
+                         // Сам хештег и уже связанные поиск не возвращает, поэтому проверяем их отдельно
+                         const hasExact = items.some(item => normalize(item.title) === normalize(query));
+                         const ownTitle = field.getAttribute('data-hashtag-title') || '';
+                         if (!hasExact && !isAlreadyRelated(query) && normalize(query) !== normalize(ownTitle)) {
+                             let li = document.createElement('li');
+                             li.classList.add('b-tags__dropdown-item', 'b-tags__dropdown-item--create');
+                             li.textContent = '+ Создать «' + query + '»';
+
+                             li.addEventListener('click', function () {
+                                 attachNew(query);
+                             });
+
+                             dropdown.appendChild(li);
+                         }
+
+                         dropdown.style.display = dropdown.children.length ? 'block' : 'none';
                      },
                      error: function () {
+                         lastFoundHashtags = [];
                          dropdown.innerHTML = '';
                          dropdown.style.display = 'none';
                      }

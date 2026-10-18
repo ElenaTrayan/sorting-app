@@ -33,7 +33,7 @@
                     <div class="card-body-block">
                         <div class="form-group">
                             <label for="title">Хештег</label>
-                            <input type="text" class="form-control" name="title" id="title" placeholder="Введите название хештега" data-action="{{ route('search.hashtag-by-title') }}" required>
+                            <input type="text" class="form-control" name="title" id="title" placeholder="Введите название хештега" data-action="{{ route('search.hashtag-by-title') }}" data-edit-url="{{ route('hashtags.edit', '__ID__') }}" autocomplete="off" required>
                             <span class="error invalid-feedback"></span>
                         </div>
 
@@ -57,7 +57,7 @@
                                 </div>
                                 <ul class="b-tags__dropdown" id="related-hashtags-dropdown"></ul>
                             </div>
-                            <small class="form-text text-muted">Связь двусторонняя — добавленный хештег тоже будет ссылаться на этот. Сохранится вместе с хештегом по кнопке «Добавить».</small>
+                            <small class="form-text text-muted">Можно выбрать существующий хештег или ввести новый и нажать Enter — он будет создан. Связь двусторонняя — добавленный хештег тоже будет ссылаться на этот. Сохранится вместе с хештегом по кнопке «Добавить».</small>
                         </div>
                     </div>
                     <div class="card-body-block">

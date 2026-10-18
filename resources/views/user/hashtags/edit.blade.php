@@ -35,13 +35,18 @@
         <div class="container-fluid">
             <div class="card card-primary">
                 <!-- form start -->
-                <form action="{{ route('hashtags.update', $hashtag->id) }}" method="POST">
+                <form action="{{ route('hashtags.update', $hashtag->id) }}" method="POST" id="hashtags-edit">
                     @csrf
                     @method('PUT')
                     <div class="card-body">
                         <div class="form-group">
                             <label for="title">Хештег</label>
-                            <input type="text" class="form-control" name="title" id="title" value="{{ $hashtag->title }}" required>
+                            <input type="text" class="form-control @error('title') is-invalid @enderror" name="title" id="title" value="{{ old('title', $hashtag->title) }}"
+                                   data-hashtag-id="{{ $hashtag->id }}"
+                                   data-action="{{ route('search.hashtag-by-title') }}"
+                                   data-edit-url="{{ route('hashtags.edit', '__ID__') }}"
+                                   autocomplete="off" required>
+                            <span class="error invalid-feedback @error('title') active @enderror">@error('title'){{ $message }}@enderror</span>
                         </div>
                         <div class="form-group">
                             <label for="parent_id">Хештег-родитель</label>
@@ -71,6 +76,7 @@
                         <label for="related-hashtags-input">Связанные хэштеги</label>
                         <div class="b-hashtags-edit__related-field js-hashtag-related-field"
                              data-hashtag-id="{{ $hashtag->id }}"
+                             data-hashtag-title="{{ $hashtag->title }}"
                              data-search-action="{{ route('search.hashtag') }}"
                              data-attach-action="{{ route('hashtags.related.attach', $hashtag->id) }}">
                             <div class="b-tags">
@@ -86,7 +92,7 @@
                             </div>
                             <ul class="b-tags__dropdown" id="related-hashtags-dropdown"></ul>
                         </div>
-                        <small class="form-text text-muted">Связь двусторонняя — добавленный хештег тоже будет ссылаться на этот.</small>
+                        <small class="form-text text-muted">Можно выбрать существующий хештег или ввести новый и нажать Enter — он будет создан. Связь двусторонняя — добавленный хештег тоже будет ссылаться на этот.</small>
                     </div>
 
                     {{-- направление связей (hashtag_relations.auto_add) — что делать на форме поста, когда выбрали

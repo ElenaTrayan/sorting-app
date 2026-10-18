@@ -106,13 +106,45 @@ class HashtagController extends Controller
                 }
             }
 
+            // новые связанные хештеги, введённые в пикере по названию: если такой уже есть
+            // (например, создали параллельно) — берём его, иначе создаём корневым и привязываем
+            $createdRelated = [];
+            if (!empty($request->related_hashtag_titles) && is_array($request->related_hashtag_titles)) {
+                foreach ($request->related_hashtag_titles as $relatedTitle) {
+                    $relatedTitle = trim((string)$relatedTitle);
+                    if ($relatedTitle === '' || mb_strtolower($relatedTitle) === mb_strtolower($newHashtag->title)) {
+                        continue;
+                    }
+
+                    $relatedHashtag = Hashtag::where('user_id', $user->id)
+                        ->where('title', $relatedTitle)
+                        ->first();
+
+                    if (!$relatedHashtag) {
+                        $relatedHashtag = new Hashtag();
+                        $relatedHashtag->title = $relatedTitle;
+                        $relatedHashtag->parent_id = 0;
+                        $relatedHashtag->user_id = $user->id;
+                        $relatedHashtag->save();
+
+                        $createdRelated[] = [
+                            'id' => $relatedHashtag->id,
+                            'title' => $relatedHashtag->title,
+                        ];
+                    }
+
+                    $newHashtag->attachRelated($relatedHashtag->id);
+                }
+            }
+
             //return redirect()->route('hashtags.index')->withSuccess('Хештег был успешно создан');
             return response()->json(['status' => true,
                 'message' => 'Хештег был успешно добавлен',
                 'info' => [
                     'id' => $newHashtag->id,
                     'title' => $newHashtag->title,
-                ]
+                ],
+                'created_related' => $createdRelated,
             ]);
         }
 
@@ -185,6 +217,15 @@ class HashtagController extends Controller
      */
     public function update(Request $request, Hashtag $hashtag)
     {
+        // переименование в название другого существующего хештега — дубль, не сохраняем
+        $search = new SearchController();
+        $duplicate = $search->searchTagByTitle($request->title)->firstWhere('id', '!=', $hashtag->id);
+        if ($duplicate) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['title' => 'Такой хештег уже существует!']);
+        }
+
         $hashtag->title = $request->title;
         $hashtag->parent_id = $request->parent_id == '-' ? 0 : $request->parent_id;
         $hashtagSave = $hashtag->save();
@@ -282,11 +323,33 @@ class HashtagController extends Controller
      */
     public function attachRelated(Request $request, Hashtag $hashtag)
     {
-        $relatedHashtagId = (int)$request->input('related_hashtag_id');
+        // либо выбран существующий хештег (related_hashtag_id), либо введено новое название
+        // (related_hashtag_title) — тогда берём хештег с таким названием или создаём корневой
+        $relatedHashtagTitle = trim((string)$request->input('related_hashtag_title'));
+        $created = false;
 
-        $relatedHashtag = Hashtag::where('user_id', $hashtag->user_id)
-            ->where('id', $relatedHashtagId)
-            ->first();
+        if ($relatedHashtagTitle !== '') {
+            if (mb_strtolower($relatedHashtagTitle) === mb_strtolower($hashtag->title)) {
+                return response()->json(['status' => false, 'message' => 'Хештег не может быть связан сам с собой']);
+            }
+
+            $relatedHashtag = Hashtag::where('user_id', $hashtag->user_id)
+                ->where('title', $relatedHashtagTitle)
+                ->first();
+
+            if (empty($relatedHashtag)) {
+                $relatedHashtag = new Hashtag();
+                $relatedHashtag->title = $relatedHashtagTitle;
+                $relatedHashtag->parent_id = 0;
+                $relatedHashtag->user_id = $hashtag->user_id;
+                $relatedHashtag->save();
+                $created = true;
+            }
+        } else {
+            $relatedHashtag = Hashtag::where('user_id', $hashtag->user_id)
+                ->where('id', (int)$request->input('related_hashtag_id'))
+                ->first();
+        }
 
         if (empty($relatedHashtag) || $relatedHashtag->id === $hashtag->id) {
             return response()->json(['status' => false, 'message' => 'Хештег не найден']);
@@ -296,6 +359,7 @@ class HashtagController extends Controller
 
         return response()->json([
             'status' => true,
+            'created' => $created,
             'hashtag' => [
                 'id' => $relatedHashtag->id,
                 'title' => $relatedHashtag->title,
