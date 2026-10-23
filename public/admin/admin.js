@@ -8648,7 +8648,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  b.classList.toggle('is-active', b.getAttribute('data-tab') === tab);
              });
              document.querySelectorAll('.js-contact-tab-panel').forEach(function (p) {
-                 p.classList.toggle('is-active', p.getAttribute('data-tab-panel') === tab);
+                 let active = p.getAttribute('data-tab-panel') === tab;
+                 p.classList.toggle('is-active', active);
+
+                 // сетку постов (Masonry, вкладка "Посты") раскладывали, пока панель была скрыта: размеров
+                 // не было, и все карточки легли в одну точку друг на друга — раскладываем заново, когда видно
+                 if (active && $.fn.masonry) {
+                     $(p).find('.grid').each(function () {
+                         if ($(this).data('masonry')) {
+                             $(this).masonry('layout');
+                         }
+                     });
+                 }
              });
          }
 
