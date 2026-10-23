@@ -15,6 +15,7 @@
 
 @push('head-styles')
     <link rel="stylesheet" href="/admin/fonts/manrope/manrope.css">
+    <link rel="stylesheet" href="/admin/plugins/cropperjs/cropper.min.css">
     {{-- общие стили формы пина (.b-pin-card, .b-pin-input, .b-pin-btn, поля фильма и т.п.) --}}
     <link rel="stylesheet" href="/admin/pin-create.css?v={{ filemtime(public_path('admin/pin-create.css')) }}">
     <link rel="stylesheet" href="/admin/post-edit.css?v={{ filemtime(public_path('admin/post-edit.css')) }}">
@@ -31,7 +32,7 @@
 @endpush
 
 @section('content')
-@php $paletteCover = $post->coverImagePath(); @endphp
+@php $paletteCover = $post->coverImageUrl(); @endphp
 <div class="b-pin-create b-post-edit">
 
     <div class="content-header content-header--pin-create">
@@ -158,6 +159,8 @@
                              data-add-action="{{ route('posts.images.add', $post->id) }}"
                              data-rename-action="{{ route('posts.images.rename', $post->id) }}"
                              data-transform-action="{{ route('posts.images.transform', $post->id) }}"
+                             data-crop-action="{{ route('posts.images.crop', $post->id) }}"
+                             data-restore-action="{{ route('posts.images.restore', $post->id) }}"
                              data-delete-action="{{ route('posts.images.delete') }}"
                              data-confirm-replace-action="{{ route('posts.images.confirm-replace-duplicate', $post->id) }}"
                              data-confirm-add-action="{{ route('posts.images.confirm-add-duplicate', $post->id) }}">
@@ -165,11 +168,14 @@
                             <div class="b-post-edit__gallery">
                                 <div class="b-post-images__list js-post-images__list">
                                     @foreach ($postImages as $name => $image)
-                                        <div class="b-post-images__item" data-name="{{ $name }}" data-extension="{{ $image['extension'] }}" data-path="{{ $image['path'] }}">
+                                        <div class="b-post-images__item{{ \App\Http\Controllers\User\Packages\UploadImageController::hasImageBackup($post, $name) ? ' has-backup' : '' }}" data-name="{{ $name }}" data-extension="{{ $image['extension'] }}" data-path="{{ $image['path'] }}">
                                             <a class="b-post-images__thumb" data-fancybox="post-images" data-src="/storage{{ $image['path'] }}" style="background-image: url(/storage{{ $image['path'] }})"></a>
-                                            {{-- повернуть/отразить — сразу сохраняется (admin.js, PostController::transformImage);
-                                                 ту же разметку для добавленных картинок строит buildItem() в admin.js --}}
+                                            {{-- повернуть/отразить/обрезать — сразу сохраняется (admin.js, PostController::transformImage,
+                                                 cropImage); "Вернуть оригинал" — когда есть копия до правок (has-backup, restoreImage).
+                                                 Ту же разметку для добавленных картинок строит buildItem() в admin.js --}}
                                             <div class="b-post-images__transform">
+                                                <button type="button" class="js-post-images__crop" title="Обрезать"><i class="fas fa-crop-alt"></i></button>
+                                                <button type="button" class="js-post-images__restore" title="Вернуть оригинал"><i class="fas fa-history"></i></button>
                                                 <button type="button" class="js-post-images__transform" data-action="rotate_left" title="Повернуть влево"><i class="fas fa-undo"></i></button>
                                                 <button type="button" class="js-post-images__transform" data-action="rotate_right" title="Повернуть вправо"><i class="fas fa-redo"></i></button>
                                                 <button type="button" class="js-post-images__transform" data-action="flip_h" title="Отразить по горизонтали"><i class="fas fa-arrows-alt-h"></i></button>
@@ -297,7 +303,7 @@
 
                 <aside class="b-pin-create__aside">
                     <div class="b-pin-card b-post-edit__summary">
-                        <div class="b-post-edit__cover" @if ($paletteCover) style="background-image: url('/storage{{ $paletteCover }}')" @endif>
+                        <div class="b-post-edit__cover" @if ($paletteCover) style="background-image: url('{{ $paletteCover }}')" @endif>
                             @unless ($paletteCover)
                                 <span>Нет обложки</span>
                             @endunless
@@ -357,10 +363,13 @@
             </div>
         </div>
     </div>
+
+    @include('user.posts.parts.image_editor_modal')
 </div>
 @endsection
 
 @push('footer-scripts')
+    <script src="/admin/plugins/cropperjs/cropper.min.js"></script>
     <script src="/admin/film-fields.js?v={{ filemtime(public_path('admin/film-fields.js')) }}"></script>
     <script src="/admin/palette-editor.js?v={{ filemtime(public_path('admin/palette-editor.js')) }}"></script>
     <script src="/admin/event-date.js?v={{ filemtime(public_path('admin/event-date.js')) }}"></script>

@@ -26,6 +26,7 @@
 @push('head-styles')
     {{-- Manrope — шрифт макета Claude Design, тот же, что и на "База контактов"/"Все посты" --}}
     <link rel="stylesheet" href="/admin/fonts/manrope/manrope.css">
+    <link rel="stylesheet" href="/admin/plugins/cropperjs/cropper.min.css">
     <link rel="stylesheet" href="/admin/pin-create.css?v={{ filemtime(public_path('admin/pin-create.css')) }}">
 @endpush
 
@@ -189,7 +190,7 @@
 
                         <div class="b-pin-content-label">Изображение или видео</div>
                         <div class="upload-image-section">
-                            <section class="js-upload-image-section" data-action="{{ route('image.upload-to-temp-directory') }}">
+                            <section class="js-upload-image-section" data-action="{{ route('image.upload-to-temp-directory') }}" data-replace-action="{{ route('image.replace-temp') }}">
                                 <div class="js-images images"></div>
                                 <div class="title">
                                     <figure></figure>
@@ -211,6 +212,10 @@
 
                         <button type="button" class="js-get-text-from-image b-pin-btn b-pin-btn--ghost" data-action="{{ route('get-text-from-image') }}">
                             Считать текст с изображения
+                        </button>
+                        {{-- видна, когда на форме от двух картинок (pin-create.css), окно — #modal-image-collage --}}
+                        <button type="button" class="js-collage-open b-pin-btn b-pin-btn--ghost">
+                            <i class="fas fa-th-large"></i> Склеить картинки
                         </button>
 
                         <div class="b-pin-content-label b-pin-content-label--text">Текст</div>
@@ -357,6 +362,57 @@
         </div>
     </div>
 
+    @include('user.posts.parts.image_editor_modal')
+
+    {{-- Склейка нескольких картинок формы в одну (admin.js openCollageEditor) --}}
+    <div class="modal fade b-collage" id="modal-image-collage" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Склеить картинки</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">×</button>
+                </div>
+                <div class="modal-body b-collage__body">
+                    <div class="b-collage__preview">
+                        <canvas class="js-collage-canvas"></canvas>
+                        <canvas class="b-collage__lens js-collage-lens"></canvas>
+                        <div class="b-collage__empty js-collage-empty">Отметьте хотя бы две картинки</div>
+                        <div class="b-collage__lens-hint js-collage-lens-hint">
+                            <i class="fas fa-search-plus"></i> Лупа: наведите на склейку, колесо мыши — сильнее / слабее · <b class="js-collage-lens-zoom">×3</b>
+                        </div>
+                    </div>
+                    <div class="b-collage__settings">
+                        <div class="b-collage__label">Картинки <span class="b-collage__hint">порядок — как на форме, его можно поменять перетаскиванием превью</span></div>
+                        <div class="b-collage__images js-collage-images"></div>
+
+                        <div class="b-collage__label">Раскладка</div>
+                        <div class="b-collage__options">
+                            <button type="button" class="b-pin-btn b-pin-btn--ghost is-active" data-collage-layout="row"><i class="fas fa-grip-lines-vertical"></i> В ряд</button>
+                            <button type="button" class="b-pin-btn b-pin-btn--ghost" data-collage-layout="column"><i class="fas fa-grip-lines"></i> В столбик</button>
+                            <button type="button" class="b-pin-btn b-pin-btn--ghost" data-collage-layout="grid"><i class="fas fa-th-large"></i> Сеткой</button>
+                        </div>
+
+                        <div class="b-collage__label">Отступ <span class="b-collage__hint js-collage-gap-value">2 %</span></div>
+                        <input type="range" class="b-collage__range js-collage-gap" min="0" max="10" step="1" value="2">
+
+                        <div class="b-collage__label">Цвет фона</div>
+                        <input type="color" class="b-collage__color js-collage-bg" value="#ffffff">
+
+                        <label class="b-pin-checkbox b-collage__remove">
+                            <input type="checkbox" class="js-collage-remove-sources">
+                            <span class="b-pin-checkbox__box"></span>
+                            <span class="b-pin-checkbox__text"><span>Убрать исходные картинки с формы</span></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary js-collage-save">Склеить и добавить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade b-dup-merge" id="modal-duplicate-merge" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
@@ -381,6 +437,7 @@
 @endsection
 
 @push('footer-scripts')
+    <script src="/admin/plugins/cropperjs/cropper.min.js"></script>
     <script src="/admin/film-fields.js?v={{ filemtime(public_path('admin/film-fields.js')) }}"></script>
     <script src="/admin/event-date.js?v={{ filemtime(public_path('admin/event-date.js')) }}"></script>
     <script src="/admin/pin-create.js?v={{ filemtime(public_path('admin/pin-create.js')) }}"></script>

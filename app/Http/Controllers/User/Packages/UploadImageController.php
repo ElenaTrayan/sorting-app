@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
@@ -32,10 +33,11 @@ class UploadImageController extends Controller
     private const TEMP_NAME_MARKER = '--';
     private const TEMP_NAME_MARKER_PATTERN = '/--[a-z0-9]{6}$/';
 
-    private const MAX_IMAGE_MEDIUM_WIDTH = '800';
-    private const MAX_IMAGE_MEDIUM_HEIGHT = '800';
-    private const MAX_IMAGE_SMALL_WIDTH = '350';
-    private const MAX_IMAGE_SMALL_HEIGHT = '350';
+    // public — по ним же пересобирает medium/small PostController::afterPostImageReplaced()
+    public const MAX_IMAGE_MEDIUM_WIDTH = '800';
+    public const MAX_IMAGE_MEDIUM_HEIGHT = '800';
+    public const MAX_IMAGE_SMALL_WIDTH = '350';
+    public const MAX_IMAGE_SMALL_HEIGHT = '350';
 
     // Дубликатом считаем только когда совпадают ОБА разных алгоритма хеша плюс похожие
     // пропорции кадра. Одного DifferenceHash/PerceptualHash по отдельности недостаточно —
@@ -68,11 +70,7 @@ class UploadImageController extends Controller
     public function uploadImagesToTempDirectory(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
-            request()->validate([
-                'files.*' => 'mimes:jpeg,png,jpg,gif,svg,webp,avif',
-            ]);
-
-            if (!request()->has('files')) {
+            if (!request()->hasFile('files')) {
                 throw new Exception(self::EM_NO_FILES_PROVIDED_FOR_UPLOAD);
             }
 
@@ -90,7 +88,27 @@ class UploadImageController extends Controller
             $formHashes = $this->stagedImageHashes($ownStagedNames);
 
             foreach (request()->file('files') as $file) {
-                $staged = $this->stageFileToTempDirectory($file, $ownStagedNames);
+                // каждый файл — со своей причиной отказа, остальные файлы загрузки идут дальше
+                $problem = $this->uploadProblem($file);
+                if ($problem !== null) {
+                    $rejected[] = ['file' => $file->getClientOriginalName(), 'message' => $problem];
+                    continue;
+                }
+
+                try {
+                    $staged = $this->stageFileToTempDirectory($file, $ownStagedNames);
+                } catch (\Throwable $e) {
+                    // в лог — с именем файла и местом ошибки, на форму — текст ошибки
+                    Log::warning('Загрузка картинки во временную папку не удалась', [
+                        'file' => $file->getClientOriginalName(),
+                        'mime' => $file->getMimeType(),
+                        'size' => $file->getSize(),
+                        'error' => get_class($e) . ': ' . $e->getMessage(),
+                        'at' => $e->getFile() . ':' . $e->getLine(),
+                    ]);
+                    $rejected[] = ['file' => $file->getClientOriginalName(), 'message' => 'не удалось обработать картинку (' . $e->getMessage() . ')'];
+                    continue;
+                }
 
                 // тот же файл повторно загрузили на эту же форму — он уже проверен и стоит на ней
                 if (!in_array($staged['name'], $ownStagedNames, true)) {
@@ -112,17 +130,41 @@ class UploadImageController extends Controller
                 'form_duplicates' => $formDuplicates,
             ]);
 
-        } catch (Exception $exception) {
-            //TODO - Переопределить Exception, как в Praxis
-            //TODO - Добавить запись ошибок в логи в БД
-
-//            var_dump('TEST Exception');
-//
-//            var_dump($exception->getTraceAsString());
-//            exit();
+        } catch (\Throwable $exception) {
+            Log::warning('Загрузка картинок во временную папку не удалась', [
+                'error' => get_class($exception) . ': ' . $exception->getMessage(),
+                'at' => $exception->getFile() . ':' . $exception->getLine(),
+            ]);
 
             return response()->json(['status' => false, 'error' => $exception->getMessage()]);
         }
+    }
+
+    /**
+     * Почему загруженный файл нельзя принять как картинку (раньше была общая проверка mimes на весь запрос —
+     * один неподходящий файл давал "The given data was invalid." без указания, какой и почему)
+     *
+     * @param UploadedFile $file
+     * @return string|null текст для формы; null — файл подходит
+     */
+    private function uploadProblem(UploadedFile $file): ?string
+    {
+        if (!$file->isValid()) {
+            // не дошёл до сервера целиком: больше upload_max_filesize, оборвалась передача и т.п.
+            return 'файл не получен сервером (' . $file->getErrorMessage() . ')';
+        }
+
+        $validator = \Illuminate\Support\Facades\Validator::make(
+            ['file' => $file],
+            ['file' => 'mimes:jpeg,png,jpg,gif,svg,webp,avif']
+        );
+        if ($validator->fails()) {
+            // формат смотрим по содержимому, а не по расширению: ".jpg" может оказаться чем угодно
+            return 'формат не поддерживается — по содержимому это ' . ($file->getMimeType() ?: 'неизвестный тип')
+                . ', а не JPG/PNG/GIF/WebP/AVIF/SVG';
+        }
+
+        return null;
     }
 
     /**
@@ -659,8 +701,10 @@ class UploadImageController extends Controller
 
             return $resizeImage;
 
-        } catch (Throwable $e) {
-            return response()->json(['status' => false, 'msg' => "Ошибка при изменении размера изображения"]);
+        } catch (\Throwable $e) {
+            // раньше здесь возвращался JsonResponse — при типе возврата Image это давало TypeError,
+            // и настоящая причина (битый файл, нехватка памяти, нет прав на запись) терялась
+            throw new Exception('Ошибка при изменении размера изображения: ' . $e->getMessage(), 0, $e);
         }
     }
 
@@ -699,6 +743,55 @@ class UploadImageController extends Controller
     }
 
     /**
+     * Замена картинки во временной папке её отредактированной версией (обрезка/поворот в окне редактора на
+     * форме создания поста, admin.js openImageEditor). Имя и расширение остаются прежними — на форме
+     * (sessionStorage "images", порядок превью) ничего не переименовывается; старые уменьшенные копии
+     * удаляются (в их именах размеры, после обрезки они другие) и делаются заново
+     *
+     * @param Request $request name, extension, file
+     * @return \Illuminate\Http\JsonResponse {status, image} — данные картинки, как в uploadImagesToTempDirectory()
+     */
+    public function replaceTempImage(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $request->validate([
+                'file' => 'required|file|mimes:jpeg,png,jpg,webp',
+            ]);
+
+            $name = (string)$request->input('name', '');
+            $extension = (string)$request->input('extension', '');
+
+            // имя — только сам файл, без путей: заменить можно лишь своё и лишь во временной папке
+            if ($name === '' || $extension === '' || preg_match('/[\/\\\\]|\.\./', $name . $extension)) {
+                throw new Exception(self::EM_ERROR_LOADING_IMAGE);
+            }
+
+            $this->userId = Auth::id();
+            $tempPathForImage = 'temp_directory/' . $this->userId;
+            $imageNameWithExtension = $name . '.' . $extension;
+
+            if (!Storage::disk('local')->exists($tempPathForImage . '/' . $imageNameWithExtension)) {
+                throw new Exception('Картинка не найдена во временной папке — загрузите её заново');
+            }
+
+            self::deleteStagedImageFiles($name, $extension, (int)$this->userId);
+
+            $path = Storage::putFileAs($tempPathForImage, $request->file('file'), $imageNameWithExtension);
+            if (empty($path)) {
+                throw new Exception(self::EM_ERROR_WHEN_SAVING_IMG_TO_TEMP_DIRECTORY);
+            }
+
+            $data = $this->saveSmallAndMediumImageSizesToTempDirectory($path, $name, $extension, $tempPathForImage . '/');
+
+            return response()->json(['status' => true, 'image' => $data]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['status' => false, 'error' => 'Не удалось сохранить картинку']);
+        } catch (\Throwable $e) {
+            return response()->json(['status' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Удаляет из временной папки пользователя загруженную картинку со всеми её размерами
      * (<имя>.jpg, <имя>_350_465.jpg, <имя>_800_1063.jpg). Имя и расширение — только сам файл,
      * без путей (проверяет вызывающий код).
@@ -720,6 +813,63 @@ class UploadImageController extends Controller
         }
 
         return true;
+    }
+
+    /**
+     * Копия оригинала картинки поста до правок на странице редактирования (обрезка, поворот, отражение) —
+     * по ней "Вернуть оригинал" (PostController::restoreImage). Копия одна — самая первая версия:
+     * следующие правки её не перезаписывают
+     *
+     * @param Post $post
+     * @param string $name имя картинки в посте (ключ original_image, с расширением)
+     * @return string путь на диске local
+     */
+    public static function imageBackupPath(Post $post, string $name): string
+    {
+        return 'image_backups/' . $post->user_id . '/' . $post->id . '/' . $name;
+    }
+
+    /**
+     * Сохранить копию оригинала перед первой правкой (если копии ещё нет)
+     *
+     * @param Post $post
+     * @param string $name
+     * @param string $originalPath путь оригинала на диске local
+     * @return void
+     * @throws Exception копию сохранить не удалось — править картинку без возможности отката не будем
+     */
+    public static function backupPostImage(Post $post, string $name, string $originalPath): void
+    {
+        $disk = Storage::disk('local');
+        $backupPath = self::imageBackupPath($post, $name);
+        if ($disk->exists($backupPath)) {
+            return;
+        }
+        if (!$disk->copy($originalPath, $backupPath)) {
+            throw new Exception('Не удалось сохранить копию оригинала — картинка не изменена');
+        }
+    }
+
+    public static function hasImageBackup(Post $post, string $name): bool
+    {
+        return Storage::disk('local')->exists(self::imageBackupPath($post, $name));
+    }
+
+    /**
+     * Удалить копии оригиналов: одной картинки или (без $name) всех картинок поста
+     *
+     * @param Post $post
+     * @param string|null $name
+     * @return void
+     */
+    public static function deleteImageBackups(Post $post, ?string $name = null): void
+    {
+        $disk = Storage::disk('local');
+        if ($name !== null) {
+            $disk->delete(self::imageBackupPath($post, $name));
+            return;
+        }
+        $disk->deleteDirectory('image_backups/' . $post->user_id . '/' . $post->id);
     }
 
     /**
@@ -1390,6 +1540,11 @@ class UploadImageController extends Controller
                 if ($postSave !== true) {
                     throw new \Exception('Ошибка при обновлении small_image в БД: ' . $smallImage);
                 }
+            }
+
+            // копии оригиналов до правок (обрезка/поворот на странице редактирования) — больше не нужны
+            if ($post instanceof Post && $post->id) {
+                self::deleteImageBackups($post, $imageName ?: null);
             }
 
             return true;

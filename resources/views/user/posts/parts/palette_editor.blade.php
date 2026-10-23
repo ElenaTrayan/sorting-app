@@ -10,7 +10,7 @@
          data-show-action="{{ route('posts.palette.show', $post->id) }}"
          data-update-action="{{ route('posts.palette.update', $post->id) }}"
          data-reset-action="{{ route('posts.palette.reset', $post->id) }}"
-         data-cover-url="{{ $post->coverImagePath() ? '/storage' . $post->coverImagePath() : '' }}"
+         data-cover-url="{{ $post->coverImageUrl() ?? '' }}"
          data-edited="{{ $post->palette_edited ? '1' : '0' }}"
          data-palette="{{ json_encode($post->palette ?? []) }}"
      @endif>

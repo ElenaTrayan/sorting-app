@@ -75,6 +75,14 @@
     opacity: .5;
     cursor: default;
 }
+/* "Вернуть оригинал" — только когда картинку уже правили и есть копия оригинала (admin.js refreshItemImage) */
+.b-post-edit .b-post-images__transform .js-post-images__restore {
+    display: none;
+}
+.b-post-edit .b-post-images__item.has-backup .js-post-images__restore {
+    display: block;
+    color: #7367f0;
+}
 .b-post-edit .b-post-images__controls {
     display: flex;
     gap: 6px;
@@ -229,8 +237,13 @@
 .b-post-edit__summary {
     padding: 12px;
 }
+/* высота — по пропорциям обложки (aspect-ratio ставит post-edit.js), но в разумных пределах.
+   width: 100% обязательно: иначе при упоре в max-height браузер сужает блок по пропорциям и он уезжает влево */
 .b-post-edit__cover {
+    width: 100%;
     aspect-ratio: 4 / 3;
+    min-height: 176px;
+    max-height: 460px;
     border-radius: 10px;
     background-color: #efedf7;
     background-image: repeating-linear-gradient(135deg, #e4e0f3 0 6px, #f4f2fb 6px 12px);

@@ -2966,13 +2966,12 @@ class PostController extends Controller
      */
     public function showPalette(Post $post)
     {
-        $coverPath = $post->coverImagePath();
-
         return response()->json([
             'status' => true,
             'palette' => $post->palette ?? [],
             'edited' => (bool)$post->palette_edited,
-            'cover_url' => $coverPath ? '/storage' . $coverPath : null,
+            // с меткой версии — после обрезки/поворота файл тот же по пути, но другой по содержимому
+            'cover_url' => $post->coverImageUrl(),
         ]);
     }
 
@@ -3570,6 +3569,14 @@ class PostController extends Controller
                 $renamedOriginal['path']
             );
 
+            // копия оригинала до правок (restoreImage) — по имени картинки, переезжает вместе с ней
+            if (UploadImageController::hasImageBackup($post, $oldName)) {
+                Storage::disk('local')->move(
+                    UploadImageController::imageBackupPath($post, $oldName),
+                    UploadImageController::imageBackupPath($post, $renamedOriginal['name'])
+                );
+            }
+
             return response()->json([
                 'status' => true,
                 'message' => 'Файл переименован',
@@ -3614,6 +3621,9 @@ class PostController extends Controller
             if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true) || !file_exists($originalPath)) {
                 throw new \Exception('Изображение этого формата нельзя повернуть');
             }
+
+            // первая правка — сначала копия оригинала, чтобы можно было "Вернуть оригинал" (restoreImage)
+            UploadImageController::backupPostImage($post, $name, $original['path']);
 
             $image = \Intervention\Image\Facades\Image::make($originalPath);
             // фото с телефона: браузер показывает оригинал повёрнутым по EXIF, а при пересохранении EXIF
@@ -3665,9 +3675,173 @@ class PostController extends Controller
                 'status' => true,
                 'message' => $isRotation ? 'Изображение повёрнуто' : 'Изображение отражено',
                 'image' => $original,
+                'has_backup' => true,
+                'cover_url' => $post->coverImageUrl(),
             ]);
         } catch (\Exception $e) {
             return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Обрезать картинку поста (окно редактора на странице редактирования, admin.js openImageEditor): браузер
+     * присылает уже обрезанную/повёрнутую картинку, она заменяет оригинал на месте — имя и путь те же, как
+     * у transformImage(). Перед первой правкой сохраняется копия оригинала (restoreImage() вернёт её)
+     *
+     * @param Request $request name — имя картинки в посте, file — новая картинка
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function cropImage(Request $request, Post $post)
+    {
+        try {
+            $request->validate([
+                'name' => 'required|string',
+                'file' => 'required|file|mimes:jpeg,png,jpg,webp',
+            ]);
+
+            [$name, $original, $originalPath] = $this->editablePostImage($post, $request->name);
+
+            UploadImageController::backupPostImage($post, $name, $original['path']);
+
+            // в том же формате, что и был (браузер кодирует в него же) — расширение в имени остаётся верным
+            if (!copy($request->file('file')->getRealPath(), $originalPath)) {
+                throw new \Exception('Не удалось сохранить картинку');
+            }
+
+            $this->afterPostImageReplaced($post, $name, $originalPath);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Изображение сохранено',
+                'image' => $original,
+                'has_backup' => true,
+                'cover_url' => $post->coverImageUrl(),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['status' => false, 'message' => 'Не удалось сохранить картинку']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Вернуть картинке поста оригинал — каким он был до первой обрезки/поворота/отражения (копия из
+     * backupPostImage()). Копия после этого удаляется
+     *
+     * @param Request $request name — имя картинки в посте
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function restoreImage(Request $request, Post $post)
+    {
+        try {
+            $request->validate(['name' => 'required|string']);
+
+            [$name, $original, $originalPath] = $this->editablePostImage($post, $request->name);
+
+            $disk = Storage::disk('local');
+            $backupPath = UploadImageController::imageBackupPath($post, $name);
+            if (!$disk->exists($backupPath)) {
+                throw new \Exception('Копии оригинала нет — картинку не меняли или оригинал уже возвращён');
+            }
+            if (!copy($disk->path($backupPath), $originalPath)) {
+                throw new \Exception('Не удалось вернуть оригинал');
+            }
+            UploadImageController::deleteImageBackups($post, $name);
+
+            $this->afterPostImageReplaced($post, $name, $originalPath);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Оригинал возвращён',
+                'image' => $original,
+                'has_backup' => false,
+                'cover_url' => $post->coverImageUrl(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Картинка поста, которую можно править на месте (обрезка, возврат оригинала)
+     *
+     * @param Post $post
+     * @param string $name
+     * @return array [имя, запись original_image, абсолютный путь оригинала]
+     * @throws \Exception
+     */
+    private function editablePostImage(Post $post, string $name): array
+    {
+        $original = UploadImageController::normalizeImages($post->original_image)[$name] ?? null;
+        if (empty($original['path'])) {
+            throw new \Exception('Изображение не найдено');
+        }
+
+        $originalPath = Storage::disk('local')->path($original['path']);
+        // у GIF при пересохранении пропала бы анимация, SVG — не растр
+        $extension = strtolower(pathinfo($originalPath, PATHINFO_EXTENSION));
+        if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true) || !file_exists($originalPath)) {
+            throw new \Exception('Изображение этого формата нельзя редактировать');
+        }
+
+        return [$name, $original, $originalPath];
+    }
+
+    /**
+     * Оригинал картинки поста заменён на месте (обрезка, возврат оригинала): пересобрать medium/small,
+     * пересчитать хеши для поиска дублей и — если это обложка и палитру не правили вручную — палитру.
+     *
+     * Пропорции после обрезки другие, поэтому medium/small не копируют прежний размер (как при повороте),
+     * а уменьшаются так же, как при загрузке (UploadImageController::resizeImage): короткая сторона —
+     * MAX_IMAGE_MEDIUM_* / MAX_IMAGE_SMALL_*, но не больше, чем у оригинала. Файлы остаются под прежними
+     * именами (размер в имени может не совпасть с фактическим — на имя никто не опирается)
+     *
+     * @param Post $post
+     * @param string $name
+     * @param string $originalPath абсолютный путь оригинала
+     * @return void
+     */
+    private function afterPostImageReplaced(Post $post, string $name, string $originalPath): void
+    {
+        $disk = Storage::disk('local');
+        $originalSize = getimagesize($originalPath);
+        $replacedPaths = [UploadImageController::normalizeImages($post->original_image)[$name]['path'] ?? null];
+
+        $derivedPattern = '/^' . preg_quote(pathinfo($name, PATHINFO_FILENAME), '/') . '_\d+_\d+(\.\w+)?$/iu';
+        $shortSides = [
+            'medium_image' => min((int)UploadImageController::MAX_IMAGE_MEDIUM_WIDTH, (int)UploadImageController::MAX_IMAGE_MEDIUM_HEIGHT),
+            'small_image' => min((int)UploadImageController::MAX_IMAGE_SMALL_WIDTH, (int)UploadImageController::MAX_IMAGE_SMALL_HEIGHT),
+        ];
+        foreach ($shortSides as $column => $targetShortSide) {
+            foreach (UploadImageController::normalizeImages($post->$column) as $key => $derived) {
+                if (!preg_match($derivedPattern, (string)$key) || empty($derived['path']) || !$disk->exists($derived['path'])) {
+                    continue;
+                }
+
+                $derivedPath = $disk->path($derived['path']);
+                if (!$originalSize) {
+                    continue;
+                }
+
+                $originalShortSide = min($originalSize[0], $originalSize[1]);
+                $scale = min($targetShortSide, $originalShortSide) / $originalShortSide;
+
+                \Intervention\Image\Facades\Image::make($originalPath)
+                    ->resize(max(1, (int)round($originalSize[0] * $scale)), max(1, (int)round($originalSize[1] * $scale)))
+                    ->save($derivedPath);
+
+                $replacedPaths[] = $derived['path'];
+            }
+        }
+
+        UploadImageController::refreshImageHash($post->id, $name, $originalPath);
+
+        // путь обложки не изменился, поэтому сама палитра при сохранении поста не пересчитается (Post::booted)
+        if (!$post->palette_edited && in_array($post->coverImagePath(), $replacedPaths, true)) {
+            $post->palette = $post->computePalette() ?: null;
+            $post->save();
         }
     }
 

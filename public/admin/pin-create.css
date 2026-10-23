@@ -890,8 +890,13 @@
     background: #fff;
     box-shadow: 0 2px 10px rgba(23, 20, 50, .06);
 }
+/* высота — по пропорциям картинки (aspect-ratio ставит pin-create.js), но в разумных пределах.
+   width: 100% обязательно: иначе при упоре в max-height браузер сужает блок по пропорциям и он уезжает влево */
 .b-pin-preview__image {
-    height: 176px;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    min-height: 176px;
+    max-height: 460px;
     background-color: #efedf7;
     background-size: cover;
     background-position: center;
@@ -1364,5 +1369,229 @@
 @keyframes b-pin-spin {
     to {
         transform: rotate(360deg);
+    }
+}
+
+/* ===== Обрезка и поворот картинки (окно #modal-image-editor, admin.js openImageEditor) ===== */
+/* карандаш на превью — в левом верхнем углу, напротив крестика (общие стили иконок — ".upload-image-section .images i") */
+.b-pin-create .upload-image-section .images .js-edit-image {
+    right: auto;
+    left: -8px;
+    font-size: 11px;
+    line-height: 15px;
+    text-align: center;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s, color .15s;
+}
+.b-pin-create .upload-image-section .images .image:hover .js-edit-image {
+    opacity: 1;
+}
+.b-pin-create .upload-image-section .images .js-edit-image:hover {
+    color: #7367f0;
+}
+/* на тач-экранах наведения нет — карандаш виден всегда */
+@media (hover: none) {
+    .b-pin-create .upload-image-section .images .js-edit-image {
+        opacity: 1;
+    }
+}
+.b-image-editor__canvas {
+    height: 60vh;
+    max-height: 520px;
+    background: #f1f0f6;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.b-image-editor__canvas img {
+    display: block;
+    max-width: 100%;
+}
+.b-image-editor__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    margin-top: 14px;
+}
+.b-image-editor__group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.b-image-editor__tools .b-pin-btn {
+    margin: 0;
+    padding: 7px 11px;
+}
+.b-image-editor__tools .b-pin-btn.is-active {
+    border-color: #7367f0;
+    color: #7367f0;
+    background: #f6f5ff;
+}
+.b-image-editor__label {
+    font-size: 13px;
+    color: #6e6b7b;
+}
+.b-image-editor__note {
+    margin: 12px 0 0;
+    font-size: 12.5px;
+    color: #6e6b7b;
+}
+
+/* ===== Склейка картинок (окно #modal-image-collage, admin.js openCollageEditor) ===== */
+/* кнопка "Склеить картинки" — только когда на форме от двух картинок */
+.b-pin-create .js-collage-open {
+    display: none;
+}
+.b-pin-create .upload-image-section:has(.images .image ~ .image) ~ .js-collage-open {
+    display: inline-flex;
+}
+.b-collage__body {
+    display: flex;
+    gap: 20px;
+}
+.b-collage__preview {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 8px;
+    /* шахматка — видно, где кончается склейка, даже при белом фоне */
+    background: #f1f0f6 repeating-conic-gradient(#e7e5ef 0 25%, transparent 0 50%) 0 0 / 20px 20px;
+}
+.b-collage__preview {
+    position: relative;
+    flex-direction: column;
+}
+.b-collage__preview .js-collage-canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 62vh;
+    box-shadow: 0 2px 10px rgba(23, 23, 36, .15);
+    cursor: none;
+    touch-action: none;
+}
+/* лупа — следует за курсором (admin.js initCollageLens) */
+.b-collage__lens {
+    display: none;
+    position: absolute;
+    z-index: 5;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    background: #f1f0f6 repeating-conic-gradient(#e7e5ef 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+    box-shadow: 0 6px 22px rgba(23, 23, 36, .35), 0 0 0 1px rgba(23, 23, 36, .15);
+    pointer-events: none;
+}
+.b-collage__lens-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #6e6b7b;
+    text-align: center;
+}
+.b-collage__lens-hint b {
+    color: #7367f0;
+}
+.b-collage__empty {
+    font-size: 13.5px;
+    color: #6e6b7b;
+}
+.b-collage__settings {
+    flex: 0 0 280px;
+}
+.b-collage__label {
+    margin: 14px 0 7px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #3d3b4a;
+}
+.b-collage__label:first-child {
+    margin-top: 0;
+}
+.b-collage__hint {
+    display: block;
+    font-weight: 400;
+    font-size: 12px;
+    color: #8e8b9b;
+}
+.b-collage__images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 190px;
+    overflow-y: auto;
+}
+.b-collage__thumb {
+    position: relative;
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    border: 2px solid #e3e1ec;
+    border-radius: 8px;
+    background: #fff center / cover no-repeat;
+    opacity: .45;
+    cursor: pointer;
+}
+.b-collage__thumb.is-selected {
+    border-color: #7367f0;
+    opacity: 1;
+}
+.b-collage__thumb i {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #7367f0;
+    color: #fff;
+    font-size: 9px;
+    line-height: 16px;
+    display: none;
+}
+.b-collage__thumb.is-selected i {
+    display: block;
+}
+.b-collage__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-collage__options .b-pin-btn {
+    margin: 0;
+    padding: 7px 11px;
+}
+.b-collage__options .b-pin-btn.is-active {
+    border-color: #7367f0;
+    color: #7367f0;
+    background: #f6f5ff;
+}
+.b-collage__range {
+    width: 100%;
+    accent-color: #7367f0;
+}
+.b-collage__color {
+    width: 48px;
+    height: 32px;
+    padding: 2px;
+    border: 1px solid #e3e1ec;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+}
+.b-collage__remove {
+    margin-top: 16px;
+}
+@media (max-width: 767px) {
+    .b-collage__body {
+        flex-direction: column;
+    }
+    .b-collage__settings {
+        flex-basis: auto;
     }
 }

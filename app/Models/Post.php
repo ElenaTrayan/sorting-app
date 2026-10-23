@@ -723,6 +723,24 @@ class Post extends Model
     }
 
     /**
+     * Адрес обложки для браузера — с меткой версии файла: обрезка/поворот на странице редактирования
+     * перезаписывают файл под тем же путём, без метки браузер показал бы старую картинку из кеша
+     *
+     * @return string|null "/storage/uploads/.../foo_350_525.jpg?v=1729650000"
+     */
+    public function coverImageUrl(): ?string
+    {
+        $path = $this->coverImagePath();
+        if ($path === null) {
+            return null;
+        }
+
+        $modified = @filemtime(Storage::disk('local')->path($path));
+
+        return '/storage' . $path . ($modified ? '?v=' . $modified : '');
+    }
+
+    /**
      * Палитра обложки: [['hex' => '#D8C3A5', 'share' => 0.34], ...]; [] — нет картинки или её не прочитать
      *
      * @return array

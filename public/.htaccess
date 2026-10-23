@@ -19,3 +19,12 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Картинки постов браузер каждый раз сверяет с сервером (неизменённые приходят ответом 304, без повторной
+# загрузки): обрезка/поворот на странице редактирования перезаписывают файл под тем же адресом, и без этого
+# браузер ещё долго показывал бы старую версию из кеша
+<IfModule mod_headers.c>
+    <If "%{REQUEST_URI} =~ m#^/storage/.+\.(jpe?g|png|gif|webp|avif|svg)$#i">
+        Header set Cache-Control "no-cache"
+    </If>
+</IfModule>

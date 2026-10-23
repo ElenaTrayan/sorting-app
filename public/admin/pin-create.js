@@ -129,6 +129,22 @@
         });
     }
 
+    // блок с картинкой фоном — по пропорциям самой картинки (пределы высоты — в CSS)
+    function fitToImage(el, backgroundImage) {
+        var match = /url\(["']?(.*?)["']?\)/.exec(backgroundImage || '');
+        el.style.aspectRatio = '';
+        if (!match) {
+            return;
+        }
+        var img = new Image();
+        img.onload = function () {
+            if (img.naturalWidth && img.naturalHeight && el.style.backgroundImage === backgroundImage) {
+                el.style.aspectRatio = img.naturalWidth + ' / ' + img.naturalHeight;
+            }
+        };
+        img.src = match[1];
+    }
+
     function updatePreview() {
         var title = titleInput ? titleInput.value.trim() : '';
         var bodyText = currentBodyText();
@@ -148,7 +164,10 @@
             var swatch = firstImage ? firstImage.querySelector('span') : null;
             if (hasImage && swatch) {
                 previewImageEl.style.display = '';
-                previewImageEl.style.backgroundImage = swatch.style.backgroundImage || '';
+                if (previewImageEl.style.backgroundImage !== swatch.style.backgroundImage) {
+                    previewImageEl.style.backgroundImage = swatch.style.backgroundImage || '';
+                    fitToImage(previewImageEl, swatch.style.backgroundImage);
+                }
             } else {
                 previewImageEl.style.display = 'none';
                 previewImageEl.style.backgroundImage = '';

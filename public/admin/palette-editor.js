@@ -341,7 +341,8 @@ function initPaletteEditor(root, onChange) {
     });
 
     // ===== Картинки поменяли в панели "Изображения поста" =====
-    // обложка могла смениться — сервер тогда уже пересчитал палитру; перечитываем
+    // обложка могла смениться — сервер тогда уже пересчитал палитру; перечитываем.
+    // data-version меняется, когда файл картинки перезаписан на месте (обрезка, поворот — admin.js refreshItemImage)
     var imagesList = document.querySelector('#post-images .js-post-images__list');
     if (imagesList && window.MutationObserver) {
         var refreshTimer = null;
@@ -354,7 +355,7 @@ function initPaletteEditor(root, onChange) {
                         // не критично: палитра обновится при перезагрузке страницы
                     });
             }, 500);
-        }).observe(imagesList, {childList: true, subtree: true, attributes: true, attributeFilter: ['data-name', 'data-path']});
+        }).observe(imagesList, {childList: true, subtree: true, attributes: true, attributeFilter: ['data-name', 'data-path', 'data-version']});
     }
 
     render();

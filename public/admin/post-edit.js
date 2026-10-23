@@ -1,6 +1,38 @@
 // Страница "Редактировать пост" (/cabinet/posts/{id}/edit): переключатель типа поста.
 // Тип уходит с формой скрытым post_type (auto | film | recipe) — см. PostController::update().
 // Поля фильма видны только у типа "Фильм / Сериал"; сама отправка формы — в admin.js (#submit-edit-form)
+
+// Обложка в правой колонке — по пропорциям самой картинки (пределы высоты — в post-edit.css).
+// После обрезки/поворота admin.js (refreshItemImage) меняет её фон — подгоняем пропорции заново
+(function () {
+    var cover = document.querySelector('.b-post-edit__cover');
+    if (!cover) {
+        return;
+    }
+    var fitted = null;
+
+    function fit() {
+        var background = cover.style.backgroundImage || '';
+        var match = /url\(["']?(.*?)["']?\)/.exec(background);
+        if (!match || background === fitted) {
+            return;
+        }
+        fitted = background;
+        var img = new Image();
+        img.onload = function () {
+            if (img.naturalWidth && img.naturalHeight && cover.style.backgroundImage === background) {
+                cover.style.aspectRatio = img.naturalWidth + ' / ' + img.naturalHeight;
+            }
+        };
+        img.src = match[1];
+    }
+
+    fit();
+    if (window.MutationObserver) {
+        new MutationObserver(fit).observe(cover, {attributes: true, attributeFilter: ['style']});
+    }
+})();
+
 (function () {
     var typeInput = document.getElementById('post-type');
     if (!typeInput) {

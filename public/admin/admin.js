@@ -524,7 +524,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      if ($('.js-images').length && $.fn.sortable) {
          $('.js-images').sortable({
              items: '.image',
-             cancel: '.js-delete-image',
+             cancel: '.js-delete-image, .js-edit-image',
              tolerance: 'pointer',
              placeholder: 'image-sort-placeholder',
              forcePlaceholderSize: true,
@@ -704,23 +704,26 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  (uploadFinished + fraction * 0.6) / uploadTotal,
                  (fraction < 1 ? 'Загрузка ' : 'Обработка ') + position + ' из ' + uploadTotal
              );
-         }, function () {
+         }, function (added) {
              uploadFinished++;
              removeUploadPlaceholder(item.placeholder);
+             if (added && item.onAdded) {
+                 item.onAdded();
+             }
              setUploadProgress(uploadFinished / uploadTotal, 'Загружено ' + uploadFinished + ' из ' + uploadTotal);
              runUploadQueue();
          });
      }
 
-     // Поставить файлы в очередь загрузки
-     function upload(files, url = '') {
+     // Поставить файлы в очередь загрузки. onAdded() — когда файл встал на форму (для каждого файла)
+     function upload(files, url = '', onAdded = null) {
          // новая серия — прошлое предупреждение о незагруженных картинках уже неактуально
          if (!uploadRunning) {
              $('.js-error-block').removeClass('active');
          }
 
          for (let i = 0; i < files.length; ++i) {
-             uploadQueue.push({file: files[i], url: url, placeholder: addUploadPlaceholder(files[i])});
+             uploadQueue.push({file: files[i], url: url, placeholder: addUploadPlaceholder(files[i]), onAdded: onAdded});
          }
          uploadTotal += files.length;
 
@@ -730,9 +733,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
      }
 
-     // Отправить файлы одним запросом. onProgress(доля отправленного 0..1), onDone() — когда пришёл ответ
-     // или ошибка
+     // Отправить файлы одним запросом. onProgress(доля отправленного 0..1), onDone(added) — когда пришёл ответ
+     // или ошибка; added — картинки сразу встали на форму (не отклонены и не ушли в окно сравнения похожих)
      function uploadFiles(files, url, onProgress, onDone) {
+         let added = false;
          console.log("UPLOAD");
          console.log(files);
 
@@ -810,7 +814,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              },
              complete: function () {
                  if (onDone) {
-                     onDone();
+                     onDone(added);
                  }
              },
              success:function(response)
@@ -830,6 +834,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      // подбор хештегов по картинкам — один раз, когда загрузится вся очередь (runUploadQueue)
                      addImagesToCreationForm(uploadedImages, files.length === 1 ? files[0] : null);
+                     added = Object.keys(uploadedImages || {}).length > 0;
 
                      // похожие на картинки этой же формы сервер не добавил, а оставил во временной папке —
                      // спрашиваем в окне сравнения, что с каждой делать (UploadImageController::uploadImagesToTempDirectory)
@@ -838,7 +843,16 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              },
              error: function(response) {
                  console.log(response);
-                 showRejectedUploads([{file: files[0].name, message: 'не удалось загрузить — попробуйте ещё раз'}]);
+                 // код ответа сервера — по нему видно, что случилось, ещё до кода загрузки
+                 let reasons = {
+                     0: 'нет связи с сервером',
+                     413: 'файл слишком большой для сервера',
+                     419: 'сессия устарела — обновите страницу',
+                     422: 'сервер не принял файл',
+                     500: 'ошибка на сервере',
+                 };
+                 let reason = reasons[response.status] || 'ошибка ' + response.status;
+                 showRejectedUploads([{file: files[0].name, message: 'не удалось загрузить: ' + reason + ' (код ' + response.status + ')'}]);
              },
          });
      }
@@ -863,7 +877,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              if (window.EventDateField) {
                  if (image && image.taken_at) {
                      window.EventDateField.suggest(image.taken_at, 'exif');
-                 } else if (file && file.lastModified) {
+                 } else if (file && file.lastModified && !file.generated) {
+                     // у склейки (file.generated) дата файла — момент склейки, а не событие
                      window.EventDateField.suggest(new Date(file.lastModified), 'file');
                  }
              }
@@ -876,11 +891,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  return;
              }
 
-             let img = $('<div class="image"></div>')
-                 .attr('data-name', image['image_name'])
-                 .attr('data-extension', image['image_extension'])
-                 .append($('<span></span>').css('background-image', 'url(/storage/' + image['image_path'] + ')'))
-                 .append('<i class="js-delete-image temp fas fa-times-circle" data-action="/cabinet/delete-download-file"></i>');
+             let img = creationImageCard(image);
 
              // в контейнер — перед заготовками ещё не загруженных файлов, чтобы картинки шли в том порядке,
              // в каком их выбрали
@@ -892,6 +903,494 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              }
          });
      }
+
+     // какие картинки можно править в редакторе (см. ниже) и в каком формате их пересохранять
+     const IMAGE_EDITOR_MIME = {jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp'};
+
+     // Превью картинки на форме создания. version — метка к адресу файла: после правки в редакторе файл
+     // лежит под тем же именем, а браузер показал бы старый из кеша
+     function creationImageCard(image, version) {
+         let src = '/storage/' + image['image_path'] + (version ? '?v=' + version : '');
+         let card = $('<div class="image"></div>')
+             .attr('data-name', image['image_name'])
+             .attr('data-extension', image['image_extension'])
+             .append($('<span></span>').css('background-image', 'url(' + src + ')'))
+             .append('<i class="js-delete-image temp fas fa-times-circle" data-action="/cabinet/delete-download-file"></i>');
+
+         // редактор пересохраняет картинку через canvas — GIF потерял бы анимацию, SVG — векторность
+         if (IMAGE_EDITOR_MIME[String(image['image_extension']).toLowerCase()] && $('#modal-image-editor').length) {
+             card.append('<i class="js-edit-image fas fa-pen" title="Обрезать / повернуть"></i>');
+         }
+         return card;
+     }
+
+     // ===== Обрезка и поворот картинки (окно #modal-image-editor, parts/image_editor_modal.blade.php) =====
+     // Правка делается в браузере (Cropper.js), готовая картинка уходит на сервер и заменяет файл под тем же
+     // именем. Куда отправлять — решает страница (options.save):
+     //  - форма создания — файл во временной папке (UploadImageController::replaceTempImage), см. ниже;
+     //  - страница редактирования — файл поста (PostController::cropImage), см. "Изображения поста"
+     let imageEditorCropper = null;
+
+     $(document).on('click', '.js-edit-image', function (e) {
+         e.preventDefault();
+         e.stopPropagation();
+
+         let card = $(this).closest('.image');
+         let image = (JSON.parse(sessionStorage.getItem('images') || '{}') || {})[card.attr('data-name')];
+         if (!image) {
+             return;
+         }
+         openImageEditor({
+             src: '/storage/' + image['image_path'],
+             extension: image['image_extension'],
+             save: function (blob, onSuccess, onError) {
+                 saveEditedTempImage(card, image, blob, onSuccess, onError);
+             },
+         });
+     });
+
+     /**
+      * @param {Object} options src — адрес картинки, extension — её расширение (в нём же и пересохраняем),
+      *        note — пояснение под инструментами (необязательно), save(blob, onSuccess, onError) — отправить результат
+      */
+     function openImageEditor(options) {
+         let modal = $('#modal-image-editor');
+         if (!modal.length || typeof Cropper === 'undefined' || !IMAGE_EDITOR_MIME[String(options.extension).toLowerCase()]) {
+             return;
+         }
+
+         let saveButton = modal.find('.js-image-editor-save').prop('disabled', false);
+         let img = modal.find('.js-image-editor-img');
+         // файл мог поменяться под тем же адресом (прошлая правка) — не берём из кеша
+         img.attr('src', options.src + (options.src.indexOf('?') === -1 ? '?' : '&') + 'v=' + Date.now());
+         modal.find('[data-editor="ratio"]').removeClass('is-active').filter('[data-value="NaN"]').addClass('is-active');
+         modal.find('.js-image-editor-note').text(options.note || '').prop('hidden', !options.note);
+
+         modal.off('.imageEditor');
+         // Cropper меряет картинку — запускаем, когда окно уже видно
+         modal.one('shown.bs.modal.imageEditor', function () {
+             imageEditorCropper = new Cropper(img[0], {
+                 viewMode: 1,
+                 autoCropArea: 1,
+                 background: false,
+                 responsive: true,
+             });
+         });
+         modal.one('hidden.bs.modal.imageEditor', function () {
+             modal.off('.imageEditor');
+             if (imageEditorCropper) {
+                 imageEditorCropper.destroy();
+                 imageEditorCropper = null;
+             }
+             img.attr('src', '');
+         });
+
+         modal.on('click.imageEditor', '[data-editor]', function () {
+             if (!imageEditorCropper) {
+                 return;
+             }
+             let action = this.getAttribute('data-editor');
+             let value = this.getAttribute('data-value');
+             let data = imageEditorCropper.getData();
+             // отражаем по оси экрана: у картинки, повёрнутой на 90°, её собственные оси поменялись местами
+             let sideways = Math.abs(data.rotate || 0) % 180 === 90;
+
+             if (action === 'rotate') {
+                 imageEditorCropper.rotate(parseInt(value, 10));
+             } else if ((action === 'flipX') !== sideways && (action === 'flipX' || action === 'flipY')) {
+                 imageEditorCropper.scaleX(-(data.scaleX || 1));
+             } else if (action === 'flipX' || action === 'flipY') {
+                 imageEditorCropper.scaleY(-(data.scaleY || 1));
+             } else if (action === 'ratio') {
+                 imageEditorCropper.setAspectRatio(parseFloat(value));
+                 $(this).addClass('is-active').siblings('[data-editor="ratio"]').removeClass('is-active');
+             } else if (action === 'reset') {
+                 imageEditorCropper.reset();
+             }
+         });
+
+         modal.on('click.imageEditor', '.js-image-editor-save', function () {
+             if (!imageEditorCropper) {
+                 return;
+             }
+             saveButton.prop('disabled', true);
+             let fail = function () {
+                 saveButton.prop('disabled', false);
+             };
+
+             let mime = IMAGE_EDITOR_MIME[String(options.extension).toLowerCase()];
+             let canvas = imageEditorCropper.getCroppedCanvas({
+                 maxWidth: 8192,
+                 maxHeight: 8192,
+                 imageSmoothingQuality: 'high',
+                 // у JPEG нет прозрачности — пустые углы иначе стали бы чёрными
+                 fillColor: mime === 'image/jpeg' ? '#fff' : 'transparent',
+             });
+             canvas.toBlob(function (blob) {
+                 if (!blob) {
+                     toastr.error('Не удалось подготовить картинку');
+                     fail();
+                     return;
+                 }
+                 options.save(blob, function () {
+                     modal.modal('hide');
+                 }, fail);
+             }, mime, 0.95);
+         });
+
+         modal.modal('show');
+     }
+
+     // форма создания: отредактированная картинка заменяет файл во временной папке, на форме — новое превью
+     function saveEditedTempImage(card, image, blob, onSuccess, onError) {
+         let formData = new FormData();
+         formData.append('name', image['image_name']);
+         formData.append('extension', image['image_extension']);
+         formData.append('file', blob, image['image_name'] + '.' + image['image_extension']);
+
+         $.ajax({
+             url: $('.js-upload-image-section').attr('data-replace-action'),
+             method: 'POST',
+             headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+             data: formData,
+             contentType: false,
+             processData: false,
+             success: function (response) {
+                 if (!response || response.status !== true) {
+                     toastr.error((response && response.error) || 'Не удалось сохранить картинку');
+                     onError();
+                     return;
+                 }
+
+                 // дату съёмки (taken_at) и прочее, что было у картинки, оставляем — меняются файлы и размеры
+                 let images = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
+                 let name = image['image_name'];
+                 let updated = Object.assign({}, images[name] || image, response.image);
+                 ['s_image_name', 's_image_path', 'm_image_name', 'm_image_path'].forEach(function (key) {
+                     if (!(key in response.image)) {
+                         delete updated[key]; // после обрезки картинка стала меньше — такой копии больше нет
+                     }
+                 });
+                 images[name] = updated;
+                 sessionStorage.setItem('images', JSON.stringify(images));
+
+                 // новой карточкой, а не правкой фона — превью пина (pin-create.js) следит за списком карточек
+                 card.replaceWith(creationImageCard(updated, Date.now()));
+                 onSuccess();
+             },
+             error: function () {
+                 toastr.error('Не удалось сохранить картинку — попробуйте ещё раз');
+                 onError();
+             },
+         });
+     }
+
+     // ===== Склейка картинок формы в одну (окно #modal-image-collage, create.blade.php) =====
+     // Склейка собирается в браузере на canvas и загружается как новая картинка обычной очередью upload() —
+     // с уменьшенными копиями, проверкой похожих и превью, как любой выбранный файл. Исходные картинки
+     // убираются с формы (если отмечено) только когда склейка уже встала на форму
+     const COLLAGE_MAX_SIDE = 8000;     // больше по стороне не делаем — тяжёлый файл, а браузеры ограничивают canvas
+     const COLLAGE_MAX_CELL = 2400;     // общая высота ряда / ширина столбика — не больше
+     const COLLAGE_PREVIEW_SIDE = 1000; // предпросмотр в окне рисуем уменьшенным
+
+     let collage = {items: [], layout: 'row'};
+
+     $(document).on('click', '.js-collage-open', function () {
+         openCollageEditor();
+     });
+
+     function openCollageEditor() {
+         let modal = $('#modal-image-collage');
+         let stored = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
+         let version = Date.now(); // файлы могли поменяться в редакторе обрезки — не берём из кеша
+
+         // картинки в порядке превью на форме, все отмечены
+         collage.items = [];
+         $('.js-images .image').each(function () {
+             let image = stored[this.getAttribute('data-name')];
+             if (image && image.image_path) {
+                 collage.items.push({image: image, selected: true, src: '/storage/' + image.image_path + '?v=' + version, el: null});
+             }
+         });
+         if (collage.items.length < 2) {
+             toastr.warning('Для склейки нужно хотя бы две картинки на форме');
+             return;
+         }
+
+         let list = modal.find('.js-collage-images').empty();
+         collage.items.forEach(function (item, index) {
+             $('<button type="button" class="b-collage__thumb is-selected"></button>')
+                 .attr('data-index', index)
+                 .attr('title', item.image.image_name)
+                 .css('background-image', 'url(' + item.src + ')')
+                 .append('<i class="fas fa-check"></i>')
+                 .appendTo(list);
+         });
+
+         modal.find('.js-collage-save').prop('disabled', false);
+         modal.modal('show');
+
+         // все картинки грузим один раз, дальше только перерисовываем
+         Promise.all(collage.items.map(function (item) {
+             return new Promise(function (resolve) {
+                 let el = new Image();
+                 el.onload = function () {
+                     item.el = el;
+                     resolve();
+                 };
+                 el.onerror = function () {
+                     item.selected = false;
+                     list.find('[data-index="' + collage.items.indexOf(item) + '"]').removeClass('is-selected').prop('disabled', true);
+                     resolve();
+                 };
+                 el.src = item.src;
+             });
+         })).then(renderCollagePreview);
+     }
+
+     $(document).on('click', '#modal-image-collage .b-collage__thumb', function () {
+         let item = collage.items[parseInt(this.getAttribute('data-index'), 10)];
+         if (!item || !item.el) {
+             return;
+         }
+         item.selected = !item.selected;
+         $(this).toggleClass('is-selected', item.selected);
+         renderCollagePreview();
+     });
+
+     $(document).on('click', '#modal-image-collage [data-collage-layout]', function () {
+         collage.layout = this.getAttribute('data-collage-layout');
+         $(this).addClass('is-active').siblings('[data-collage-layout]').removeClass('is-active');
+         renderCollagePreview();
+     });
+
+     $(document).on('input change', '#modal-image-collage .js-collage-gap, #modal-image-collage .js-collage-bg', function () {
+         $('#modal-image-collage .js-collage-gap-value').text($('#modal-image-collage .js-collage-gap').val() + ' %');
+         renderCollagePreview();
+     });
+
+     function selectedCollageImages() {
+         return collage.items.filter(function (item) {
+             return item.selected && item.el;
+         });
+     }
+
+     // Раскладка в "полных" пикселях: размер холста и прямоугольник каждой картинки.
+     // Ряд — все одной высоты, столбик — одной ширины, сетка — одинаковые ячейки (картинка вписана, по центру).
+     // Отступ — в процентах от высоты ряда / ширины столбика / ячейки, такой же отступ и по краям
+     function collageLayout(items, layout, gapPercent) {
+         let sizes = items.map(function (item) {
+             return {w: item.el.naturalWidth, h: item.el.naturalHeight};
+         });
+         let rects = [];
+         let width, height, gap;
+
+         if (layout === 'row') {
+             let rowHeight = Math.min(COLLAGE_MAX_CELL, Math.max.apply(null, sizes.map(s => s.h)));
+             gap = Math.round(rowHeight * gapPercent / 100);
+             let x = gap;
+             sizes.forEach(function (s) {
+                 let w = Math.round(s.w * rowHeight / s.h);
+                 rects.push({x: x, y: gap, w: w, h: rowHeight});
+                 x += w + gap;
+             });
+             width = x;
+             height = rowHeight + gap * 2;
+         } else if (layout === 'column') {
+             let columnWidth = Math.min(COLLAGE_MAX_CELL, Math.max.apply(null, sizes.map(s => s.w)));
+             gap = Math.round(columnWidth * gapPercent / 100);
+             let y = gap;
+             sizes.forEach(function (s) {
+                 let h = Math.round(s.h * columnWidth / s.w);
+                 rects.push({x: gap, y: y, w: columnWidth, h: h});
+                 y += h + gap;
+             });
+             width = columnWidth + gap * 2;
+             height = y;
+         } else {
+             let columns = Math.ceil(Math.sqrt(sizes.length));
+             let rows = Math.ceil(sizes.length / columns);
+             // пропорции ячейки — средние по картинкам, чтобы пустых полей было поменьше
+             let aspect = sizes.reduce((sum, s) => sum + s.w / s.h, 0) / sizes.length;
+             let cellWidth = Math.min(COLLAGE_MAX_CELL / 2, Math.max.apply(null, sizes.map(s => s.w)));
+             let cellHeight = Math.round(cellWidth / aspect);
+             gap = Math.round(Math.min(cellWidth, cellHeight) * gapPercent / 100);
+             sizes.forEach(function (s, i) {
+                 let scale = Math.min(cellWidth / s.w, cellHeight / s.h);
+                 let w = Math.round(s.w * scale);
+                 let h = Math.round(s.h * scale);
+                 let cellX = gap + (i % columns) * (cellWidth + gap);
+                 let cellY = gap + Math.floor(i / columns) * (cellHeight + gap);
+                 rects.push({x: cellX + Math.round((cellWidth - w) / 2), y: cellY + Math.round((cellHeight - h) / 2), w: w, h: h});
+             });
+             width = gap + columns * (cellWidth + gap);
+             height = gap + rows * (cellHeight + gap);
+         }
+
+         return {width: width, height: height, rects: rects};
+     }
+
+     // Нарисовать склейку на canvas, уменьшив так, чтобы большая сторона была не больше maxSide
+     function drawCollage(canvas, items, maxSide) {
+         let modal = $('#modal-image-collage');
+         let layout = collageLayout(items, collage.layout, parseInt(modal.find('.js-collage-gap').val(), 10) || 0);
+         let scale = Math.min(1, maxSide / Math.max(layout.width, layout.height));
+
+         canvas.width = Math.max(1, Math.round(layout.width * scale));
+         canvas.height = Math.max(1, Math.round(layout.height * scale));
+
+         let ctx = canvas.getContext('2d');
+         ctx.imageSmoothingQuality = 'high';
+         ctx.fillStyle = modal.find('.js-collage-bg').val() || '#ffffff';
+         ctx.fillRect(0, 0, canvas.width, canvas.height);
+         items.forEach(function (item, i) {
+             let r = layout.rects[i];
+             ctx.drawImage(item.el, r.x * scale, r.y * scale, r.w * scale, r.h * scale);
+         });
+     }
+
+     function renderCollagePreview() {
+         let modal = $('#modal-image-collage');
+         let items = selectedCollageImages();
+         let canvas = modal.find('.js-collage-canvas');
+
+         collageLens.source = null; // настройки поменялись — лупе нужна новая версия склейки
+         canvas.toggle(items.length >= 2);
+         modal.find('.js-collage-lens-hint').toggle(items.length >= 2);
+         modal.find('.js-collage-empty').toggle(items.length < 2);
+         modal.find('.js-collage-save').prop('disabled', items.length < 2);
+         if (items.length >= 2) {
+             drawCollage(canvas[0], items, COLLAGE_PREVIEW_SIDE);
+         }
+     }
+
+     // Лупа над предпросмотром склейки: предпросмотр уменьшен, поэтому лупа берёт картинку из версии
+     // покрупнее (source) — её рисуем при первом наведении после изменения настроек
+     const COLLAGE_LENS_SOURCE_SIDE = 4000;
+     const COLLAGE_LENS_SIZE = 240;
+     let collageLens = {source: null, zoom: 3, point: null};
+
+     (function initCollageLens() {
+         let preview = document.querySelector('#modal-image-collage .b-collage__preview');
+         let canvas = preview ? preview.querySelector('.js-collage-canvas') : null;
+         let lens = preview ? preview.querySelector('.js-collage-lens') : null;
+         if (!canvas || !lens) {
+             return;
+         }
+
+         let dpr = window.devicePixelRatio || 1;
+         lens.width = lens.height = Math.round(COLLAGE_LENS_SIZE * dpr);
+         lens.style.width = lens.style.height = COLLAGE_LENS_SIZE + 'px';
+
+         function show(clientX, clientY, isTouch) {
+             if (!collageLens.source) {
+                 let items = selectedCollageImages();
+                 if (items.length < 2) {
+                     return;
+                 }
+                 collageLens.source = document.createElement('canvas');
+                 drawCollage(collageLens.source, items, COLLAGE_LENS_SOURCE_SIDE);
+             }
+             collageLens.point = {x: clientX, y: clientY, touch: isTouch};
+
+             let rect = canvas.getBoundingClientRect();
+             let box = preview.getBoundingClientRect();
+             let fx = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+             let fy = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+
+             // пальцем лупу не видно под ним — для тача поднимаем её над точкой касания
+             lens.style.left = (clientX - box.left - COLLAGE_LENS_SIZE / 2) + 'px';
+             lens.style.top = (clientY - box.top - COLLAGE_LENS_SIZE / 2 - (isTouch ? COLLAGE_LENS_SIZE * 0.7 : 0)) + 'px';
+             lens.style.display = 'block';
+
+             // какой кусок версии покрупнее попадает в лупу: на экране это COLLAGE_LENS_SIZE / zoom пикселей
+             let source = collageLens.source;
+             let ratio = source.width / rect.width;
+             let side = COLLAGE_LENS_SIZE / collageLens.zoom * ratio;
+             let sx = fx * source.width - side / 2;
+             let sy = fy * source.height - side / 2;
+
+             let ctx = lens.getContext('2d');
+             let k = lens.width / side;
+             ctx.clearRect(0, 0, lens.width, lens.height);
+             ctx.imageSmoothingQuality = 'high';
+             // за краями склейки — пусто (виден фон лупы); источник обрезаем сами, не все браузеры это умеют
+             let x0 = Math.max(0, sx), y0 = Math.max(0, sy);
+             let x1 = Math.min(source.width, sx + side), y1 = Math.min(source.height, sy + side);
+             if (x1 > x0 && y1 > y0) {
+                 ctx.drawImage(source, x0, y0, x1 - x0, y1 - y0, (x0 - sx) * k, (y0 - sy) * k, (x1 - x0) * k, (y1 - y0) * k);
+             }
+         }
+
+         function hide() {
+             lens.style.display = 'none';
+             collageLens.point = null;
+         }
+
+         canvas.addEventListener('mousemove', function (e) {
+             show(e.clientX, e.clientY, false);
+         });
+         canvas.addEventListener('mouseleave', hide);
+         canvas.addEventListener('wheel', function (e) {
+             e.preventDefault();
+             collageLens.zoom = Math.min(12, Math.max(1.5, collageLens.zoom * (e.deltaY < 0 ? 1.25 : 0.8)));
+             $('#modal-image-collage .js-collage-lens-zoom').text('×' + (Math.round(collageLens.zoom * 10) / 10).toString().replace('.', ','));
+             show(e.clientX, e.clientY, false);
+         }, {passive: false});
+
+         canvas.addEventListener('touchstart', function (e) {
+             e.preventDefault();
+             show(e.touches[0].clientX, e.touches[0].clientY, true);
+         }, {passive: false});
+         canvas.addEventListener('touchmove', function (e) {
+             e.preventDefault();
+             show(e.touches[0].clientX, e.touches[0].clientY, true);
+         }, {passive: false});
+         canvas.addEventListener('touchend', hide);
+
+         $('#modal-image-collage').on('hidden.bs.modal', function () {
+             hide();
+             collageLens.source = null;
+         });
+     })();
+
+     $(document).on('click', '#modal-image-collage .js-collage-save', function () {
+         let modal = $('#modal-image-collage');
+         let items = selectedCollageImages();
+         if (items.length < 2) {
+             return;
+         }
+         let saveButton = $(this).prop('disabled', true);
+         let removeSources = modal.find('.js-collage-remove-sources').is(':checked');
+
+         let canvas = document.createElement('canvas');
+         drawCollage(canvas, items, COLLAGE_MAX_SIDE);
+         canvas.toBlob(function (blob) {
+             if (!blob) {
+                 toastr.error('Не удалось собрать картинку — попробуйте меньше картинок или другую раскладку');
+                 saveButton.prop('disabled', false);
+                 return;
+             }
+
+             let stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+             let file = new File([blob], 'collage-' + stamp + '.jpg', {type: 'image/jpeg', lastModified: Date.now()});
+             file.generated = true;
+
+             let sources = items.map(function (item) {
+                 return item.image;
+             });
+             upload([file], $('.js-upload-image-section').attr('data-action'), function () {
+                 if (!removeSources) {
+                     return;
+                 }
+                 sources.forEach(function (image) {
+                     removeImageFromCreationForm(image.image_name);
+                     deleteTempFile(image.image_name, image.image_extension);
+                 });
+             });
+             modal.modal('hide');
+         }, 'image/jpeg', 0.92);
+     });
 
      // ===== Похожая картинка уже стоит на форме создания (окно #modal-form-duplicate, create.blade.php) =====
      // Сервер такую картинку на форму не добавил, а оставил во временной папке и прислал сравнение
@@ -5436,6 +5935,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          const addUrl = panel.getAttribute('data-add-action');
          const renameUrl = panel.getAttribute('data-rename-action');
          const transformUrl = panel.getAttribute('data-transform-action');
+         const cropUrl = panel.getAttribute('data-crop-action');
+         const restoreUrl = panel.getAttribute('data-restore-action');
          const deleteUrl = panel.getAttribute('data-delete-action');
          const confirmReplaceUrl = panel.getAttribute('data-confirm-replace-action');
          const confirmAddUrl = panel.getAttribute('data-confirm-add-action');
@@ -5635,10 +6136,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          },
                          success: function (response) {
                              if (response.status === true) {
-                                 let src = '/storage' + response.image.path + '?v=' + Date.now();
-                                 let thumb = item.querySelector('.b-post-images__thumb');
-                                 thumb.style.backgroundImage = 'url(' + src + ')';
-                                 thumb.setAttribute('data-src', src);
+                                 refreshItemImage(item, response);
                                  toastr.success(response.message);
                              } else {
                                  showError(response.message || 'Не удалось изменить изображение');
@@ -5653,6 +6151,82 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      });
                  });
              });
+
+             // обрезать: окно редактора (openImageEditor), результат заменяет файл поста (PostController::cropImage);
+             // перед первой правкой сервер сохраняет копию оригинала — её возвращает кнопка restoreBtn
+             const cropBtn = item.querySelector('.js-post-images__crop');
+             if (cropBtn && !IMAGE_EDITOR_MIME[String(item.getAttribute('data-extension')).toLowerCase()]) {
+                 cropBtn.remove(); // GIF/SVG через canvas пересохранять нельзя
+             } else if (cropBtn) {
+                 cropBtn.addEventListener('click', function () {
+                     clearError();
+                     openImageEditor({
+                         src: '/storage' + item.getAttribute('data-path'),
+                         extension: item.getAttribute('data-extension'),
+                         note: 'Изменения сразу сохранятся в посте. Исходная картинка останется в копии — её можно вернуть кнопкой «Вернуть оригинал».',
+                         save: function (blob, onSuccess, onError) {
+                             let formData = new FormData();
+                             formData.append('name', item.getAttribute('data-name'));
+                             formData.append('file', blob, item.getAttribute('data-name'));
+
+                             $.ajax({
+                                 type: 'post',
+                                 url: cropUrl,
+                                 headers: {'X-CSRF-TOKEN': csrfToken()},
+                                 data: formData,
+                                 contentType: false,
+                                 processData: false,
+                                 success: function (response) {
+                                     if (response.status === true) {
+                                         refreshItemImage(item, response);
+                                         toastr.success(response.message || 'Изображение сохранено');
+                                         onSuccess();
+                                     } else {
+                                         toastr.error(response.message || 'Не удалось сохранить изображение');
+                                         onError();
+                                     }
+                                 },
+                                 error: function () {
+                                     toastr.error('Не удалось сохранить изображение');
+                                     onError();
+                                 },
+                             });
+                         },
+                     });
+                 });
+             }
+
+             const restoreBtn = item.querySelector('.js-post-images__restore');
+             if (restoreBtn) {
+                 restoreBtn.addEventListener('click', function () {
+                     if (!confirm('Вернуть картинку, какой она была до обрезки и поворотов?')) {
+                         return;
+                     }
+                     clearError();
+                     restoreBtn.disabled = true;
+
+                     $.ajax({
+                         type: 'post',
+                         url: restoreUrl,
+                         headers: {'X-CSRF-TOKEN': csrfToken()},
+                         data: {name: item.getAttribute('data-name')},
+                         success: function (response) {
+                             if (response.status === true) {
+                                 refreshItemImage(item, response);
+                                 toastr.success(response.message || 'Оригинал возвращён');
+                             } else {
+                                 showError(response.message || 'Не удалось вернуть оригинал');
+                             }
+                         },
+                         error: function () {
+                             showError('Не удалось вернуть оригинал');
+                         },
+                         complete: function () {
+                             restoreBtn.disabled = false;
+                         }
+                     });
+                 });
+             }
 
              deleteBtn.addEventListener('click', function () {
                  if (!confirm('Удалить это изображение?')) {
@@ -5687,6 +6261,30 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
          }
 
+         // файл картинки перезаписан на месте (поворот, обрезка, возврат оригинала): путь тот же, поэтому превью —
+         // с меткой времени, иначе браузер покажет картинку из кеша; has_backup — есть ли копия оригинала до правок
+         function refreshItemImage(item, response) {
+             let src = '/storage' + response.image.path + '?v=' + Date.now();
+             let thumb = item.querySelector('.b-post-images__thumb');
+             thumb.style.backgroundImage = 'url(' + src + ')';
+             thumb.setAttribute('data-src', src);
+             if (typeof response.has_backup === 'boolean') {
+                 item.classList.toggle('has-backup', response.has_backup);
+             }
+             // блок "Палитра" (palette-editor.js) следит за этим атрибутом — перечитает палитру и обложку
+             item.setAttribute('data-version', String(Date.now()));
+
+             // обложка в правой колонке (пропорции подгоняет post-edit.js — он следит за её фоном)
+             let cover = document.querySelector('.b-post-edit__cover');
+             if (cover && response.cover_url) {
+                 cover.style.backgroundImage = 'url("' + response.cover_url + '")';
+                 let placeholder = cover.querySelector('span');
+                 if (placeholder) {
+                     placeholder.remove();
+                 }
+             }
+         }
+
          function buildItem(name, extension, path) {
              let item = document.createElement('div');
              item.className = 'b-post-images__item';
@@ -5697,6 +6295,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              item.innerHTML =
                  '<a class="b-post-images__thumb" data-fancybox="post-images" data-src="/storage' + path + '" style="background-image: url(/storage' + path + ')"></a>' +
                  '<div class="b-post-images__transform">' +
+                     '<button type="button" class="js-post-images__crop" title="Обрезать"><i class="fas fa-crop-alt"></i></button>' +
+                     '<button type="button" class="js-post-images__restore" title="Вернуть оригинал"><i class="fas fa-history"></i></button>' +
                      '<button type="button" class="js-post-images__transform" data-action="rotate_left" title="Повернуть влево"><i class="fas fa-undo"></i></button>' +
                      '<button type="button" class="js-post-images__transform" data-action="rotate_right" title="Повернуть вправо"><i class="fas fa-redo"></i></button>' +
                      '<button type="button" class="js-post-images__transform" data-action="flip_h" title="Отразить по горизонтали"><i class="fas fa-arrows-alt-h"></i></button>' +

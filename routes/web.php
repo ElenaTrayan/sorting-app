@@ -78,6 +78,7 @@ Route::middleware(['auth'])->prefix('cabinet')->group(function () {
         Route::post('upload', [User\Packages\UploadImageController::class, 'upload'])->name('image.upload');
         Route::post('delete-download-file', [User\Packages\UploadImageController::class, 'deleteDownloadFile']);
         Route::post('upload-image-to-temp-directory', [User\Packages\UploadImageController::class, 'uploadImagesToTempDirectory'])->name('image.upload-to-temp-directory');
+        Route::post('replace-temp-image', [User\Packages\UploadImageController::class, 'replaceTempImage'])->name('image.replace-temp');
         Route::post('upload-video-to-temp-directory', [User\PostController::class, 'uploadVideoToTempDirectory'])->name('video.upload-to-temp-directory');
         Route::post('/posts/{post}/video', [User\PostController::class, 'addVideo'])->name('posts.video.add');
         Route::delete('/posts/{post}/video', [User\PostController::class, 'deleteVideo'])->name('posts.video.delete');
@@ -94,6 +95,8 @@ Route::middleware(['auth'])->prefix('cabinet')->group(function () {
         Route::post('/posts/{post}/images/rename', [User\PostController::class, 'renameImage'])->name('posts.images.rename');
         // повернуть/отразить картинку поста вместе с её medium/small (кнопки на карточке картинки, страница редактирования)
         Route::post('/posts/{post}/images/transform', [User\PostController::class, 'transformImage'])->name('posts.images.transform');
+        Route::post('/posts/{post}/images/crop', [User\PostController::class, 'cropImage'])->name('posts.images.crop');
+        Route::post('/posts/{post}/images/restore', [User\PostController::class, 'restoreImage'])->name('posts.images.restore');
         // материалы фильма — посты, прикреплённые к пину "Фильм / Сериал" (блок "Материалы" на странице
         // фильма: parts/film_materials.blade.php, film-materials.js)
         Route::get('/posts/{post}/film-materials/candidates', [User\PostController::class, 'filmMaterialCandidates'])->name('posts.film-materials.candidates');
