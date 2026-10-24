@@ -125,7 +125,7 @@ class BackfillImageHashes extends Command
                 }
 
                 try {
-                    $size = getimagesize($absolutePath);
+                    $size = UploadImageController::imageSize($absolutePath);
                     $phash = UploadImageController::computeImageHash($absolutePath);
                     $perceptualHash = UploadImageController::computePerceptualHash($absolutePath);
 

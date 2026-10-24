@@ -527,7 +527,10 @@ class UploadImageController extends Controller
         //Получаем путь к изображению
         $imagePath = Storage::path($imagePath);
         //получаем размер изображения: $imageSize[0] - ширина, $imageSize[1] - высота
-        $imageSize = getimagesize($imagePath);
+        $imageSize = self::imageSize($imagePath);
+        if (!$imageSize) {
+            throw new Exception('Не удалось прочитать размер картинки — файл повреждён или это не картинка');
+        }
 
         /* уменьшаем изображение (s_image) до MAX_IMAGE_SMALL_WIDTH и MAX_IMAGE_SMALL_HEIGHT
         (например, 350_528) */
@@ -824,6 +827,20 @@ class UploadImageController extends Controller
      * @param string $name имя картинки в посте (ключ original_image, с расширением)
      * @return string путь на диске local
      */
+    /**
+     * getimagesize() без предупреждений. У JPEG с мелкими дефектами ("Corrupt JPEG data: 2 extraneous bytes
+     * before marker" — частое дело у картинок из интернета) размер читается правильно, но PHP выдаёт warning,
+     * а Laravel превращает его в исключение — и такая картинка не загружалась. Браузеры и GD (при
+     * gd.jpeg_ignore_warning=1, по умолчанию) такие файлы открывают нормально
+     *
+     * @param string $absolutePath
+     * @return array|false как у getimagesize()
+     */
+    public static function imageSize(string $absolutePath)
+    {
+        return @getimagesize($absolutePath);
+    }
+
     public static function imageBackupPath(Post $post, string $name): string
     {
         return 'image_backups/' . $post->user_id . '/' . $post->id . '/' . $name;
@@ -1084,7 +1101,7 @@ class UploadImageController extends Controller
         //            $originalWidth = $img->width();
         //            $originalHeight = $img->height();
 
-        $imageSize = getimagesize($imagePath);
+        $imageSize = self::imageSize($imagePath);
 
         if (is_array($imageSize)) {
             return [
@@ -1155,7 +1172,7 @@ class UploadImageController extends Controller
             // добавленная картинка сама не попадёт в image_hashes и не будет учитываться
             // при поиске дублей в будущем
             $originalAbsolutePath = Storage::disk('local')->path($originalOldPath);
-            $newImageSize = file_exists($originalAbsolutePath) ? getimagesize($originalAbsolutePath) : false;
+            $newImageSize = file_exists($originalAbsolutePath) ? self::imageSize($originalAbsolutePath) : false;
             $newWidth = $newImageSize[0] ?? 0;
             $newHeight = $newImageSize[1] ?? 0;
             $phash = null;
@@ -1752,7 +1769,7 @@ class UploadImageController extends Controller
         }
 
         $absolutePath = Storage::disk('local')->path('/' . $image['image_path']);
-        $size = file_exists($absolutePath) ? getimagesize($absolutePath) : false;
+        $size = file_exists($absolutePath) ? self::imageSize($absolutePath) : false;
         if (!$size) {
             return null;
         }
@@ -1868,7 +1885,7 @@ class UploadImageController extends Controller
     public static function refreshImageHash(int $postId, string $imageName, string $absolutePath): void
     {
         try {
-            $size = getimagesize($absolutePath);
+            $size = self::imageSize($absolutePath);
             if (!$size) {
                 return;
             }

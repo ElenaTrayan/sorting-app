@@ -3806,7 +3806,7 @@ class PostController extends Controller
     private function afterPostImageReplaced(Post $post, string $name, string $originalPath): void
     {
         $disk = Storage::disk('local');
-        $originalSize = getimagesize($originalPath);
+        $originalSize = UploadImageController::imageSize($originalPath);
         $replacedPaths = [UploadImageController::normalizeImages($post->original_image)[$name]['path'] ?? null];
 
         $derivedPattern = '/^' . preg_quote(pathinfo($name, PATHINFO_FILENAME), '/') . '_\d+_\d+(\.\w+)?$/iu';
