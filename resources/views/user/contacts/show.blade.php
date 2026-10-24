@@ -355,8 +355,14 @@
                         @if ($relatedPosts->isEmpty())
                             <p class="text-muted">{{ $contact->hashtags->isEmpty() ? 'У контакта пока нет хештегов — привяжите хештег, чтобы видеть здесь посты.' : 'Постов с такими хештегами пока нет.' }}</p>
                         @else
+                            {{-- поиск по хэштегам (окно поиска, клик по хэштегу на карточке) фильтрует эти посты на месте:
+                                 какие хэштеги выбраны, сколько найдено, "Сбросить" — admin.js filterContactPosts() --}}
+                            <div class="b-contact-posts-filter js-contact-posts-filter" hidden>
+                                <span class="b-contact-posts-filter__text js-contact-posts-filter-text"></span>
+                                <button type="button" class="b-contact-posts-filter__reset js-contact-posts-filter-reset"><i class="fas fa-times mr-1"></i>Сбросить</button>
+                            </div>
                             <div class="b-cards">
-                                <div class="grid are-images-unloaded">
+                                <div class="grid are-images-unloaded js-contact-posts">
                                     {{-- linksOnly: скриптов ленты "Все посты" здесь нет — в меню карточки только пункты-ссылки --}}
                                     @include('user.posts.parts.post_items', ['posts' => $relatedPosts, 'linksOnly' => true])
                                 </div>

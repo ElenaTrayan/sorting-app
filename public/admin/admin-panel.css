@@ -5863,6 +5863,39 @@ margin: 0 0 20px 0;
     display: block;
 }
 
+/* строка над постами контакта, когда они отфильтрованы поиском по хэштегам (admin.js filterContactPosts) */
+.b-contact-posts-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border: 1px solid #e3e1ec;
+    border-radius: 10px;
+    background: #f6f5ff;
+    font-size: 13.5px;
+    color: #3d3b4a;
+}
+.b-contact-posts-filter[hidden] {
+    display: none;
+}
+.b-contact-posts-filter__reset {
+    margin-left: auto;
+    padding: 5px 12px;
+    border: 1px solid #cfc4ff;
+    border-radius: 8px;
+    background: #fff;
+    color: #7367f0;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.b-contact-posts-filter__reset:hover {
+    background: #7367f0;
+    color: #fff;
+}
+
 .b-contact-section {
     background: #fff;
     border: 1px solid #ececf1;

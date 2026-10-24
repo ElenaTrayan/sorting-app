@@ -4085,6 +4085,70 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              toastr.info('Найдено контактов: ' + visibleCount);
          }
 
+         // Страница контакта (#contact-page, вкладка "Посты"): фильтрует его посты на месте — все они уже в сетке
+         // со своими хэштегами (.tags li[data-id], post_items.blade.php). Скрытые карточки Masonry не учитывает
+         // (ignore), иначе на их месте оставались бы дыры. Без хэштегов (includeIds пуст) — показывает все
+         function filterContactPosts(contactPage, includeIds, excludeIds) {
+             let grid = contactPage.querySelector('.js-contact-posts');
+             if (!grid) {
+                 return;
+             }
+             let $grid = $(grid);
+             let hasMasonry = !!$grid.data('masonry');
+             let items = grid.querySelectorAll('.grid-item');
+             let visibleCount = 0;
+
+             items.forEach(function (item) {
+                 let ids = Array.prototype.map.call(item.querySelectorAll('.tags li[data-id]'), function (li) {
+                     return String(li.getAttribute('data-id'));
+                 });
+                 let visible = includeIds.every(function (id) { return ids.indexOf(id) !== -1; })
+                     && !excludeIds.some(function (id) { return ids.indexOf(id) !== -1; });
+
+                 item.style.display = visible ? '' : 'none';
+                 if (hasMasonry) {
+                     $grid.masonry(visible ? 'unignore' : 'ignore', item);
+                 }
+                 if (visible) {
+                     visibleCount++;
+                 }
+             });
+
+             // строка над постами: что выбрано, сколько найдено, "Сбросить"
+             let bar = contactPage.querySelector('.js-contact-posts-filter');
+             if (bar) {
+                 let filtered = includeIds.length > 0 || excludeIds.length > 0;
+                 bar.hidden = !filtered;
+                 if (filtered) {
+                     let names = function (state, ids) {
+                         return ids.map(function (id) { return '#' + state[id]; }).join(' ');
+                     };
+                     let text = (includeIds.length ? 'С хэштегами ' + names(hashtagSearchState.include, includeIds) : 'Все посты')
+                         + (excludeIds.length ? ', без ' + names(hashtagSearchState.exclude, excludeIds) : '')
+                         + ' — ' + (visibleCount ? 'найдено ' + visibleCount + ' из ' + items.length : 'ничего не найдено');
+                     bar.querySelector('.js-contact-posts-filter-text').textContent = text;
+                 }
+             }
+
+             // открыть вкладку "Посты" — при переключении она же перераскладывает сетку (activateContactTab)
+             let postsTabBtn = document.querySelector('.js-contact-tab-btn[data-tab="posts"]');
+             if (postsTabBtn) {
+                 postsTabBtn.click();
+             } else if (hasMasonry) {
+                 $grid.masonry('layout');
+             }
+
+             return visibleCount;
+         }
+
+         $(document).on('click', '.js-contact-posts-filter-reset', function () {
+             let contactPage = document.getElementById('contact-page');
+             if (contactPage) {
+                 clearAllHashtags();
+                 filterContactPosts(contactPage, [], []);
+             }
+         });
+
          // Клик по кнопке "Найти" — ищет по выбранным хэштегам (с учётом исключённых) там,
          // где для этого открыт виджет: посты фильтруются на "Все посты" (#posts-index,
          // AJAX), контакты — на "База контактов" (#contacts-index, на месте, JS). Если
@@ -4111,6 +4175,19 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  if (contactsIndex) {
                      filterContactsByHashtags(contactsIndex);
                      $('#modal-search-global').modal('hide');
+                     return;
+                 }
+
+                 // страница контакта — ищем среди его постов, а не уходим на "Все посты"
+                 let contactPage = document.getElementById('contact-page');
+                 if (contactPage) {
+                     if (!contactPage.querySelector('.js-contact-posts')) {
+                         toastr.warning('У контакта пока нет постов');
+                         return;
+                     }
+                     let found = filterContactPosts(contactPage, Object.keys(hashtagSearchState.include), Object.keys(hashtagSearchState.exclude));
+                     $('#modal-search-global').modal('hide');
+                     toastr.info('Найдено постов: ' + found);
                      return;
                  }
 

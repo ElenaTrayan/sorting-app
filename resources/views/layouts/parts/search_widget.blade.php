@@ -17,11 +17,12 @@
     там всё осталось как было — только в модалке эти элементы показываются и стилизуются.
 --}}
 @php
+    // 'contact' — страница одного контакта: поиск по хэштегам фильтрует его посты на месте (admin.js filterContactPosts)
     $searchContext = request()->routeIs('posts.index')
         ? 'posts'
-        : (request()->routeIs('contacts.*') ? 'contacts' : 'other');
-    $showAllTabs = in_array($searchContext, ['posts', 'contacts']);
-    $hashtagsEntityLabel = $searchContext === 'contacts' ? 'контактов' : 'постов';
+        : (request()->routeIs('contacts.show') ? 'contact' : (request()->routeIs('contacts.*') ? 'contacts' : 'other'));
+    $showAllTabs = in_array($searchContext, ['posts', 'contacts', 'contact']);
+    $hashtagsEntityLabel = $searchContext === 'contacts' ? 'контактов' : ($searchContext === 'contact' ? 'посты контакта' : 'постов');
 @endphp
 <div class="b-tabs">
     <div class="b-tabs__header" @if (!$showAllTabs) style="display: none;" @endif>
