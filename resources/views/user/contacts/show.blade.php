@@ -152,6 +152,7 @@
                     <button type="button" class="b-contact-tabs__item js-contact-tab-btn" data-tab="places">Места</button>
                     <button type="button" class="b-contact-tabs__item js-contact-tab-btn" data-tab="career">Работа и образование</button>
                     <button type="button" class="b-contact-tabs__item js-contact-tab-btn" data-tab="gallery">Галерея</button>
+                    <button type="button" class="b-contact-tabs__item js-contact-tab-btn" data-tab="chats">Переписки@if ($chatPosts->isNotEmpty()) <span class="b-contact-tabs__count">{{ $chatPosts->count() }}</span>@endif</button>
                     <button type="button" class="b-contact-tabs__item js-contact-tab-btn" data-tab="history">История</button>
                     <button type="button" class="b-contact-tabs__item js-contact-tab-btn" data-tab="posts">Посты</button>
                 </div>
@@ -297,10 +298,47 @@
                             @endforeach
                         </div>
                     </div>
+                </div>
+
+                {{-- ---------- Переписки: посты контакта с хештегом "переписка" (ContactController::chatPosts()),
+                     источник и порядок переключаются на месте — admin.js applyContactChats() ---------- --}}
+                <div class="b-contact-tab-panel js-contact-tab-panel" data-tab-panel="chats">
+                    <div class="b-contact-section">
+                        <h3><i class="fas fa-comments mr-2" style="color:#7367f0"></i>Переписки</h3>
+                        @if ($chatPosts->isEmpty())
+                            <p class="text-muted">Постов-переписок про этого человека пока нет. Добавьте посту хештег «переписка» и источник — «Telegram», «Instagram» или «Tinder», — и он появится здесь.</p>
+                        @else
+                            <div class="b-contact-chats__bar js-contact-chats-bar">
+                                <div class="b-contact-chats__sources">
+                                    <button type="button" class="b-contact-chats__source is-active js-contact-chats-source" data-source="">Все <span>{{ $chatPosts->count() }}</span></button>
+                                    @foreach ($chatSources as $key => $source)
+                                        @if ($source['count'])
+                                            <button type="button" class="b-contact-chats__source js-contact-chats-source" data-source="{{ $key }}"><i class="{{ $source['icon'] }}"></i>{{ $source['label'] }} <span>{{ $source['count'] }}</span></button>
+                                        @endif
+                                    @endforeach
+                                </div>
+                                <select class="form-control form-control-sm b-contact-chats__sort js-contact-chats-sort">
+                                    <option value="date_desc">Сначала новые</option>
+                                    <option value="date_asc">Сначала старые</option>
+                                    <option value="source">По источнику</option>
+                                </select>
+                            </div>
+                            <div class="b-cards">
+                                {{-- источник и дата каждого поста — для фильтра и сортировки на месте --}}
+                                <div class="grid are-images-unloaded js-contact-chats"
+                                     data-sources="{{ json_encode(array_keys($chatSources)) }}"
+                                     data-chats="{{ json_encode($chatPosts->mapWithKeys(function ($post) {
+                                         return [$post->id => ['source' => $post->chat_source, 'date' => $post->chat_date ? $post->chat_date->getTimestamp() : 0]];
+                                     })) }}">
+                                    @include('user.posts.parts.post_items', ['posts' => $chatPosts, 'linksOnly' => true])
+                                </div>
+                            </div>
+                        @endif
+                    </div>
 
                     <div class="b-contact-section">
                         <div class="b-contact-section__header">
-                            <h3><i class="fas fa-comment-dots"></i>Переписки</h3>
+                            <h3><i class="fas fa-comment-dots"></i>Скрины переписок</h3>
                             <label class="btn btn-sm btn-outline-info">
                                 <i class="fas fa-plus"></i>
                                 <input type="file" class="js-contact-conversation-input" accept="image/*" hidden>

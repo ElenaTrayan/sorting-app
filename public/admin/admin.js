@@ -8746,6 +8746,56 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
          });
 
+         // --- вкладка "Переписки": фильтр по источнику и порядок карточек — на месте. Источник и дата каждого
+         // поста — в data-chats сетки (ContactController::chatPosts()); скрытые карточки Masonry не учитывает ---
+         function applyContactChats() {
+             let grid = document.querySelector('.js-contact-chats');
+             if (!grid) {
+                 return;
+             }
+             let chats = JSON.parse(grid.getAttribute('data-chats') || '{}');
+             let sourceOrder = JSON.parse(grid.getAttribute('data-sources') || '[]');
+             let activeSource = document.querySelector('.js-contact-chats-source.is-active');
+             let source = activeSource ? activeSource.getAttribute('data-source') : '';
+             let sort = document.querySelector('.js-contact-chats-sort').value;
+             let info = function (item) {
+                 return chats[item.getAttribute('data-id')] || {source: 'other', date: 0};
+             };
+
+             let items = Array.prototype.slice.call(grid.querySelectorAll('.grid-item'));
+             items.sort(function (a, b) {
+                 let infoA = info(a);
+                 let infoB = info(b);
+                 if (sort === 'source' && infoA.source !== infoB.source) {
+                     return sourceOrder.indexOf(infoA.source) - sourceOrder.indexOf(infoB.source);
+                 }
+                 // "по источнику" — внутри источника новые сверху
+                 return sort === 'date_asc' ? infoA.date - infoB.date : infoB.date - infoA.date;
+             });
+             items.forEach(function (item) {
+                 item.style.display = !source || info(item).source === source ? '' : 'none';
+                 grid.appendChild(item);
+             });
+
+             let $grid = $(grid);
+             if ($grid.data('masonry')) {
+                 $grid.masonry('reloadItems');
+                 items.forEach(function (item) {
+                     if (item.style.display === 'none') {
+                         $grid.masonry('ignore', item);
+                     }
+                 });
+                 $grid.masonry('layout');
+             }
+         }
+
+         $(document).on('click', '.js-contact-chats-source', function () {
+             $('.js-contact-chats-source').removeClass('is-active');
+             $(this).addClass('is-active');
+             applyContactChats();
+         });
+         $(document).on('change', '.js-contact-chats-sort', applyContactChats);
+
          // --- ссылки-переходы вида "Все связи ->" на вкладке "Обзор": просто переключают
          // на нужную вкладку верхнего уровня ---
          document.querySelectorAll('.js-contact-tab-link').forEach(function (link) {

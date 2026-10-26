@@ -5850,6 +5850,63 @@ margin: 0 0 20px 0;
 .b-contact-tabs__item:hover {
     color: #495057;
 }
+/* сколько постов на вкладке (сейчас — у "Переписки") */
+.b-contact-tabs__count {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 7px;
+    border-radius: 9px;
+    background: #efedff;
+    color: #7367f0;
+    font-size: 11px;
+    line-height: 18px;
+}
+
+/* вкладка "Переписки" (contacts/show.blade.php): кнопки источников и сортировка над сеткой — admin.js applyContactChats() */
+.b-contact-chats__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 16px;
+}
+.b-contact-chats__sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.b-contact-chats__source {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid #e3e1ec;
+    border-radius: 16px;
+    background: #fff;
+    color: #3d3b4a;
+    font-size: 13px;
+    cursor: pointer;
+}
+.b-contact-chats__source span {
+    color: #8a8f98;
+    font-size: 12px;
+}
+.b-contact-chats__source:hover {
+    border-color: #cfc4ff;
+}
+.b-contact-chats__source.is-active {
+    border-color: #7367f0;
+    background: #7367f0;
+    color: #fff;
+}
+.b-contact-chats__source.is-active span {
+    color: rgba(255, 255, 255, .8);
+}
+.b-contact-chats__sort {
+    width: auto;
+    min-width: 170px;
+}
 .b-contact-tabs__item.is-active {
     color: #7367f0;
     border-bottom-color: #7367f0;

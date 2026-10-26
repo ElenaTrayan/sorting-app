@@ -32,6 +32,22 @@ use function PHPUnit\Framework\isJson;
  */
 class ContactController extends Controller
 {
+    /**
+     * Хештеги, по которым пост контакта попадает на вкладку "Переписки" (сравниваются в нижнем регистре)
+     */
+    const CHAT_HASHTAGS = ['переписка', 'переписки'];
+
+    /**
+     * Источники переписок: какой хештег поста о каком источнике говорит. Порядок — порядок кнопок
+     * и сортировки "по источнику"; пост без такого хештега — "Другое"
+     */
+    const CHAT_SOURCES = [
+        'telegram' => ['label' => 'Telegram', 'icon' => 'fab fa-telegram-plane', 'hashtags' => ['telegram', 'телеграм', 'телеграмм', 'тг']],
+        'instagram' => ['label' => 'Instagram', 'icon' => 'fab fa-instagram', 'hashtags' => ['instagram', 'инстаграм', 'инстаграмм', 'инста']],
+        'tinder' => ['label' => 'Tinder', 'icon' => 'fas fa-fire', 'hashtags' => ['tinder', 'тиндер']],
+        'other' => ['label' => 'Другое', 'icon' => 'fas fa-comment-dots', 'hashtags' => []],
+    ];
+
     public function index()
     {
         $contacts = Contact::where('user_id', Auth::id())
@@ -350,10 +366,61 @@ class ContactController extends Controller
             }
         }
 
+        [$chatPosts, $chatSources] = $this->chatPosts($relatedPosts);
+
         return view('user.contacts.show', [
             'contact' => $contact,
             'relatedPosts' => $relatedPosts,
+            'chatPosts' => $chatPosts,
+            'chatSources' => $chatSources,
         ]);
+    }
+
+    /**
+     * Переписки контакта (вкладка "Переписки"): его посты с хештегом "переписка". Источник — по хештегу поста
+     * (см. CHAT_SOURCES), дата — дата пина (event_date, у скрина — когда сделан), а без неё — когда пост добавлен.
+     * Сразу по дате, новые сверху; фильтр по источнику и другая сортировка — на месте (admin.js)
+     *
+     * @param \Illuminate\Support\Collection $relatedPosts посты контакта с загруженными хештегами
+     * @return array [Collection $chatPosts (+ chat_source, chat_date), array $chatSources ключ => label/icon/count]
+     */
+    private function chatPosts($relatedPosts): array
+    {
+        $lower = function ($title) {
+            return mb_strtolower(trim((string)$title));
+        };
+
+        $chatPosts = $relatedPosts->filter(function ($post) use ($lower) {
+            return $post->hashtags->contains(function ($hashtag) use ($lower) {
+                return in_array($lower($hashtag->title), self::CHAT_HASHTAGS, true);
+            });
+        })->values();
+
+        $sources = [];
+        foreach (self::CHAT_SOURCES as $key => $source) {
+            $sources[$key] = ['label' => $source['label'], 'icon' => $source['icon'], 'count' => 0];
+        }
+
+        foreach ($chatPosts as $post) {
+            $titles = $post->hashtags->map(function ($hashtag) use ($lower) {
+                return $lower($hashtag->title);
+            })->all();
+            $post->chat_source = 'other';
+            foreach (self::CHAT_SOURCES as $key => $source) {
+                if (array_intersect($source['hashtags'], $titles)) {
+                    $post->chat_source = $key;
+                    break;
+                }
+            }
+            $post->chat_date = $post->event_date ?: $post->created_at;
+            $sources[$post->chat_source]['count']++;
+        }
+
+        $chatPosts = $chatPosts->sortByDesc(function ($post) {
+            return $post->chat_date ? $post->chat_date->getTimestamp() : 0;
+        })->values();
+
+        return [$chatPosts, $sources];
     }
 
     /**
