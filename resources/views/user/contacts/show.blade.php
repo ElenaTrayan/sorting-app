@@ -306,7 +306,7 @@
                     <div class="b-contact-section">
                         <h3><i class="fas fa-comments mr-2" style="color:#7367f0"></i>Переписки</h3>
                         @if ($chatPosts->isEmpty())
-                            <p class="text-muted">Постов-переписок про этого человека пока нет. Добавьте посту хештег «переписка» и источник — «Telegram», «Instagram» или «Tinder», — и он появится здесь.</p>
+                            <p class="text-muted">Постов-переписок про этого человека пока нет. Добавьте посту хештег «переписка» и источник — «Telegram», «WhatsApp», «Instagram», «Tinder» или «Mamba», — и он появится здесь.</p>
                         @else
                             <div class="b-contact-chats__bar js-contact-chats-bar">
                                 <div class="b-contact-chats__sources">
