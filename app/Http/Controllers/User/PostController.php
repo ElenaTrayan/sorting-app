@@ -37,6 +37,8 @@ class PostController extends Controller
 {
     // поле "Дата" заполнено, но это не дата (Post::parseEventDate())
     private const EVENT_DATE_ERROR = 'Не понял дату — введите её как 12.03.2024, 03.2024, «март 2024» или 2024';
+    // event_date_manual картинки на форме создания: на её превью выбрали "без даты" (admin.js CREATION_IMAGE_NO_DATE)
+    private const IMAGE_NO_EVENT_DATE = 'none';
 
     /**
      * Display a listing of the resource.
@@ -342,6 +344,12 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
+        // "Без даты" на форме — ни один пост этой отправки не получит дату (поле при этом выключено и не
+        // отправляется, но полагаться на это не будем)
+        if ($request->boolean('no_event_date')) {
+            $request->merge(['event_date' => '']);
+        }
+
         // дату пина проверяем до того, как что-то сохранено: иначе часть постов успела бы создаться без неё
         if (trim((string)$request->input('event_date')) !== '' && Post::parseEventDate($request->input('event_date')) === null) {
             return response()->json(['status' => false, 'message' => self::EVENT_DATE_ERROR]);
@@ -420,11 +428,30 @@ class PostController extends Controller
                     // форма уберёт их у себя — иначе повторное сохранение споткнулось бы о них же
                     $createdKeys = [];
 
+                    // без группировки у каждого поста своя дата — его картинки: введённая для неё на превью
+                    // (плашка с датой, admin.js), иначе дата съёмки из EXIF, иначе дата файла, — если дату
+                    // в поле не вводили руками. У группы дата одна — из поля
+                    $perImageDate = !$shouldGroup && $request->boolean('event_date_auto') && !$request->boolean('no_event_date');
+
                     foreach ($images as $key => $image) {
                         $count++;
 
+                        $eventDateInput = null;
+                        if ($perImageDate && ($image['event_date_manual'] ?? '') === self::IMAGE_NO_EVENT_DATE) {
+                            // на превью для этой картинки выбрали "без даты"
+                            $eventDateInput = '';
+                        } elseif ($perImageDate) {
+                            foreach (['event_date_manual', 'taken_at', 'file_date'] as $dateKey) {
+                                $candidate = trim((string)($image[$dateKey] ?? ''));
+                                if ($candidate !== '' && Post::parseEventDate($candidate) !== null) {
+                                    $eventDateInput = $candidate;
+                                    break;
+                                }
+                            }
+                        }
+
                         $createdId = null;
-                        $newPost = $this->createPost($request, $user->id, $image, '', $groupId, $shouldGroup ? $sortOrder : null, $createdId);
+                        $newPost = $this->createPost($request, $user->id, $image, '', $groupId, $shouldGroup ? $sortOrder : null, $createdId, $eventDateInput);
 
                         if ($newPost === true) {
                             $createdKeys[] = $key;
@@ -2314,9 +2341,10 @@ class PostController extends Controller
      * @param int|null $groupId группа постов ("Группировать посты"), null — без группы
      * @param int|null $sortOrder порядок внутри группы, null — без группы
      * @param int|null $createdId ссылка-out: id только что созданного поста (для сборки группы в store())
+     * @param string|null $eventDateInput дата пина этого поста (дата его картинки), null — из поля формы
      * @return array|bool|bool[]|string|string[]
      */
-    private function createPost(Request $request, string $userId, array $image = [], string $imageAlias = '', ?int $groupId = null, ?int $sortOrder = null, ?int &$createdId = null)
+    private function createPost(Request $request, string $userId, array $image = [], string $imageAlias = '', ?int $groupId = null, ?int $sortOrder = null, ?int &$createdId = null, ?string $eventDateInput = null)
     {
         //TODO описать что происходит в методе
 
@@ -2352,8 +2380,9 @@ class PostController extends Controller
             $new_post->type = $request->input('pin_type');
         }
 
-        // дата пина — одна на все посты этой отправки формы (проверена в store())
-        $new_post->setEventDateFromInput($request->input('event_date'));
+        // дата пина — своя у картинки (store(): несколько постов без группы), иначе одна из поля на все
+        // посты этой отправки формы (проверена в store())
+        $new_post->setEventDateFromInput($eventDateInput ?? $request->input('event_date'));
 
         if ($groupId !== null) {
             $new_post->group_id = $groupId;

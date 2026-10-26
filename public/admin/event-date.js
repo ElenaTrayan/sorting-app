@@ -112,6 +112,45 @@
         refreshLabel(input);
     });
 
+    function noneCheckbox() {
+        return document.querySelector('.js-event-date-none');
+    }
+
+    function isNone() {
+        var checkbox = noneCheckbox();
+        return !!checkbox && checkbox.checked;
+    }
+
+    // "Без даты" (форма создания): поле пустое и выключено, подсказки не подставляются. Что было в поле —
+    // запоминаем и возвращаем, если галочку снимут
+    function applyNone(input) {
+        var none = isNone();
+        if (none && !input.disabled) {
+            input.dataset.savedValue = input.value;
+            input.dataset.savedSource = input.dataset.source || '';
+            input.dataset.savedManual = input.dataset.manual || '';
+            input.value = '';
+            setSource(input, null);
+        } else if (!none && input.disabled) {
+            input.value = input.dataset.savedValue || '';
+            input.dataset.manual = input.dataset.savedManual || '';
+            setSource(input, input.dataset.savedSource || null);
+        }
+        input.disabled = none;
+        fieldOf(input).classList.toggle('is-none', none);
+        refreshLabel(input);
+    }
+
+    document.addEventListener('change', function (e) {
+        if (!e.target.classList || !e.target.classList.contains('js-event-date-none')) {
+            return;
+        }
+        var input = fieldOf(e.target).querySelector('.js-event-date');
+        if (input) {
+            applyNone(input);
+        }
+    });
+
     // форму создания очистили после сохранения поста — поле снова пустое и готово к подстановке
     document.addEventListener('reset', function (e) {
         var input = e.target.querySelector && e.target.querySelector('.js-event-date');
@@ -119,7 +158,12 @@
             return;
         }
         setTimeout(function () {
+            input.disabled = false;
+            fieldOf(input).classList.remove('is-none');
             input.dataset.manual = '';
+            input.dataset.savedValue = '';
+            input.dataset.savedSource = '';
+            input.dataset.savedManual = '';
             setSource(input, null);
             refreshLabel(input);
         }, 0);
@@ -130,6 +174,15 @@
     window.EventDateField = {
         parse: parse,
 
+        // дату ввели руками (а не подставили из фото / ссылки)
+        isManual: function () {
+            var input = document.querySelector('.js-event-date');
+            return !!input && input.dataset.manual === '1';
+        },
+
+        // отмечено "Без даты" — посты создаются без даты
+        isNone: isNone,
+
         /**
          * Предложить дату пина. Ставится, только если поле не заполняли руками и в нём нет даты из более
          * надёжного источника
@@ -139,11 +192,7 @@
          */
         suggest: function (value, source) {
             var input = document.querySelector('.js-event-date');
-            if (!input || input.dataset.manual === '1' || !SOURCES[source]) {
-                return;
-            }
-            var current = SOURCES[input.dataset.source];
-            if (input.value.trim() && (!current || current.priority >= SOURCES[source].priority)) {
+            if (!input || !SOURCES[source]) {
                 return;
             }
 
@@ -155,8 +204,23 @@
             if (!date || isNaN(date.getTime())) {
                 return;
             }
+            var formatted = pad(date.getDate()) + '.' + pad(date.getMonth() + 1) + '.' + date.getFullYear();
 
-            input.value = pad(date.getDate()) + '.' + pad(date.getMonth() + 1) + '.' + date.getFullYear();
+            // "Без даты": подсказку не ставим, а запоминаем — появится в поле, если галочку снимут
+            var none = isNone();
+            var currentValue = none ? input.dataset.savedValue : input.value.trim();
+            var manual = none ? input.dataset.savedManual : input.dataset.manual;
+            var current = SOURCES[none ? input.dataset.savedSource : input.dataset.source];
+            if (manual === '1' || (currentValue &&(!current || current.priority >= SOURCES[source].priority))) {
+                return;
+            }
+
+            if (none) {
+                input.dataset.savedValue = formatted;
+                input.dataset.savedSource = source;
+                return;
+            }
+            input.value = formatted;
             setSource(input, source);
             refreshLabel(input);
         },

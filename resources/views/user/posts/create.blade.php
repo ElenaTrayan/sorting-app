@@ -245,7 +245,7 @@
                                     @endforeach
                                 </select>
                             </div>
-                            @include('user.posts.parts.event_date_field', ['value' => ''])
+                            @include('user.posts.parts.event_date_field', ['value' => '', 'perImageHint' => true])
                         </div>
 
                         <div class="b-parsing-type-blocks">

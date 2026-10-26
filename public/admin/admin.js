@@ -524,7 +524,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      if ($('.js-images').length && $.fn.sortable) {
          $('.js-images').sortable({
              items: '.image',
-             cancel: '.js-delete-image, .js-edit-image',
+             cancel: '.js-delete-image, .js-edit-image, .js-image-date',
              tolerance: 'pointer',
              placeholder: 'image-sort-placeholder',
              forcePlaceholderSize: true,
@@ -868,6 +868,18 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              return;
          }
 
+         // дата файла — в данные самой картинки: при "Несколько постов" без группировки у каждого поста
+         // своя дата (PostController::store), а не одна из поля на всех
+         if (file && file.lastModified && !file.generated) {
+             let modified = new Date(file.lastModified);
+             let fileDate = moment(modified).format('YYYY-MM-DD');
+             Object.keys(uploadedImages).forEach(function (key) {
+                 if (uploadedImages[key] && !uploadedImages[key].taken_at) {
+                     uploadedImages[key].file_date = fileDate;
+                 }
+             });
+         }
+
          let images = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
          sessionStorage.setItem('images', JSON.stringify(Object.assign({}, images, uploadedImages)));
 
@@ -921,7 +933,190 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          if (IMAGE_EDITOR_MIME[String(image['image_extension']).toLowerCase()] && $('#modal-image-editor').length) {
              card.append('<i class="js-edit-image fas fa-pen" title="Обрезать / повернуть"></i>');
          }
+
+         // своя дата картинки — видна на превью, когда каждый пост получит её (refreshCreationImageDates).
+         // Не <span>: все span'ы в превью стилизованы как фон картинки
+         let ownDate = image['taken_at'] || image['file_date'] || '';
+         if (ownDate) {
+             card.attr('data-date', ownDate).attr('data-date-source', image['taken_at'] ? 'exif' : 'file');
+         }
+         // дата, введённая для этой картинки по клику на плашку — важнее даты из фото
+         if (image['event_date_manual']) {
+             card.attr('data-date-manual', image['event_date_manual']);
+         }
+         card.append('<div class="b-image-date js-image-date" hidden></div>');
          return card;
+     }
+
+     // event_date_manual картинки "без даты" — её пост создаётся без даты (PostController::store)
+     const CREATION_IMAGE_NO_DATE = 'none';
+
+     // Дата на превью картинок формы создания: "Несколько постов" без группировки, без даты, введённой
+     // руками, и без галочки "Без даты" — у каждого поста дата его картинки (PostController::store). Картинка без своей даты получит
+     // дату из поля. В остальных случаях дата одна на все посты — из поля, на превью её не показываем
+     function refreshCreationImageDates() {
+         let cards = $('.js-upload-image-section .images .image');
+         let perImage = cards.length > 1
+             && $('input[name="numberOfPosts"]:checked').val() === 'two-posts'
+             && !$('#group-posts').is(':checked')
+             && !(window.EventDateField && (window.EventDateField.isManual() || window.EventDateField.isNone()));
+         let fieldDate = window.EventDateField ? window.EventDateField.parse($('.js-event-date').val()) : null;
+
+         cards.each(function () {
+             let badge = $(this).find('.js-image-date');
+             if (badge.hasClass('is-editing')) {
+                 return;
+             }
+             let manualDate = this.dataset.dateManual;
+             let ownDate = this.dataset.date;
+             let text = '';
+             let title = '';
+
+             if (manualDate === CREATION_IMAGE_NO_DATE) {
+                 text = 'без даты';
+                 title = 'Пост этой картинки создастся без даты. Нажмите, чтобы изменить';
+             } else if (manualDate) {
+                 text = manualDate;
+                 title = 'Дата введена вручную. Нажмите, чтобы изменить; очистите — вернётся дата фото';
+             } else if (ownDate) {
+                 text = moment(ownDate, 'YYYY-MM-DD').format('DD.MM.YYYY');
+                 title = this.dataset.dateSource === 'exif'
+                     ? 'Дата съёмки (EXIF)'
+                     : 'Дата файла — у скачанной картинки это может быть день скачивания';
+             } else if (fieldDate) {
+                 text = $('.js-event-date').val().trim();
+                 title = 'Своей даты у картинки нет — возьмётся дата из поля «Дата»';
+             } else {
+                 text = 'без даты';
+                 title = 'Своей даты у картинки нет, поле «Дата» пустое';
+             }
+
+             if (!manualDate) {
+                 title += '. Нажмите, чтобы ввести дату для этой картинки';
+             }
+
+             badge.text(text)
+                 .attr('title', title)
+                 .toggleClass('is-manual', !!manualDate && manualDate !== CREATION_IMAGE_NO_DATE)
+                 .toggleClass('is-none', manualDate === CREATION_IMAGE_NO_DATE)
+                 .toggleClass('is-file', !manualDate && !!ownDate && this.dataset.dateSource === 'file')
+                 .toggleClass('is-empty', !manualDate && !ownDate)
+                 .prop('hidden', !perImage);
+         });
+     }
+
+     // дата отдельной картинки — в её данных (sessionStorage "images", event_date_manual), '' — убрать
+     function setCreationImageManualDate(card, value) {
+         let name = card.attr('data-name');
+         let images = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
+         if (images[name]) {
+             if (value) {
+                 images[name].event_date_manual = value;
+             } else {
+                 delete images[name].event_date_manual;
+             }
+             sessionStorage.setItem('images', JSON.stringify(images));
+         }
+         if (value) {
+             card.attr('data-date-manual', value);
+         } else {
+             card.removeAttr('data-date-manual');
+         }
+     }
+
+     // клик по плашке — поле ввода прямо в ней: Enter или уход с поля — сохранить, Esc — отменить
+     $(document).on('click', '.js-upload-image-section .js-image-date', function (e) {
+         e.preventDefault();
+         e.stopPropagation();
+
+         let badge = $(this);
+         if (badge.hasClass('is-editing')) {
+             return;
+         }
+         let card = badge.closest('.image');
+         let manualDate = card.attr('data-date-manual');
+         let current = manualDate === CREATION_IMAGE_NO_DATE ? '' : (manualDate
+             || (card.attr('data-date') ? moment(card.attr('data-date'), 'YYYY-MM-DD').format('DD.MM.YYYY') : ''));
+
+         let input = $('<input type="text" class="b-image-date__input" maxlength="40" autocomplete="off">')
+             .attr('placeholder', '12.03.2024')
+             .val(current);
+         // "без даты" — пост этой картинки создастся без даты
+         let noDateBtn = $('<button type="button" class="b-image-date__none" title="Без даты">⌀</button>');
+         badge.addClass('is-editing').empty().append(input, noDateBtn);
+         input.trigger('focus').trigger('select');
+
+         let done = false;
+
+         noDateBtn.on('mousedown', function (event) {
+             // до blur поля — иначе оно успело бы сохраниться
+             event.preventDefault();
+             event.stopPropagation();
+             done = true;
+             setCreationImageManualDate(card, CREATION_IMAGE_NO_DATE);
+             badge.removeClass('is-editing');
+             refreshCreationImageDates();
+         });
+         noDateBtn.on('click', function (event) {
+             event.preventDefault();
+             event.stopPropagation();
+         });
+
+         // fromBlur — ушли с поля: неверную дату не держим (иначе фокус возвращался бы бесконечно), а отменяем
+         function finish(save, fromBlur) {
+             if (done) {
+                 return;
+             }
+             let value = input.val().trim();
+             if (save && value && !(window.EventDateField && window.EventDateField.parse(value))) {
+                 toastr.error('Не похоже на дату: «' + value + '». Например: 12.03.2024, 03.2024 или 2024');
+                 if (!fromBlur) {
+                     input.trigger('focus');
+                     return;
+                 }
+                 save = false;
+             }
+             done = true;
+             if (save) {
+                 // ввели ту же дату, что и в фото, — это не ручная дата
+                 let photoDate = card.attr('data-date') ? moment(card.attr('data-date'), 'YYYY-MM-DD').format('DD.MM.YYYY') : '';
+                 setCreationImageManualDate(card, value === photoDate ? '' : value);
+             }
+             badge.removeClass('is-editing');
+             refreshCreationImageDates();
+         }
+
+         input.on('keydown', function (event) {
+             if (event.key === 'Enter') {
+                 event.preventDefault();
+                 finish(true);
+             } else if (event.key === 'Escape') {
+                 event.preventDefault();
+                 finish(false);
+             }
+         });
+         input.on('blur', function () {
+             setTimeout(function () {
+                 if (!input.is(':focus')) {
+                     finish(true, true);
+                 }
+             }, 0);
+         });
+         // клики внутри поля не должны доходить до карточки (перетаскивание, открытие и т.п.)
+         input.on('mousedown click', function (event) {
+             event.stopPropagation();
+         });
+     });
+
+     if ($('.js-upload-image-section .images').length) {
+         // карточки добавляют/удаляют/заменяют в разных местах — следим за самим контейнером
+         new MutationObserver(refreshCreationImageDates)
+             .observe($('.js-upload-image-section .images')[0], {childList: true});
+         $(document).on('change', 'input[name="numberOfPosts"], #group-posts, .js-event-date-none', refreshCreationImageDates);
+         // после обработчика event-date.js — он решает, введена ли дата руками
+         $(document).on('input', '.js-event-date', function () {
+             setTimeout(refreshCreationImageDates, 0);
+         });
      }
 
      // ===== Обрезка и поворот картинки (окно #modal-image-editor, parts/image_editor_modal.blade.php) =====
@@ -1825,6 +2020,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          data.push({name: 'images', value: images});
          data.push({name: 'numberOfPosts', value: numberOfPosts});
          data.push({name: 'groupPosts', value: groupPosts});
+         // дату в поле не вводили руками (пусто или подставлена из фото / ссылки) — сервер может дать каждому
+         // посту дату его картинки
+         // ("Без даты" уходит своим полем no_event_date — тогда дат нет ни у одного поста)
+         data.push({name: 'event_date_auto', value: window.EventDateField && (window.EventDateField.isManual() || window.EventDateField.isNone()) ? 0 : 1});
          data.push({name: 'force_duplicate_keys', value: JSON.stringify(duplicateState.forceKeys)});
          // картинки, про которые в окне сравнения сказали "это разные" с картинкой этой же формы (showNextFormDuplicate)
          data.push({name: 'form_distinct_keys', value: JSON.stringify(formDistinctKeys())});
