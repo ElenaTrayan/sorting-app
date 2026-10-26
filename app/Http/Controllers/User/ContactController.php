@@ -44,6 +44,8 @@ class ContactController extends Controller
     const CHAT_SOURCES = [
         'telegram' => ['label' => 'Telegram', 'icon' => 'fab fa-telegram-plane', 'hashtags' => ['telegram', 'телеграм', 'телеграмм', 'тг']],
         'whatsapp' => ['label' => 'WhatsApp', 'icon' => 'fab fa-whatsapp', 'hashtags' => ['whatsapp', 'ватсап', 'вотсап', 'вацап', 'ватсапп', 'вотсапп']],
+        'viber' => ['label' => 'Viber', 'icon' => 'fab fa-viber', 'hashtags' => ['viber', 'вайбер']],
+        'vk' => ['label' => 'VK', 'icon' => 'fab fa-vk', 'hashtags' => ['vk', 'вк', 'вконтакте', 'vkontakte']],
         'instagram' => ['label' => 'Instagram', 'icon' => 'fab fa-instagram', 'hashtags' => ['instagram', 'инстаграм', 'инстаграмм', 'инста']],
         'tinder' => ['label' => 'Tinder', 'icon' => 'fas fa-fire', 'hashtags' => ['tinder', 'тиндер']],
         'mamba' => ['label' => 'Mamba', 'icon' => 'fas fa-heart', 'hashtags' => ['mamba', 'мамба']],
