@@ -432,10 +432,10 @@ class ContactController extends Controller
      *
      * Именные — пост с любым из них точно про этого человека:
      *  - хештег с именем контакта (даже если его не добавили контакту; ударение в имени не мешает: "Ска́рсгард");
-     *  - хештеги контакта, кроме общих. Общие — те, что другой хештег контакта добавляет к посту автоматически
-     *    ("Роми Стрейд" → "девушка", "модель"): они есть на тысячах постов про других людей;
+     *  - хештег контакта, который добавляет к посту автоматически другие его хештеги — общие ("Роми Стрейд" →
+     *    "девушка", "модель"): общие есть на тысячах постов про других людей и сами по себе не считаются;
      *  - другие написания именных: связанные, которые добавляются автоматически в обе стороны
-     *    ("Роми Стрейд" ↔ "Romee Strijd").
+     *    ("Роми Стрейд" ↔ "Romee Strijd", "Сандра Буллок" ↔ "Sandra Bullock") — они не общие.
      * По совпадению — если общих не нашлось, все хештеги контакта: пост подходит, если совпали хотя бы два
      *
      * @param Contact $contact хештеги уже загружены
@@ -445,19 +445,29 @@ class ContactController extends Controller
     {
         $hashtagIds = $contact->hashtags->pluck('id');
 
-        $generalIds = $hashtagIds->isEmpty() ? collect() : DB::table('hashtag_relations')
-            ->whereIn('hashtag_id', $hashtagIds)
-            ->whereIn('related_hashtag_id', $hashtagIds)
-            ->where('auto_add', true)
-            ->pluck('related_hashtag_id')
-            ->unique();
-        $keyIds = $generalIds->isEmpty() ? collect() : $hashtagIds->diff($generalIds)->values();
+        // автодобавление только в одну сторону: взаимное — это другое написание того же имени
+        // ("Сандра Буллок" ↔ "Sandra Bullock"), а не общий хештег
+        $generalRelations = $hashtagIds->isEmpty() ? collect() : DB::table('hashtag_relations as r')
+            ->leftJoin('hashtag_relations as back', function ($join) {
+                $join->on('back.hashtag_id', '=', 'r.related_hashtag_id')
+                    ->on('back.related_hashtag_id', '=', 'r.hashtag_id')
+                    ->where('back.auto_add', true);
+            })
+            ->whereIn('r.hashtag_id', $hashtagIds)
+            ->whereIn('r.related_hashtag_id', $hashtagIds)
+            ->where('r.auto_add', true)
+            ->whereNull('back.hashtag_id')
+            ->get(['r.hashtag_id', 'r.related_hashtag_id']);
+        $generalIds = $generalRelations->pluck('related_hashtag_id')->unique();
+        // именной хештег контакта — тот, что добавляет общие ("Новиков Руслан" → "знакомые"); прочие хештеги
+        // контакта, ни с чем не связанные ("мужчины"), именными не считаются
+        $keyIds = $generalRelations->pluck('hashtag_id')->unique()->diff($generalIds)->values();
 
         $name = trim((string)$contact->name);
         $names = array_values(array_unique(array_filter([$name, str_replace("\u{0301}", '', $name)])));
         $nameIds = $names ? Hashtag::where('user_id', Auth::id())->whereIn('title', $names)->pluck('id') : collect();
 
-        $identityIds = $keyIds->merge($nameIds)->unique()->values();
+        $identityIds = $keyIds->merge($nameIds)->diff($generalIds)->unique()->values();
         if ($identityIds->isNotEmpty()) {
             $aliasIds = DB::table('hashtag_relations as r')
                 ->join('hashtag_relations as back', function ($join) {
@@ -471,7 +481,7 @@ class ContactController extends Controller
             $identityIds = $identityIds->merge($aliasIds)->diff($generalIds)->unique()->values();
         }
 
-        return [$identityIds, $keyIds->isEmpty() ? $hashtagIds : collect()];
+        return [$identityIds, $generalIds->isEmpty() ? $hashtagIds : collect()];
     }
 
     public function update(Request $request, Contact $contact)
