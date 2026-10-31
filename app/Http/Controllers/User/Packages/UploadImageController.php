@@ -50,6 +50,12 @@ class UploadImageController extends Controller
     const DUPLICATE_DIFF_HASH_THRESHOLD = 10;
     const DUPLICATE_PERCEPTUAL_HASH_THRESHOLD = 14;
     const DUPLICATE_MAX_ASPECT_RATIO = 1.3;
+    // Оба хеша считаются по яркости, цвет им не виден: тёмный силуэт на белом фоне у них "совпадает" с другим
+    // (малиновый пиджак и актриса в чёрной майке, джинсовая и зелёная юбки). Поэтому после хешей сравниваем
+    // цвет — уменьшенные до 8×8 копии, только клетки с предметом, без фона (colorDifference()). На всех
+    // 330 парах, что проходили по хешам, у настоящих копий (другой размер, сжатие, ч/б, цветокоррекция)
+    // разница не больше 34, у пар от 72 и выше — разные вещи
+    const DUPLICATE_MAX_COLOR_DIFF = 50;
 
     private array $errors = [];
     private int $userId;
@@ -171,7 +177,7 @@ class UploadImageController extends Controller
      * Хеши и размеры картинки для сравнения "та же ли это картинка" (см. DUPLICATE_*_THRESHOLD)
      *
      * @param string $absolutePath
-     * @return array|null ['phash', 'perceptual', 'width', 'height', 'file_size']; null — не картинка или хеш не посчитать
+     * @return array|null ['phash', 'perceptual', 'colors', 'width', 'height', 'file_size']; null — не картинка или хеш не посчитать
      */
     private function imageFingerprint(string $absolutePath): ?array
     {
@@ -184,6 +190,7 @@ class UploadImageController extends Controller
             return [
                 'phash' => self::computeImageHash($absolutePath),
                 'perceptual' => self::computePerceptualHash($absolutePath),
+                'colors' => self::colorGrid($absolutePath),
                 'width' => $size[0],
                 'height' => $size[1],
                 'file_size' => filesize($absolutePath) ?: 0,
@@ -291,7 +298,7 @@ class UploadImageController extends Controller
     }
 
     /**
-     * Те же условия "это одна и та же картинка", что и в findDuplicateByHash(): похожие пропорции и оба хеша
+     * Те же условия "это одна и та же картинка", что и в findDuplicateByHash(): похожие пропорции, оба хеша и цвет
      *
      * @param array $a см. imageFingerprint()
      * @param array $b
@@ -306,7 +313,8 @@ class UploadImageController extends Controller
         }
 
         return Hash::fromBits($a['phash'])->distance(Hash::fromBits($b['phash'])) <= self::DUPLICATE_DIFF_HASH_THRESHOLD
-            && Hash::fromBits($a['perceptual'])->distance(Hash::fromBits($b['perceptual'])) <= self::DUPLICATE_PERCEPTUAL_HASH_THRESHOLD;
+            && Hash::fromBits($a['perceptual'])->distance(Hash::fromBits($b['perceptual'])) <= self::DUPLICATE_PERCEPTUAL_HASH_THRESHOLD
+            && self::colorDifference($a['colors'] ?? null, $b['colors'] ?? null) <= self::DUPLICATE_MAX_COLOR_DIFF;
     }
 
     /**
@@ -1191,7 +1199,7 @@ class UploadImageController extends Controller
             // === проверка на визуальный дубликат уже существующих изображений ===
             if (!$forceAdd) {
                 if ($phash !== null && $perceptualHash !== null) {
-                    $duplicate = self::findDuplicateByHash($phash, $perceptualHash, $newWidth, $newHeight, (int)$userId);
+                    $duplicate = self::findDuplicateByHash($phash, $perceptualHash, $newWidth, $newHeight, (int)$userId, $originalAbsolutePath);
 
                     if ($duplicate !== null) {
                         $duplicateArea = $duplicate->width * $duplicate->height;
@@ -1667,10 +1675,12 @@ class UploadImageController extends Controller
      * @param int $height
      * @param int $userId ищем только среди постов этого пользователя — чужие картинки
      *        не должны ни блокировать загрузку, ни показываться (номер чужого поста)
+     * @param string|null $absolutePath файл новой картинки — для сверки цвета (DUPLICATE_MAX_COLOR_DIFF)
      * @return object|null объект {id, post_id, image_name, path, width, height, phash, perceptual_hash, distance} либо null
      */
-    public static function findDuplicateByHash(string $diffHash, string $perceptualHash, int $width, int $height, int $userId)
+    public static function findDuplicateByHash(string $diffHash, string $perceptualHash, int $width, int $height, int $userId, ?string $absolutePath = null)
     {
+        $needleColors = false; // считаем, только если какая-то картинка прошла по хешам
         $needleDiff = Hash::fromBits($diffHash);
         $needlePerceptual = Hash::fromBits($perceptualHash);
         $needleAspect = $height > 0 ? $width / $height : 0;
@@ -1712,6 +1722,15 @@ class UploadImageController extends Controller
                 continue;
             }
 
+            if ($absolutePath !== null) {
+                if ($needleColors === false) {
+                    $needleColors = self::colorGrid($absolutePath);
+                }
+                if (self::colorDifference($needleColors, self::colorGrid(Storage::disk('local')->path($candidate->path))) > self::DUPLICATE_MAX_COLOR_DIFF) {
+                    continue;
+                }
+            }
+
             if ($closestDistance === null || $diffDistance < $closestDistance) {
                 $closest = $candidate;
                 $closestDistance = $diffDistance;
@@ -1723,6 +1742,83 @@ class UploadImageController extends Controller
         }
 
         return $closest;
+    }
+
+    /**
+     * Картинка, уменьшенная до 8×8, — для сверки цвета у пар, совпавших по хешам (DUPLICATE_MAX_COLOR_DIFF)
+     *
+     * @param string $absolutePath
+     * @return array|null [[r, g, b], ...] 64 клетки построчно; null — файл не прочитать
+     */
+    public static function colorGrid(string $absolutePath): ?array
+    {
+        $data = is_file($absolutePath) ? @file_get_contents($absolutePath) : false;
+        $source = $data !== false ? @imagecreatefromstring($data) : false;
+        if (!$source) {
+            return null;
+        }
+
+        $grid = imagecreatetruecolor(8, 8);
+        imagecopyresampled($grid, $source, 0, 0, 0, 0, 8, 8, imagesx($source), imagesy($source));
+        imagedestroy($source);
+
+        $cells = [];
+        for ($y = 0; $y < 8; $y++) {
+            for ($x = 0; $x < 8; $x++) {
+                $color = imagecolorat($grid, $x, $y);
+                $cells[] = [($color >> 16) & 0xFF, ($color >> 8) & 0xFF, $color & 0xFF];
+            }
+        }
+        imagedestroy($grid);
+
+        return $cells;
+    }
+
+    /**
+     * Средняя разница цвета двух colorGrid() по клеткам с предметом: клетка с фоном (близка к среднему цвету
+     * краёв) у обеих картинок не считается — иначе белый фон товарных фото "уравнивает" любые две вещи
+     *
+     * @param array|null $a
+     * @param array|null $b
+     * @return float 0 — если какую-то картинку не прочитать (дубликат тогда решают только хеши)
+     */
+    public static function colorDifference(?array $a, ?array $b): float
+    {
+        if (!$a || !$b) {
+            return 0;
+        }
+
+        $distance = function (array $p, array $q) {
+            return sqrt(($p[0] - $q[0]) ** 2 + ($p[1] - $q[1]) ** 2 + ($p[2] - $q[2]) ** 2);
+        };
+        $border = function (array $cells) {
+            $sum = [0, 0, 0];
+            $count = 0;
+            foreach ($cells as $i => $cell) {
+                $x = $i % 8;
+                $y = intdiv($i, 8);
+                if ($x === 0 || $y === 0 || $x === 7 || $y === 7) {
+                    $sum[0] += $cell[0];
+                    $sum[1] += $cell[1];
+                    $sum[2] += $cell[2];
+                    $count++;
+                }
+            }
+            return [$sum[0] / $count, $sum[1] / $count, $sum[2] / $count];
+        };
+
+        $borderA = $border($a);
+        $borderB = $border($b);
+        $sum = 0;
+        $count = 0;
+        foreach ($a as $i => $cell) {
+            if ($distance($cell, $borderA) > 40 || $distance($b[$i], $borderB) > 40) {
+                $sum += $distance($cell, $b[$i]);
+                $count++;
+            }
+        }
+
+        return $count ? $sum / $count : 0;
     }
 
     /**
@@ -1781,7 +1877,7 @@ class UploadImageController extends Controller
             return null; // не смогли посчитать хеш — как и в saveImageForPost(), не блокируем загрузку
         }
 
-        $duplicate = self::findDuplicateByHash($phash, $perceptualHash, $size[0], $size[1], $userId);
+        $duplicate = self::findDuplicateByHash($phash, $perceptualHash, $size[0], $size[1], $userId, $absolutePath);
         if ($duplicate === null) {
             return null;
         }
