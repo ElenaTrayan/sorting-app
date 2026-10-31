@@ -376,8 +376,13 @@ class PostController extends Controller
                 ]);
             }
 
+            // "Несколько постов" с большим числом картинок форма шлёт частями (submitCreationForm() в admin.js,
+            // chunked=1): одним запросом не укладывались в max_execution_time — посты создавались не все.
+            // Часть из одной картинки тоже идёт сюда, а не в ветку одного поста: у неё своя дата и группа
+            $isChunk = $request->boolean('chunked') && $request->numberOfPosts !== 'one-post';
+
             //если картинок больше одной
-            if (count($images) > 1) {
+            if (count($images) > 1 || $isChunk) {
 
                 if (!empty($request->numberOfPosts) && $request->numberOfPosts === 'one-post') {
                     // array:2 [
@@ -424,9 +429,19 @@ class PostController extends Controller
                         && (!in_array($request->input('pin_type'), Post::MANUAL_TYPES, true) || $request->input('pin_type') === Post::TYPE_NEWS);
                     $groupId = null;
                     $sortOrder = 0;
+                    // следующая часть той же отправки — посты дописываются в группу, созданную первой частью
+                    if ($shouldGroup && $isChunk && $request->filled('group_id')) {
+                        $groupHead = Post::where('user_id', $user->id)->whereKey((int)$request->input('group_id'))
+                            ->whereColumn('group_id', 'id')->first();
+                        if ($groupHead) {
+                            $groupId = $groupHead->id;
+                            $sortOrder = (int)Post::where('group_id', $groupId)->max('sort_order') + 1;
+                        }
+                    }
                     // картинки, из которых посты уже созданы: если на какой-то из следующих случится ошибка,
                     // форма уберёт их у себя — иначе повторное сохранение споткнулось бы о них же
                     $createdKeys = [];
+                    $createdIds = [];
 
                     // без группировки у каждого поста своя дата — его картинки: введённая для неё на превью
                     // (плашка с датой, admin.js), иначе дата съёмки из EXIF, иначе дата файла, — если дату
@@ -455,6 +470,7 @@ class PostController extends Controller
 
                         if ($newPost === true) {
                             $createdKeys[] = $key;
+                            $createdIds[] = $createdId;
                         }
 
                         if ($newPost !== true) {
@@ -481,12 +497,17 @@ class PostController extends Controller
                             'errors' => $errors,
                             'duplicate_infos' => $duplicateInfos,
                             'created_keys' => $createdKeys,
+                            'created_ids' => $createdIds,
+                            'group_id' => $groupId,
                         ]);
                     }
 
                     return response()->json([
                         'status' => true,
                         'message' => 'Посты были успешно добавлены',
+                        'created_keys' => $createdKeys,
+                        'created_ids' => $createdIds,
+                        'group_id' => $groupId,
                     ]);
                 }
 
@@ -3342,6 +3363,10 @@ class PostController extends Controller
     private function findDuplicatesBeforeCreate(Request $request, array $images, int $userId): array
     {
         $forceKeys = json_decode($request->force_duplicate_keys ?? '[]', true) ?: [];
+        // форма шлёт картинки частями (store(), chunked): "это разные" на форме (form_distinct_keys) сказано про
+        // пару картинок этой же формы — если первая уже сохранена прошлой частью, вторая не должна с ней совпасть
+        $distinctKeys = json_decode($request->form_distinct_keys ?? '[]', true) ?: [];
+        $submissionPostIds = array_map('intval', json_decode($request->submission_post_ids ?? '[]', true) ?: []);
         $infos = [];
 
         foreach ($images as $image) {
@@ -3350,6 +3375,10 @@ class PostController extends Controller
             }
 
             $found = UploadImageController::findDuplicateForStagedImage($image, $userId);
+            if ($found && in_array($image['image_name'], $distinctKeys, true)
+                && in_array((int)$found['duplicate']->post_id, $submissionPostIds, true)) {
+                continue;
+            }
             $existingPost = $found ? Post::with('hashtags')->find($found['duplicate']->post_id) : null;
             if (!$existingPost) {
                 continue;

@@ -1989,7 +1989,16 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          resetImagesFromForm();
          resetVideoFromForm();
          resetHashtagsFromForm('hashtags2');
+         creationChunks = {created: 0, groupId: null, postIds: []};
      }
+
+     // "Несколько постов": картинки уходят на сервер частями по CREATION_CHUNK_SIZE — одним запросом большая
+     // загрузка не укладывалась в лимит времени PHP, и создавались не все посты (PostController::store, chunked).
+     // created — сколько постов уже создано прошлыми частями, groupId — группа, начатая первой частью
+     // ("Группировать посты"): следующие части дописывают посты в неё, postIds — посты прошлых частей (картинка,
+     // про которую на форме сказали "это разные", не считается дублем своей пары оттуда). Сбрасывается вместе с формой
+     const CREATION_CHUNK_SIZE = 5;
+     let creationChunks = {created: 0, groupId: null, postIds: []};
 
      // вынесено в отдельную функцию, чтобы можно было переотправить форму с тем же содержимым
      // после выбора в окне сравнения дубликатов (см. resolveDuplicatesAndRetry ниже):
@@ -2016,8 +2025,25 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          var actionurl = $('#creationform').attr('action');
          console.log('actionurl' + actionurl);
 
+         let imagesMap = JSON.parse(images || '{}') || {};
+         let imageKeys = Object.keys(imagesMap);
+         let chunked = numberOfPosts !== 'one-post' && (imageKeys.length > CREATION_CHUNK_SIZE || creationChunks.created > 0);
+         let remaining = imageKeys.length;
+         if (chunked) {
+             let chunk = {};
+             imageKeys.slice(0, CREATION_CHUNK_SIZE).forEach(function (key) {
+                 chunk[key] = imagesMap[key];
+             });
+             images = JSON.stringify(chunk);
+         }
+
          let data = creationFormFields();
          data.push({name: 'images', value: images});
+         if (chunked) {
+             data.push({name: 'chunked', value: 1});
+             data.push({name: 'group_id', value: creationChunks.groupId || ''});
+             data.push({name: 'submission_post_ids', value: JSON.stringify(creationChunks.postIds)});
+         }
          data.push({name: 'numberOfPosts', value: numberOfPosts});
          data.push({name: 'groupPosts', value: groupPosts});
          // дату в поле не вводили руками (пусто или подставлена из фото / ссылки) — сервер может дать каждому
@@ -2050,7 +2076,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          if (submitButton.data('idleHtml') === undefined) {
              submitButton.data('idleHtml', submitButton.html());
          }
-         submitButton.prop('disabled', true).addClass('is-loading').html('<span class="b-pin-btn__spinner"></span> Сохранение…');
+         let savingLabel = chunked
+             ? 'Сохранение… ' + creationChunks.created + ' из ' + (creationChunks.created + remaining)
+             : 'Сохранение…';
+         submitButton.prop('disabled', true).addClass('is-loading').html('<span class="b-pin-btn__spinner"></span> ' + savingLabel);
 
          //do your own request an handle the results
          $.ajax({
@@ -2076,19 +2105,36 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  console.log('response' + result);
                  console.log('message' + result.message);
 
+                 let createdKeys = result.created_keys || [];
+                 if (chunked) {
+                     createdKeys.forEach(removeImageFromCreationForm);
+                     creationChunks.created += createdKeys.length;
+                     creationChunks.postIds = creationChunks.postIds.concat(result.created_ids || []);
+                     if (result.group_id) {
+                         creationChunks.groupId = result.group_id;
+                     }
+                     // часть сохранена, картинки ещё есть — следующая часть
+                     if (result.status === true && remaining > CREATION_CHUNK_SIZE) {
+                         submitCreationForm(duplicateState);
+                         return;
+                     }
+                 }
+
                  // часть постов уже создана, на остальных — ошибка: созданные убираем с формы и говорим об этом прямо
-                 if (result.created_keys && result.created_keys.length) {
-                     result.created_keys.forEach(removeImageFromCreationForm);
-                     toastr.success('Создано постов: ' + result.created_keys.length + '. Остальные картинки остались на форме — см. сообщение об ошибке.');
+                 if (result.status !== true && (chunked ? creationChunks.created : createdKeys.length)) {
+                     createdKeys.forEach(removeImageFromCreationForm);
+                     toastr.success('Создано постов: ' + (chunked ? creationChunks.created : createdKeys.length)
+                         + '. Остальные картинки остались на форме — см. сообщение об ошибке.');
                  }
 
                  //обнуляем форму
                  //выводим исчезающее сообщение об успехе
 
                  if (result.status === true) {
+                     let createdTotal = chunked ? creationChunks.created : 0;
                      resetCreationForm();
 
-                     toastr.success(result.message);
+                     toastr.success(createdTotal ? 'Посты были успешно добавлены: ' + createdTotal : result.message);
                      //showAlert(result.message, 'alert-info', 'fa-check');
                  } else if (result.needs_choice && result.duplicate_infos && result.duplicate_infos.length) {
                      resolveDuplicatesAndRetry(result, duplicateState);
