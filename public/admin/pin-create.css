@@ -857,6 +857,9 @@
 .b-pin-create__footer {
     position: sticky;
     bottom: 0;
+    /* над содержимым формы, которое прокручивается под ним: иконки превью (z-index 9), панель TinyMCE и т.п.
+       Выпадающие списки (поиск хештегов — 999) и модальные окна — по-прежнему выше */
+    z-index: 20;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
