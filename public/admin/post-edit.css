@@ -47,6 +47,8 @@
     margin: 0;
     border-radius: 0;
     background-color: #f3f2f8;
+    /* клик — просмотр в Fancybox (data-fancybox="post-images"), как на форме создания */
+    cursor: zoom-in;
 }
 /* повернуть/отразить картинку — ряд кнопок между превью и именем файла */
 .b-post-edit .b-post-images__transform {
