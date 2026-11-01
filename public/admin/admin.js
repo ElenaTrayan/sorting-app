@@ -2057,6 +2057,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
          data.push({name: 'numberOfPosts', value: numberOfPosts});
          data.push({name: 'groupPosts', value: groupPosts});
+         // у фильма поля "Дата" нет (pin-create.js) — дату, подставленную в скрытое поле из фото, не отправляем
+         if (creationIsFilm()) {
+             data.push({name: 'no_event_date', value: 1});
+         }
          // дату в поле не вводили руками (пусто или подставлена из фото / ссылки) — сервер может дать каждому
          // посту дату его картинки
          // ("Без даты" уходит своим полем no_event_date — тогда дат нет ни у одного поста)
@@ -5398,6 +5402,33 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // /admin/pin-create.js (страница переверстана с dropdown-меню на карточки)
 
 
+     // Спарсенное описание — в текст поста (#editor): пустой — описание целиком, иначе отдельным абзацем в конец,
+     // чтобы не затереть написанное. Повторный парсинг той же ссылки второй раз его не добавляет
+     function addParsedDescriptionToEditor(description) {
+         let text = String(description || '').trim();
+         let editor = window.tinyMCE && tinyMCE.activeEditor;
+         if (!text || !editor) {
+             return;
+         }
+
+         let current = editor.getContent({format: 'text'}).replace(/\s+/g, ' ').trim();
+         if (current.indexOf(text.replace(/\s+/g, ' ')) !== -1) {
+             return;
+         }
+
+         // абзацы описания — <p>, текст экранируем: это данные со стороннего сайта
+         let html = text.split(/\n\s*\n/).map(function (paragraph) {
+             return '<p>' + $('<div>').text(paragraph.trim()).html().replace(/\n/g, '<br>') + '</p>';
+         }).join('');
+
+         if (current) {
+             editor.setContent(editor.getContent() + html);
+         } else {
+             editor.setContent(html);
+         }
+         editor.fire('change');
+     }
+
      $(document).on('click', '#get-parsed-post-info', function(event) {
          console.log('=========' + 'TTT' + '==========');
 
@@ -5604,9 +5635,16 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      $('#film-rating-mpaa').val(result.mpaa_rating);
                  }
 
+                 // описание: у фильма — в его поле "Описание" (post_films.description, карточка фильма); у остальных
+                 // типов поля фильма не сохраняются (а описание отдают и не фильмы, например Pinterest) — в текст поста.
+                 // В скрытое поле фильма кладём всегда: переключат тип на фильм — описание уже на месте
                  if (result.hasOwnProperty('film_description')) {
                      console.log('film_description' + result.film_description);
                      $('#film-description').val(result.film_description);
+
+                     if ($('#pin-type').val() !== 'film') {
+                         addParsedDescriptionToEditor(result.film_description);
+                     }
                  }
 
                  // поля заполнены через .val() (без событий change) — сообщаем film-fields.js,

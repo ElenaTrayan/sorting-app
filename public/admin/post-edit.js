@@ -42,6 +42,7 @@
     var typeButtons = document.querySelectorAll('.js-post-types .b-pin-type');
     var typeLabel = document.querySelector('.js-post-type-label');
     var autoDesc = document.querySelector('.js-post-types [data-type="auto"] .b-pin-type__desc');
+    var eventDateField = document.querySelector('.js-event-date-field');
 
     // доп. поля типа: видны только у своего типа; уйти с типа — при сохранении сервер удалит эти данные
     var typeSections = {
@@ -65,6 +66,10 @@
                 typeSections[key].section.hidden = type !== key;
             }
         });
+        // у фильма даты нет — поле "Дата" скрываем (при сохранении сервер её уберёт, PostController::update)
+        if (eventDateField) {
+            eventDateField.hidden = type === 'film';
+        }
     }
 
     typeButtons.forEach(function (btn) {

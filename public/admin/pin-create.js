@@ -31,6 +31,8 @@
     var pinTypeInput = document.getElementById('pin-type');
     // блок "Количество" — у фильма не нужен: фильм всегда один пост (admin.js submitCreationForm)
     var countSection = root.querySelector('.js-pin-count');
+    // поле "Дата" с галочкой "Без даты" — тоже: фильм создаётся без даты (admin.js submitCreationForm)
+    var eventDateField = root.querySelector('.js-event-date-field');
 
     function selectType(type) {
         // уходит с формой: для "film" PostController сохраняет поля фильма в post_films
@@ -48,6 +50,9 @@
         }
         if (countSection) {
             countSection.hidden = type === 'film';
+        }
+        if (eventDateField) {
+            eventDateField.hidden = type === 'film';
         }
         // от типа зависит, нужны ли даты на превью картинок (admin.js refreshCreationImageDates)
         document.dispatchEvent(new CustomEvent('pin-type-change', {detail: {type: type}}));

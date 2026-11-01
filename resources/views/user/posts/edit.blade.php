@@ -137,7 +137,7 @@
                                     @endforeach
                                 </select>
                             </div>
-                            @include('user.posts.parts.event_date_field', ['value' => $post->eventDateInput()])
+                            @include('user.posts.parts.event_date_field', ['value' => $post->eventDateInput(), 'hidden' => $postType === 'film'])
                         </div>
                     </section>
 

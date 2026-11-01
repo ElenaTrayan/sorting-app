@@ -1961,8 +1961,11 @@ class PostController extends Controller
                 : null;
         }
 
-        // дата пина (поле "Дата"); пусто — даты нет. Не дата — ничего не сохраняем, а говорим об этом
-        if ($request->has('event_date') && !$post->setEventDateFromInput($request->input('event_date'))) {
+        // дата пина (поле "Дата"); пусто — даты нет. Не дата — ничего не сохраняем, а говорим об этом.
+        // У фильма даты нет (поле на форме скрыто, post-edit.js) — и старую, если была, убираем
+        if ($post->type === Post::TYPE_FILM) {
+            $post->setEventDateFromInput(null);
+        } elseif ($request->has('event_date') && !$post->setEventDateFromInput($request->input('event_date'))) {
             return response()->json(['status' => false, 'message' => self::EVENT_DATE_ERROR, 'errors' => self::EVENT_DATE_ERROR]);
         }
 

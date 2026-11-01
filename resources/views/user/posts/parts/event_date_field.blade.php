@@ -4,8 +4,9 @@
      подставляется сама — из фото (EXIF или дата файла) или из ссылки; откуда — пишет .js-event-date-source
 
      @param string $value  дата для поля (Post::eventDateInput()), '' — пусто
-     @param bool $perImageHint  форма создания: подсказка про свою дату у каждого фото и галочка "Без даты" --}}
-<div class="b-pin-field b-pin-field--wide b-event-date js-event-date-field">
+     @param bool $perImageHint  форма создания: подсказка про свою дату у каждого фото и галочка "Без даты"
+     @param bool $hidden  скрыть поле сразу (у фильма даты нет — показывает/скрывает по типу pin-create.js / post-edit.js) --}}
+<div class="b-pin-field b-pin-field--wide b-event-date js-event-date-field" @if (!empty($hidden)) hidden @endif>
     <label for="event_date">Дата <span class="b-pin-card__badge">необязательно</span></label>
     <div class="b-event-date__row">
         <input type="text" class="b-pin-input b-event-date__input js-event-date" name="event_date" id="event_date" value="{{ $value }}"
