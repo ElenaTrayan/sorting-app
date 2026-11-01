@@ -157,7 +157,8 @@
                         </div>
                     </section>
 
-                    <section class="b-pin-card">
+                    {{-- у фильма не показываем (pin-create.js): фильм — всегда один пост со всеми картинками (admin.js) --}}
+                    <section class="b-pin-card js-pin-count">
                         <h2>Количество</h2>
                         <div class="b-pin-count">
                             <div class="b-pin-radio-group">

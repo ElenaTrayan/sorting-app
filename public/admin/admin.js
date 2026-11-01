@@ -951,13 +951,22 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // event_date_manual картинки "без даты" — её пост создаётся без даты (PostController::store)
      const CREATION_IMAGE_NO_DATE = 'none';
 
+     function creationIsFilm() {
+         return $('#pin-type').val() === 'film';
+     }
+
+     // "Количество" на форме создания. У фильма блок скрыт (pin-create.js): все картинки — в один пост-фильм
+     function creationNumberOfPosts() {
+         return creationIsFilm() ? 'one-post' : $('input[name="numberOfPosts"]:checked').val();
+     }
+
      // Дата на превью картинок формы создания: "Несколько постов" без группировки, без даты, введённой
      // руками, и без галочки "Без даты" — у каждого поста дата его картинки (PostController::store). Картинка без своей даты получит
      // дату из поля. В остальных случаях дата одна на все посты — из поля, на превью её не показываем
      function refreshCreationImageDates() {
          let cards = $('.js-upload-image-section .images .image');
          let perImage = cards.length > 1
-             && $('input[name="numberOfPosts"]:checked').val() === 'two-posts'
+             && creationNumberOfPosts() === 'two-posts'
              && !$('#group-posts').is(':checked')
              && !(window.EventDateField && (window.EventDateField.isManual() || window.EventDateField.isNone()));
          let fieldDate = window.EventDateField ? window.EventDateField.parse($('.js-event-date').val()) : null;
@@ -1113,6 +1122,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          new MutationObserver(refreshCreationImageDates)
              .observe($('.js-upload-image-section .images')[0], {childList: true});
          $(document).on('change', 'input[name="numberOfPosts"], #group-posts, .js-event-date-none', refreshCreationImageDates);
+         document.addEventListener('pin-type-change', refreshCreationImageDates);
          // после обработчика event-date.js — он решает, введена ли дата руками
          $(document).on('input', '.js-event-date', function () {
              setTimeout(refreshCreationImageDates, 0);
@@ -2018,8 +2028,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              return;
          }
 
-         var numberOfPosts = $('input[name="numberOfPosts"]:checked').val();
-         var groupPosts = document.getElementById("group-posts").checked;
+         var numberOfPosts = creationNumberOfPosts();
+         // фильм не группируется, и блока "Количество" у него нет
+         var groupPosts = !creationIsFilm() && document.getElementById("group-posts").checked;
 
          //get the action-url of the form
          var actionurl = $('#creationform').attr('action');

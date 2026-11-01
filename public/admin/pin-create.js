@@ -29,6 +29,8 @@
     var tabBlocks = root.querySelectorAll('.b-parsing-type-blocks > div');
     var previewTypeEl = root.querySelector('.js-pin-preview-type');
     var pinTypeInput = document.getElementById('pin-type');
+    // блок "Количество" — у фильма не нужен: фильм всегда один пост (admin.js submitCreationForm)
+    var countSection = root.querySelector('.js-pin-count');
 
     function selectType(type) {
         // уходит с формой: для "film" PostController сохраняет поля фильма в post_films
@@ -44,6 +46,11 @@
         if (previewTypeEl) {
             previewTypeEl.textContent = TYPE_LABELS[type] || '';
         }
+        if (countSection) {
+            countSection.hidden = type === 'film';
+        }
+        // от типа зависит, нужны ли даты на превью картинок (admin.js refreshCreationImageDates)
+        document.dispatchEvent(new CustomEvent('pin-type-change', {detail: {type: type}}));
     }
 
     typeButtons.forEach(function (btn) {

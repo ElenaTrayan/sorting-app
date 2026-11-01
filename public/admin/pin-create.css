@@ -121,6 +121,10 @@
     box-shadow: 0 1px 2px rgba(23, 20, 50, .04);
     padding: 18px 20px;
 }
+/* скрытая по типу пина карточка (например, "Количество" у фильма — pin-create.js) */
+.b-pin-card[hidden] {
+    display: none;
+}
 .b-pin-card h2 {
     margin: 0 0 15px 0;
     font-size: 15px;
