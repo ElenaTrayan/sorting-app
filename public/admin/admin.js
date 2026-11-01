@@ -517,6 +517,37 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      let uploadImageSection = $('.js-upload-image-section');
 
+     // идёт/только что закончилось перетаскивание превью (sortable ниже)
+     let creationImageDragged = false;
+
+     // Просмотр картинок формы создания: клик по превью — Fancybox со всеми картинками формы в их порядке.
+     // Адрес — из фона превью: после правки в редакторе там адрес с меткой версии (creationImageCard)
+     $(document).on('click', '.js-upload-image-section .images .image', function (e) {
+         if (creationImageDragged || !window.Fancybox
+             || $(e.target).closest('.js-delete-image, .js-edit-image, .js-image-date').length) {
+             return;
+         }
+
+         let cards = $('.js-upload-image-section .images .image');
+         let items = [];
+         let startIndex = 0;
+         let clicked = this;
+         cards.each(function () {
+             let match = String($(this).children('span').first().css('background-image') || '').match(/url\(["']?(.*?)["']?\)/);
+             if (!match) {
+                 return;
+             }
+             if (this === clicked) {
+                 startIndex = items.length;
+             }
+             items.push({src: match[1], type: 'image'});
+         });
+
+         if (items.length) {
+             Fancybox.show(items, {startIndex: startIndex, infinite: false});
+         }
+     });
+
      // Перетаскивание уже загруженных превью местами (страница создания поста,
      // /cabinet/posts/create) — порядок карточек в .js-images и есть порядок,
      // в котором потом создаются посты группы (см. submitCreationForm() ниже и
@@ -528,6 +559,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              tolerance: 'pointer',
              placeholder: 'image-sort-placeholder',
              forcePlaceholderSize: true,
+             // карточку перетащили — отпускание мыши не должно открыть просмотр (см. ниже)
+             start: function () {
+                 creationImageDragged = true;
+             },
+             stop: function () {
+                 setTimeout(function () {
+                     creationImageDragged = false;
+                 }, 0);
+             },
              update: function () {
                  let savedImages = sessionStorage.getItem('images');
                  if (!savedImages) {

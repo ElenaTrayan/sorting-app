@@ -709,6 +709,8 @@
 }
 .b-pin-create .upload-image-section .images .image {
     border-radius: 9px;
+    /* клик — просмотр (Fancybox, admin.js); перетаскивание по-прежнему работает */
+    cursor: zoom-in;
 }
 
 /* превью видео — в одном ряду с картинками (.image), но не сортируется и не удаляется как картинка;
