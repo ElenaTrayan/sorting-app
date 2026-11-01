@@ -70,6 +70,8 @@
         if (eventDateField) {
             eventDateField.hidden = type === 'film';
         }
+        // хештеги из полей фильма (film-fields.js) нужны только фильму
+        document.dispatchEvent(new CustomEvent('pin-type-change', {detail: {type: type}}));
     }
 
     typeButtons.forEach(function (btn) {

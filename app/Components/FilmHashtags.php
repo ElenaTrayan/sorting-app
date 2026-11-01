@@ -83,6 +83,63 @@ class FilmHashtags
     }
 
     /**
+     * Хештег с названием фильма — "фильм Багровый пик", "сериал Сплетница". Только уже заведённый
+     * пользователем: такие хештеги он пишет сам, новый не создаём. Префикс — по виду (у сериалов сначала
+     * "сериал", потом "фильм", у остальных наоборот: бывают оба). Сравнение без регистра, ё/е и знаков
+     * препинания ("Она - мужчина" = "Она — мужчина"); у названия пробуем и вариант без года в скобках
+     *
+     * @param int $userId
+     * @param string[] $filmTitles название поста, оригинальное название
+     * @param string|null $kind PostFilm::KINDS
+     * @return Hashtag|null
+     */
+    public static function findTitleHashtag(int $userId, array $filmTitles, ?string $kind): ?Hashtag
+    {
+        $variants = [];
+        foreach ($filmTitles as $title) {
+            $title = trim((string)$title);
+            if ($title === '') {
+                continue;
+            }
+            $variants[] = $title;
+            // "Багровый пик (2015)", "Багровый пик, 2015". Год без скобок/запятой не трогаем: в "Бегущий
+            // по лезвию 2049" это часть названия
+            $withoutYear = trim(preg_replace('~\s*(\(\s*(18|19|20)\d{2}\s*\)|,\s*(18|19|20)\d{2})\s*$~u', '', $title));
+            if ($withoutYear !== '' && $withoutYear !== $title) {
+                $variants[] = $withoutYear;
+            }
+        }
+        if (empty($variants)) {
+            return null;
+        }
+
+        $prefixes = ($kind !== null && mb_stripos($kind, 'сериал') !== false) ? ['сериал', 'фильм'] : ['фильм', 'сериал'];
+
+        $byKey = [];
+        $hashtags = Hashtag::where('user_id', $userId)
+            ->where(function ($query) use ($prefixes) {
+                foreach ($prefixes as $prefix) {
+                    $query->orWhere('title', 'like', $prefix . ' %');
+                }
+            })
+            ->get(['id', 'title']);
+        foreach ($hashtags as $hashtag) {
+            $byKey[self::looseKey($hashtag->title)] = $hashtag;
+        }
+
+        foreach ($prefixes as $prefix) {
+            foreach ($variants as $title) {
+                $hashtag = $byKey[self::looseKey($prefix . ' ' . $title)] ?? null;
+                if ($hashtag !== null) {
+                    return $hashtag;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Один хештег пользователя по названию: существующий (без учёта регистра и ё/е) или новый
      *
      * @param int $userId
@@ -188,6 +245,18 @@ class FilmHashtags
     private static function key(string $title): string
     {
         return str_replace('ё', 'е', mb_strtolower(trim(preg_replace('~\s+~u', ' ', $title))));
+    }
+
+    /**
+     * Ключ для названий фильмов: как key(), но и без знаков препинания — "Значит, война" = "Значит война",
+     * "Она — мужчина" = "Она - мужчина"
+     *
+     * @param string $title
+     * @return string
+     */
+    private static function looseKey(string $title): string
+    {
+        return trim(preg_replace('~\s+~u', ' ', preg_replace('~[^\p{L}\p{N}]+~u', ' ', self::key($title))));
     }
 
     /**

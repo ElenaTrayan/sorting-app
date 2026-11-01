@@ -281,6 +281,16 @@ class HashtagController extends Controller
         $attributes = PostFilm::attributesFromRequest($request);
         $hashtags = $attributes === null ? [] : FilmHashtags::resolve(auth()->id(), new PostFilm($attributes));
 
+        // хештег с названием фильма ("фильм Багровый пик") — по названию поста и оригинальному, только существующий
+        $titleHashtag = FilmHashtags::findTitleHashtag(
+            auth()->id(),
+            [$request->input('title'), $request->input('film-original-title')],
+            $attributes['kind'] ?? null
+        );
+        if ($titleHashtag !== null && !in_array($titleHashtag->id, array_map(fn (Hashtag $h) => $h->id, $hashtags), true)) {
+            array_unshift($hashtags, $titleHashtag);
+        }
+
         return response()->json([
             'status' => true,
             'hashtags' => array_map(function (Hashtag $hashtag) {

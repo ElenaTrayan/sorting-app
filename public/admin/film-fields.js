@@ -198,10 +198,15 @@
         // ===== Поля фильма -> хештеги =====
         // После парсинга (admin.js шлёт событие film-fields:parsed) и при правке этих полей сервер
         // (HashtagController::forFilm) по ним подбирает хештеги — тип, статус, жанры, год, страны,
-        // режиссёры, главные актёры, — и они сразу попадают в выбранные. Поменяли поле — хештеги,
+        // режиссёры, главные актёры, а по названию — уже заведённый "фильм Название", — и они сразу попадают в выбранные. Поменяли поле — хештеги,
         // добавленные отсюда раньше и больше не подходящие, убираются. Хештег, который пользователь
         // убрал крестиком, заново не добавляем; выбранные им самим — не трогаем.
-        var FILM_TAG_FIELDS = ['film-kind', 'film-status', 'film-genres', 'film-year', 'film-country', 'film-director', 'film-actors'];
+        var FILM_TAG_FIELDS = ['film-original-title', 'film-kind', 'film-status', 'film-genres', 'film-year', 'film-country', 'film-director', 'film-actors'];
+
+        function postTitleField() {
+            var form = root.closest('form');
+            return form ? form.querySelector('[name="title"]') : null;
+        }
         var fieldsHashtagsAction = root.getAttribute('data-hashtags-action');
         var fieldTags = {};      // id -> название: добавленные отсюда
         var dismissedTags = {};  // id: убранные пользователем
@@ -212,9 +217,52 @@
             return !!findSelectedTag(function (tag) { return tag.getAttribute('data-id') === String(id); });
         }
 
+        // выбран тип "Фильм / Сериал": создание — pin_type, редактирование — post_type. Поля фильма парсер
+        // заполняет при любом типе (они просто скрыты), а хештеги из них нужны только фильму
+        function isFilmType() {
+            var form = root.closest('form');
+            var typeField = form ? form.querySelector('[name="pin_type"], [name="post_type"]') : null;
+            return !typeField || typeField.value === 'film';
+        }
+
+        // выбранные хештеги формы приводим к подобранным по полям: новые добавляем, добавленные отсюда раньше и
+        // больше не подходящие — убираем
+        function applyFieldHashtags(hashtags) {
+            var current = {};
+            hashtags.forEach(function (hashtag) {
+                current[String(hashtag.id)] = hashtag.title;
+            });
+
+            Object.keys(fieldTags).forEach(function (id) {
+                var tag = findSelectedTag(function (el) { return el.getAttribute('data-id') === id; });
+                if (!tag) {
+                    // пропал из выбранных — значит, убрали крестиком
+                    dismissedTags[id] = true;
+                } else if (!current.hasOwnProperty(id)) {
+                    removeSelectedTag(tag);
+                } else {
+                    return;
+                }
+                delete fieldTags[id];
+            });
+
+            Object.keys(current).forEach(function (id) {
+                if (fieldTags[id] || dismissedTags[id] || isTagSelected(id)) {
+                    return;
+                }
+                addSelectedTag(id, current[id]);
+                fieldTags[id] = current[id];
+            });
+        }
+
         function syncFieldHashtags() {
             clearTimeout(fieldsTimer);
             if (!fieldsHashtagsAction) {
+                return;
+            }
+            if (!isFilmType()) {
+                fieldsRequestNo++; // ответ на запрос, отправленный ещё при типе "фильм", уже не нужен
+                applyFieldHashtags([]);
                 return;
             }
 
@@ -223,6 +271,10 @@
                 var field = root.querySelector('[name="' + name + '"]');
                 body.append(name, field ? field.value : '');
             });
+            // по названию поста и оригинальному сервер находит уже заведённый хештег "фильм Название"
+            // (FilmHashtags::findTitleHashtag). Название поста — вне блока полей фильма, в той же форме
+            var titleField = postTitleField();
+            body.append('title', titleField ? titleField.value : '');
 
             var requestNo = ++fieldsRequestNo;
             postForm(fieldsHashtagsAction, body)
@@ -230,32 +282,7 @@
                     if (requestNo !== fieldsRequestNo || !data || !Array.isArray(data.hashtags)) {
                         return;
                     }
-
-                    var current = {};
-                    data.hashtags.forEach(function (hashtag) {
-                        current[String(hashtag.id)] = hashtag.title;
-                    });
-
-                    Object.keys(fieldTags).forEach(function (id) {
-                        var tag = findSelectedTag(function (el) { return el.getAttribute('data-id') === id; });
-                        if (!tag) {
-                            // пропал из выбранных — значит, убрали крестиком
-                            dismissedTags[id] = true;
-                        } else if (!current.hasOwnProperty(id)) {
-                            removeSelectedTag(tag);
-                        } else {
-                            return;
-                        }
-                        delete fieldTags[id];
-                    });
-
-                    Object.keys(current).forEach(function (id) {
-                        if (fieldTags[id] || dismissedTags[id] || isTagSelected(id)) {
-                            return;
-                        }
-                        addSelectedTag(id, current[id]);
-                        fieldTags[id] = current[id];
-                    });
+                    applyFieldHashtags(data.hashtags);
                 })
                 .catch(function () {
                     showError('Не удалось добавить хештеги из полей фильма');
@@ -270,6 +297,18 @@
         });
 
         document.addEventListener('film-fields:parsed', syncFieldHashtags);
+
+        // сменили тип пина (pin-create.js / post-edit.js): стал фильмом — подбираем, перестал — убираем подобранные
+        document.addEventListener('pin-type-change', syncFieldHashtags);
+
+        // название поста поменяли руками — хештег "фильм Название" подбираем заново
+        var titleInput = postTitleField();
+        if (titleInput) {
+            titleInput.addEventListener('change', function () {
+                clearTimeout(fieldsTimer);
+                fieldsTimer = setTimeout(syncFieldHashtags, 400);
+            });
+        }
 
         function addCustomChip(field) {
             var input = field.querySelector('.js-film-chip-input');
