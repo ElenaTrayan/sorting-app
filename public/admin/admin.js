@@ -4330,60 +4330,136 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              toastr.info('Найдено контактов: ' + visibleCount);
          }
 
-         // Страница контакта (#contact-page, вкладка "Посты"): фильтрует его посты на месте — все они уже в сетке
-         // со своими хэштегами (.tags li[data-id], post_items.blade.php). Скрытые карточки Masonry не учитывает
-         // (ignore), иначе на их месте оставались бы дыры. Без хэштегов (includeIds пуст) — показывает все
+         // Страница контакта (#contact-page, вкладка "Посты"): сразу показана первая порция постов, следующие
+         // подгружаются при прокрутке — ContactController::posts(), с тем же фильтром по хэштегам, что сейчас выбран
+         let contactPosts = {page: 1, include: [], exclude: [], loading: false, request: null};
+
+         // reset — начать заново с первой порции (новый фильтр): старые карточки убираются, когда придут новые.
+         // Promise с числом постов по фильтру; null — грузить нечего или уже грузится
+         function loadContactPosts(reset) {
+             let grid = document.querySelector('.js-contact-posts');
+             if (!grid || (!reset && (contactPosts.loading || grid.getAttribute('data-has-more') !== '1'))) {
+                 return Promise.resolve(null);
+             }
+             if (reset && contactPosts.request) {
+                 contactPosts.request.abort();
+             }
+
+             let $grid = $(grid);
+             let $loader = $('.js-contact-posts-load').show();
+             let page = reset ? 1 : contactPosts.page + 1;
+             contactPosts.loading = true;
+
+             return new Promise(function (resolve) {
+                 contactPosts.request = $.ajax({
+                     url: grid.getAttribute('data-url'),
+                     type: 'GET',
+                     data: {page: page, include: contactPosts.include, exclude: contactPosts.exclude},
+                 })
+                     .done(function (response) {
+                         contactPosts.page = page;
+                         grid.setAttribute('data-has-more', response.has_more ? '1' : '0');
+                         let hasMasonry = !!$grid.data('masonry');
+
+                         if (reset) {
+                             let old = grid.querySelectorAll('.grid-item');
+                             if (hasMasonry) {
+                                 $grid.masonry('remove', old);
+                             } else {
+                                 $(old).remove();
+                             }
+                         }
+
+                         let $content = $($.parseHTML(response.html || '')).filter('.grid-item');
+                         // новые карточки прячем, пока не загрузились картинки и Masonry их не расставила
+                         $content.css('opacity', 0);
+                         $grid.append($content);
+                         if (hasMasonry) {
+                             $grid.masonry('appended', $content);
+                         }
+
+                         $grid.imagesLoaded().always(function () {
+                             if ($grid.data('masonry')) {
+                                 $grid.masonry('layout');
+                             }
+                             $content.animate({opacity: 1}, 200);
+                             $loader.hide();
+                             contactPosts.loading = false;
+                             contactPosts.request = null;
+                             // порция не заполнила экран — сразу следующая
+                             maybeLoadMoreContactPosts();
+                         });
+
+                         resolve(response.total);
+                     })
+                     .fail(function (xhr, status) {
+                         if (status === 'abort') {
+                             return; // её сменил запрос с новым фильтром
+                         }
+                         $loader.hide();
+                         contactPosts.loading = false;
+                         contactPosts.request = null;
+                         toastr.error('Не удалось загрузить посты');
+                         resolve(null);
+                     });
+             });
+         }
+
+         // вкладка "Посты" открыта и до конца сетки осталось немного — подгрузить следующую порцию
+         function maybeLoadMoreContactPosts() {
+             let grid = document.querySelector('.js-contact-posts');
+             let panel = grid && grid.closest('.js-contact-tab-panel');
+             if (!panel || !panel.classList.contains('is-active')) {
+                 return;
+             }
+             if (grid.getBoundingClientRect().bottom - window.innerHeight < 800) {
+                 loadContactPosts(false);
+             }
+         }
+
+         if (document.querySelector('.js-contact-posts')) {
+             $(window).on('scroll resize', maybeLoadMoreContactPosts);
+             // вкладку переключили на "Посты" (activateContactTab)
+             $(document).on('click', '.js-contact-tab-btn[data-tab="posts"]', function () {
+                 setTimeout(maybeLoadMoreContactPosts, 0);
+             });
+         }
+
+         // Поиск по хэштегам среди постов контакта: посты грузятся заново с первой порции уже с фильтром.
+         // Без хэштегов (includeIds и excludeIds пусты) — снова все. Promise с числом найденных постов
          function filterContactPosts(contactPage, includeIds, excludeIds) {
              let grid = contactPage.querySelector('.js-contact-posts');
              if (!grid) {
-                 return;
-             }
-             let $grid = $(grid);
-             let hasMasonry = !!$grid.data('masonry');
-             let items = grid.querySelectorAll('.grid-item');
-             let visibleCount = 0;
-
-             items.forEach(function (item) {
-                 let ids = Array.prototype.map.call(item.querySelectorAll('.tags li[data-id]'), function (li) {
-                     return String(li.getAttribute('data-id'));
-                 });
-                 let visible = includeIds.every(function (id) { return ids.indexOf(id) !== -1; })
-                     && !excludeIds.some(function (id) { return ids.indexOf(id) !== -1; });
-
-                 item.style.display = visible ? '' : 'none';
-                 if (hasMasonry) {
-                     $grid.masonry(visible ? 'unignore' : 'ignore', item);
-                 }
-                 if (visible) {
-                     visibleCount++;
-                 }
-             });
-
-             // строка над постами: что выбрано, сколько найдено, "Сбросить"
-             let bar = contactPage.querySelector('.js-contact-posts-filter');
-             if (bar) {
-                 let filtered = includeIds.length > 0 || excludeIds.length > 0;
-                 bar.hidden = !filtered;
-                 if (filtered) {
-                     let names = function (state, ids) {
-                         return ids.map(function (id) { return '#' + state[id]; }).join(' ');
-                     };
-                     let text = (includeIds.length ? 'С хэштегами ' + names(hashtagSearchState.include, includeIds) : 'Все посты')
-                         + (excludeIds.length ? ', без ' + names(hashtagSearchState.exclude, excludeIds) : '')
-                         + ' — ' + (visibleCount ? 'найдено ' + visibleCount + ' из ' + items.length : 'ничего не найдено');
-                     bar.querySelector('.js-contact-posts-filter-text').textContent = text;
-                 }
+                 return Promise.resolve(0);
              }
 
-             // открыть вкладку "Посты" — при переключении она же перераскладывает сетку (activateContactTab)
+             // открыть вкладку "Посты" — сетку раскладываем, когда её видно (activateContactTab)
              let postsTabBtn = document.querySelector('.js-contact-tab-btn[data-tab="posts"]');
              if (postsTabBtn) {
                  postsTabBtn.click();
-             } else if (hasMasonry) {
-                 $grid.masonry('layout');
              }
 
-             return visibleCount;
+             contactPosts.include = includeIds;
+             contactPosts.exclude = excludeIds;
+
+             return loadContactPosts(true).then(function (found) {
+                 // строка над постами: что выбрано, сколько найдено, "Сбросить"
+                 let bar = contactPage.querySelector('.js-contact-posts-filter');
+                 let filtered = includeIds.length > 0 || excludeIds.length > 0;
+                 if (bar && found !== null) {
+                     bar.hidden = !filtered;
+                     if (filtered) {
+                         let names = function (state, ids) {
+                             return ids.map(function (id) { return '#' + state[id]; }).join(' ');
+                         };
+                         let text = (includeIds.length ? 'С хэштегами ' + names(hashtagSearchState.include, includeIds) : 'Все посты')
+                             + (excludeIds.length ? ', без ' + names(hashtagSearchState.exclude, excludeIds) : '')
+                             + ' — ' + (found ? 'найдено ' + found + ' из ' + grid.getAttribute('data-total') : 'ничего не найдено');
+                         bar.querySelector('.js-contact-posts-filter-text').textContent = text;
+                     }
+                 }
+                 return found || 0;
+             });
          }
 
          $(document).on('click', '.js-contact-posts-filter-reset', function () {
@@ -4430,9 +4506,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          toastr.warning('У контакта пока нет постов');
                          return;
                      }
-                     let found = filterContactPosts(contactPage, Object.keys(hashtagSearchState.include), Object.keys(hashtagSearchState.exclude));
                      $('#modal-search-global').modal('hide');
-                     toastr.info('Найдено постов: ' + found);
+                     filterContactPosts(contactPage, Object.keys(hashtagSearchState.include), Object.keys(hashtagSearchState.exclude))
+                         .then(function (found) {
+                             toastr.info('Найдено постов: ' + found);
+                         });
                      return;
                  }
 
@@ -9417,8 +9495,6 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              function applyQuoteFilters() {
                  let platforms = checkedValues('.js-quotes-filter-platform');
                  let contentTypes = checkedValues('.js-quotes-filter-content-type');
-                 let sentiments = checkedValues('.js-quotes-filter-sentiment');
-                 let topics = checkedValues('.js-quotes-filter-topic');
                  let search = (quotesFilterPanel.querySelector('.js-quotes-search').value || '').trim().toLowerCase();
                  let dateFrom = quotesFilterPanel.querySelector('.js-quotes-filter-date-from').value;
                  let dateTo = quotesFilterPanel.querySelector('.js-quotes-filter-date-to').value;
@@ -9432,8 +9508,6 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      let matches = true;
                      if (platforms.length && platforms.indexOf(card.getAttribute('data-platform')) === -1) matches = false;
                      if (contentTypes.length && contentTypes.indexOf(card.getAttribute('data-content-type')) === -1) matches = false;
-                     if (sentiments.length && sentiments.indexOf(card.getAttribute('data-sentiment')) === -1) matches = false;
-                     if (topics.length && topics.indexOf(card.getAttribute('data-topic')) === -1) matches = false;
                      if (search && card.getAttribute('data-search').indexOf(search) === -1) matches = false;
                      if (fromTs !== null && ts < fromTs) matches = false;
                      if (toTs !== null && ts > toTs) matches = false;

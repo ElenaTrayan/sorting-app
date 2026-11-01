@@ -178,6 +178,7 @@ Route::middleware(['auth'])->prefix('cabinet')->group(function () {
         Route::post('/contacts', [User\ContactController::class, 'store'])->name('contacts.store');
         Route::post('/contacts/residence-search', [User\ContactController::class, 'searchResidence'])->name('contacts.residence.search');
         Route::get('/contacts/{contact}', [User\ContactController::class, 'show'])->name('contacts.show');
+        Route::get('/contacts/{contact}/posts', [User\ContactController::class, 'posts'])->name('contacts.posts');
         Route::put('/contacts/{contact}', [User\ContactController::class, 'update'])->name('contacts.update');
         Route::delete('/contacts/{contact}', [User\ContactController::class, 'destroy'])->name('contacts.destroy');
         Route::post('/contacts/{contact}/photos', [User\ContactController::class, 'storePhoto'])->name('contacts.photos.store');

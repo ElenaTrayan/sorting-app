@@ -58,34 +58,6 @@
                     @endforeach
                 </div>
             </div>
-
-            <div class="b-filter-panel__group js-quotes-filter-group">
-                <button type="button" class="b-filter-panel__group-head js-quotes-filter-group-toggle">
-                    Тональность <i class="fas fa-chevron-up"></i>
-                </button>
-                <div class="b-filter-panel__group-body">
-                    @foreach ($sentiments as $sentiment)
-                        <label class="b-filter-panel__option">
-                            <input type="checkbox" class="js-quotes-filter-sentiment" value="{{ $sentiment['slug'] }}">
-                            {{ $sentiment['emoji'] }} {{ $sentiment['title'] }} <span class="b-filter-panel__count">{{ $sentiment['count'] }}</span>
-                        </label>
-                    @endforeach
-                </div>
-            </div>
-
-            <div class="b-filter-panel__group js-quotes-filter-group">
-                <button type="button" class="b-filter-panel__group-head js-quotes-filter-group-toggle">
-                    Темы <i class="fas fa-chevron-up"></i>
-                </button>
-                <div class="b-filter-panel__group-body">
-                    @foreach ($topics as $topic)
-                        <label class="b-filter-panel__option">
-                            <input type="checkbox" class="js-quotes-filter-topic" value="{{ $topic['slug'] }}">
-                            {{ $topic['title'] }} <span class="b-filter-panel__count">{{ $topic['count'] }}</span>
-                        </label>
-                    @endforeach
-                </div>
-            </div>
         </div>
 
         <div class="b-filter-panel__footer">

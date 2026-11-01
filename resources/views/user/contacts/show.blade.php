@@ -169,8 +169,8 @@
                                     @else
                                         <p>{{ $demo['role_line'] }}. Любимое свободное время: {{ \Illuminate\Support\Str::lower($demo['free_time']) }}.</p>
                                     @endif
-                                    @foreach ($contact->quotes as $quote)
-                                        <p class="b-contact-about__quote">«{{ $quote->quote }}»</p>
+                                    @foreach ($quotesFeed as $quoteRow)
+                                        <p class="b-contact-about__quote">«{{ $quoteRow['text'] }}»</p>
                                     @endforeach
                                 </div>
                                 <button type="button" class="b-contact-about__toggle js-contact-about-toggle">
@@ -389,21 +389,30 @@
                 {{-- ---------- Посты по хештегам ---------- --}}
                 <div class="b-contact-tab-panel js-contact-tab-panel" data-tab-panel="posts">
                     <div class="b-contact-section">
-                        <h3><i class="fas fa-hashtag mr-2" style="color:#7367f0"></i>Посты по этим хештегам</h3>
+                        <h3><i class="fas fa-hashtag mr-2" style="color:#7367f0"></i>Посты по этим хештегам @if ($relatedTotal)<span class="text-muted small">{{ $relatedTotal }}</span>@endif</h3>
                         @if ($relatedPosts->isEmpty())
                             <p class="text-muted">{{ $contact->hashtags->isEmpty() ? 'У контакта пока нет хештегов — привяжите хештег, чтобы видеть здесь посты.' : 'Постов с такими хештегами пока нет.' }}</p>
                         @else
-                            {{-- поиск по хэштегам (окно поиска, клик по хэштегу на карточке) фильтрует эти посты на месте:
-                                 какие хэштеги выбраны, сколько найдено, "Сбросить" — admin.js filterContactPosts() --}}
+                            {{-- поиск по хэштегам (окно поиска, клик по хэштегу на карточке) фильтрует посты контакта
+                                 на сервере (ContactController::posts()): какие хэштеги выбраны, сколько найдено,
+                                 "Сбросить" — admin.js filterContactPosts() --}}
                             <div class="b-contact-posts-filter js-contact-posts-filter" hidden>
                                 <span class="b-contact-posts-filter__text js-contact-posts-filter-text"></span>
                                 <button type="button" class="b-contact-posts-filter__reset js-contact-posts-filter-reset"><i class="fas fa-times mr-1"></i>Сбросить</button>
                             </div>
                             <div class="b-cards">
-                                <div class="grid are-images-unloaded js-contact-posts">
+                                {{-- сразу — первая порция, следующие подгружаются при прокрутке (admin.js loadContactPosts()) --}}
+                                <div class="grid are-images-unloaded js-contact-posts"
+                                     data-url="{{ route('contacts.posts', $contact->id) }}"
+                                     data-total="{{ $relatedTotal }}"
+                                     data-has-more="{{ $relatedTotal > $postsPerPage ? 1 : 0 }}">
                                     {{-- linksOnly: скриптов ленты "Все посты" здесь нет — в меню карточки только пункты-ссылки --}}
                                     @include('user.posts.parts.post_items', ['posts' => $relatedPosts, 'linksOnly' => true])
                                 </div>
+                            </div>
+                            <div class="ajax-load js-contact-posts-load" style="display:none">
+                                <span class="ajax-load__spinner"></span>
+                                <span class="ajax-load__text">Загрузка постов…</span>
                             </div>
                         @endif
                     </div>

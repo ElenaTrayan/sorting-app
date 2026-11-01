@@ -6650,6 +6650,13 @@ margin: 0 0 20px 0;
     color: #2b2e33;
     margin: 0 0 10px;
 }
+/* текст поста-высказывания — HTML поста, абзацами (quotes_tab.blade.php) */
+.b-quotes-card__text p {
+    margin: 0 0 6px;
+}
+.b-quotes-card__text p:last-child {
+    margin-bottom: 0;
+}
 .b-quotes-card__banner {
     position: relative;
     border-radius: 8px;
