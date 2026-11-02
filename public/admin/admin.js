@@ -8451,8 +8451,38 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              let tag = document.createElement('span');
              tag.className = 'b-contact-tag-picker__tag';
              tag.setAttribute('data-id', id);
-             tag.innerHTML = '#' + title + ' <i class="fas fa-times js-contact-tag-picker__remove"></i>';
+             tag.innerHTML = '#' + escapeHtml(title) + ' <i class="fas fa-times js-contact-tag-picker__remove"></i>';
              selected.appendChild(tag);
+         }
+
+         // Если у пикера есть data-related-action (форма контакта), вместе с выбранным хештегом добавляются
+         // его связанные с авто-добавлением ("Зои Дойч" → "девушка", "актриса") — как в форме поста;
+         // связанные без авто-добавления не трогаем (HashtagController::relatedFor)
+         const relatedUrl = pickerEl.getAttribute('data-related-action');
+         function addRelatedTags(id) {
+             if (!relatedUrl) {
+                 return;
+             }
+             let hashtags = {};
+             hashtags[id] = true;
+             $.ajax({
+                 type: 'post',
+                 url: relatedUrl,
+                 dataType: 'json',
+                 headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                 data: {hashtags: hashtags},
+                 success: function (response) {
+                     // пока ждали ответ, сам тег уже убрали — его связанные не нужны
+                     if (!response || !response.status || !selected.querySelector('.b-contact-tag-picker__tag[data-id="' + id + '"]')) {
+                         return;
+                     }
+                     (response.hashtags || []).forEach(function (related) {
+                         if (related.auto) {
+                             addTag(related.id, related.title);
+                         }
+                     });
+                 }
+             });
          }
 
          selected.addEventListener('click', function (event) {
@@ -8485,6 +8515,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                              li.textContent = '#' + hashtag.title;
                              li.addEventListener('click', function () {
                                  addTag(hashtag.id, hashtag.title);
+                                 addRelatedTags(hashtag.id);
                                  input.value = '';
                                  results.classList.remove('b-contact-tag-picker__results--open');
                                  results.innerHTML = '';

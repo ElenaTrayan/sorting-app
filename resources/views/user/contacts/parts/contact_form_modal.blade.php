@@ -101,7 +101,8 @@
 
                 <div class="b-contact-form-field">
                     <label>Хештеги</label>
-                    <div class="b-contact-tag-picker js-contact-tag-picker">
+                    {{-- data-related-action — связанные хештеги выбранного тега добавляются сами (initHashtagPicker, admin.js) --}}
+                    <div class="b-contact-tag-picker js-contact-tag-picker" data-related-action="{{ route('search.related-hashtags') }}">
                         <div class="b-contact-form-input">
                             <i class="fas fa-tag"></i>
                             <input type="text" class="js-contact-tag-picker__input" placeholder="Начните вводить хештеги...">
