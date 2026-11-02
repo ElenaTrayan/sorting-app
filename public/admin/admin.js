@@ -3579,6 +3579,57 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              return !!container.querySelector('.tag[data-id="' + id + '"]');
          }
 
+         // от каких выбранных тегов пришли подставленные связанные и подсказки: {id связанного: {id тега: true}}.
+         // Убрали тег (выбрали по ошибке) — уходят и его связанные, если их не подтянул ещё какой-то выбранный
+         const relatedSources = {};
+         const suggestionSources = {};
+
+         function addSource(sources, relatedId, parentId) {
+             sources[relatedId] = sources[relatedId] || {};
+             sources[relatedId][parentId] = true;
+         }
+
+         // убирает parentId из источников; возвращает id связанных, у которых источников не осталось
+         function dropSource(sources, parentId) {
+             const orphans = [];
+             Object.keys(sources).forEach(function (relatedId) {
+                 if (!sources[relatedId][parentId]) {
+                     return;
+                 }
+                 delete sources[relatedId][parentId];
+                 if (!Object.keys(sources[relatedId]).length) {
+                     delete sources[relatedId];
+                     orphans.push(relatedId);
+                 }
+             });
+             return orphans;
+         }
+
+         function onTagRemoved(id) {
+             // сам подставленный связанный убрали — дальше его не отслеживаем
+             delete relatedSources[id];
+
+             const removed = [];
+             dropSource(relatedSources, id).forEach(function (relatedId) {
+                 const tag = container.querySelector('.tag.tag--related[data-id="' + relatedId + '"]');
+                 if (tag) {
+                     removed.push('#' + (tag.getAttribute('data-name') || ''));
+                     // не через крестик: такой тег не "отклонён" — выберут правильный, и он снова подставится
+                     removeHashtag($(tag).find('.close'), 'hashtags2');
+                 }
+             });
+             dropSource(suggestionSources, id).forEach(function (relatedId) {
+                 const suggestion = document.querySelector('#b-suggested-tags-2 .js-related-suggestion[data-id="' + relatedId + '"]');
+                 if (suggestion) {
+                     suggestion.remove();
+                 }
+             });
+
+             if (removed.length) {
+                 toastr.info('Убраны и связанные с ним хештеги: ' + removed.join(', '));
+             }
+         }
+
          function addRelatedTag(id, title, parentTitle) {
              const tag = document.createElement('span');
              tag.className = 'tag tag--related';
@@ -3692,16 +3743,22 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      (response.hashtags || []).forEach(function (related) {
                          const relatedId = String(related.id);
                          if (isSelected(relatedId)) {
+                             // уже подставлен от другого тега — теперь его держат оба (выбранные руками не трогаем)
+                             if (related.auto && relatedSources[relatedId]) {
+                                 addSource(relatedSources, relatedId, id);
+                             }
                              return;
                          }
                          // общее выбранного ("Самара Уивинг" → "актриса") — добавляем сразу,
                          // конкретнее ("актриса" → "Самара Уивинг") — только предлагаем (HashtagController::relatedFor)
                          if (related.auto) {
                              if (!dismissedRelatedHashtags[relatedId]) {
+                                 addSource(relatedSources, relatedId, id);
                                  addRelatedTag(relatedId, related.title, title);
                                  added.push('#' + related.title);
                              }
                          } else {
+                             addSource(suggestionSources, relatedId, id);
                              suggestRelatedTag(relatedId, related.title, title, related.usage);
                          }
                      });
@@ -3715,6 +3772,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          new MutationObserver(function (mutations) {
              mutations.forEach(function (mutation) {
+                 // убрали из выбранных (крестиком или как-то ещё) — вместе с ним его связанные
+                 mutation.removedNodes.forEach(function (node) {
+                     if (node.nodeType === 1 && node.classList.contains('tag') && node.getAttribute('data-id')) {
+                         onTagRemoved(node.getAttribute('data-id'));
+                     }
+                 });
                  mutation.addedNodes.forEach(function (node) {
                      if (node.nodeType !== 1 || !node.classList.contains('tag') || node.classList.contains('tag--related')) {
                          return;
