@@ -3181,6 +3181,29 @@ margin: 0 0 20px 0;
 .tags li a:hover {
     color: #343a40;
 }
+/* карточка ленты: видны первые 8 хештегов (= Post::CARD_HASHTAGS_SHOWN, CARD_TAGS_SHOWN в admin.js),
+   остальные — по кнопке "+N" (.tags__more); развернули — .is-expanded */
+.tags.tags--collapsible:not(.is-expanded) li:nth-child(n+9) {
+    display: none;
+}
+.tags__more {
+    display: inline-block;
+    margin: -5px 0 10px;
+    padding: 4px 10px;
+    font-size: 13px;
+    line-height: inherit;
+    color: #7367f0;
+    background: transparent;
+    border: 1px dashed #cfc4ff;
+    border-radius: 2px;
+    cursor: pointer;
+}
+.tags__more:hover {
+    background: #f7f4ff;
+}
+.tags__more[hidden] {
+    display: none;
+}
 /* собственный хештег поста группы (не общий для группы) — как на странице группы, .b-post-group__own-tag */
 .tags li.tags__own {
     background: #fff4e5;

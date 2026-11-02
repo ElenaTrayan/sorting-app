@@ -186,6 +186,10 @@
                 $li.addClass('tags__own').attr('title', 'Хештег только этого поста группы');
             }
         });
+        // хештегов стало больше — кнопка "+N" под ними (admin.js)
+        if (window.refreshCardTagsMore) {
+            window.refreshCardTagsMore($tags.closest('.b-card__footer'));
+        }
     }
 
     $modal.on('click', '[data-action=save-request]', function () {

@@ -96,6 +96,34 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
  var containerWidth = 1200;
 
+ // в карточке ленты видно столько хештегов (= Post::CARD_HASHTAGS_SHOWN, nth-child в admin-panel.css)
+ var CARD_TAGS_SHOWN = 8;
+
+ // Кнопка "+N" под хештегами карточки: сколько скрыто, или "свернуть", если список развёрнут. Вызывать после
+ // любой перерисовки хештегов карточки (правка с карточки — admin.js, массовое добавление — posts-bulk.js)
+ //
+ // @param {jQuery} footer .b-card__footer карточки
+ function refreshCardTagsMore(footer) {
+     let list = footer.find('.tags').first();
+     if (!list.length) {
+         return;
+     }
+     list.addClass('tags--collapsible');
+
+     let button = footer.find('.js-tags-more');
+     if (!button.length) {
+         button = $('<button type="button" class="tags__more js-tags-more"></button>').insertAfter(list);
+     }
+
+     let hiddenCount = list.children('li').length - CARD_TAGS_SHOWN;
+     button.prop('hidden', hiddenCount <= 0);
+     button.text(list.hasClass('is-expanded') ? 'свернуть' : '+' + hiddenCount);
+     if (hiddenCount <= 0) {
+         list.removeClass('is-expanded');
+     }
+ }
+ window.refreshCardTagsMore = refreshCardTagsMore;
+
  var masonryOptions = {
      itemSelector: '.grid-item',
      //columnWidth: '.grid-item',
@@ -167,6 +195,23 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // позже (бесконечная прокрутка, поиск — см. $grid.masonry('appended', ...) ниже)
      $(document).on('loadedmetadata', '.grid .b-card__content__video video', function () {
          $('.grid').masonry('layout');
+     });
+
+     // "+N" у хештегов карточки ленты (post_items.blade.php): развернуть/свернуть список. Высота карточки
+     // меняется — пересчитываем раскладку той сетки, в которой она стоит (лента, поиск, страница контакта)
+     $(document).on('click', '.js-tags-more', function (e) {
+         e.preventDefault();
+         e.stopPropagation();
+         let footer = $(this).closest('.b-card__footer');
+         footer.find('.tags--collapsible').toggleClass('is-expanded');
+         refreshCardTagsMore(footer);
+
+         let masonryGrid = $(this).parents().filter(function () {
+             return !!$(this).data('masonry');
+         }).first();
+         if (masonryGrid.length) {
+             masonryGrid.masonry('layout');
+         }
      });
 
      // var $grid = $('.grid').imagesLoaded( function() {
@@ -5476,12 +5521,17 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      for (key in savedHashtags) {
                          console.log(key);
-                         let postHashtag = $('<li data-id="' + key + '" data-title="' + savedHashtags[key] + '"><a rel="tag" href="#">#' + savedHashtags[key] + '</a></li>');
+                         let postHashtag = $('<li></li>')
+                             .attr('data-id', key)
+                             .attr('data-title', savedHashtags[key])
+                             .append($('<a rel="tag" href="#"></a>').text('#' + savedHashtags[key]));
                          if (isGroupPostCard && groupCommonIds.indexOf(String(key)) === -1) {
                              postHashtag.addClass('tags__own').attr('title', 'Хештег только этого поста группы');
                          }
                          postHashtagsElement.append(postHashtag);
                      }
+                     // число хештегов поменялось — и надпись "+N"
+                     refreshCardTagsMore(postElement.find('.b-card__footer'));
 
                      $grid.masonry( masonryOptions );
 

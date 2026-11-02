@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -789,6 +790,46 @@ class Post extends Model
     public function hashtags()
     {
         return $this->belongsToMany(Hashtag::class, 'hashtag_post', 'post_id', 'hashtag_id');
+    }
+
+    // хештег -> число постов пользователя с ним, на один запрос страницы (cardHashtags)
+    private static array $hashtagUsageByUser = [];
+
+    // в карточке ленты видно столько хештегов, остальные — под кнопкой "+N" (post_items.blade.php, .tags--collapsible)
+    public const CARD_HASHTAGS_SHOWN = 8;
+
+    /**
+     * Хештеги для карточки в ленте: сначала конкретные, потом общие. Хештег-название ("фильм Багровый пик",
+     * "сериал Сплетница") — всегда первым: у него постов больше, чем у второстепенных актёров, а важнее он.
+     * Остальные — по редкости: чем меньше постов пользователя с хештегом, тем он конкретнее (имя), частые
+     * ("актриса", "фильмы", год) уходят в конец, под "+N". При равенстве — как были
+     *
+     * @return Collection
+     */
+    public function cardHashtags(): Collection
+    {
+        $hashtags = $this->hashtags;
+        if ($hashtags->count() <= self::CARD_HASHTAGS_SHOWN) {
+            return $hashtags;
+        }
+
+        $userId = (int)$this->user_id;
+        if (!isset(self::$hashtagUsageByUser[$userId])) {
+            self::$hashtagUsageByUser[$userId] = DB::table('hashtag_post')
+                ->join('posts', 'posts.id', '=', 'hashtag_post.post_id')
+                ->where('posts.user_id', $userId)
+                ->whereNull('posts.deleted_at')
+                ->selectRaw('hashtag_post.hashtag_id, count(*) as total')
+                ->groupBy('hashtag_post.hashtag_id')
+                ->pluck('total', 'hashtag_id')
+                ->all();
+        }
+        $usage = self::$hashtagUsageByUser[$userId];
+
+        return $hashtags->sortBy(function (Hashtag $hashtag) use ($usage) {
+            $isTitle = (bool)preg_match('~^(фильм|сериал)\s+\S~iu', trim((string)$hashtag->title));
+            return [$isTitle ? 0 : 1, (int)($usage[$hashtag->id] ?? 0)];
+        })->values();
     }
 
     /**

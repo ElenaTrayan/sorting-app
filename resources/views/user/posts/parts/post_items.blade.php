@@ -159,17 +159,23 @@
         </div><!-- /.b-card__content -->
 
         @if (!empty($post->hashtags) && $post->hashtags->isNotEmpty())
+            @php $hiddenHashtagsCount = $post->hashtags->count() - \App\Models\Post::CARD_HASHTAGS_SHOWN; @endphp
             <div class="b-card__footer">
-                <ul class="tags">
+                {{-- tags--collapsible: видны первые Post::CARD_HASHTAGS_SHOWN (CSS), остальные — по кнопке "+N" ниже.
+                     Конкретные хештеги — первыми, частые общие — в конце (Post::cardHashtags()) --}}
+                <ul class="tags tags--collapsible">
                     {{-- у отдельной карточки поста группы собственные хештеги (не общие для группы) — другим цветом,
                          Post::fillGroupOwnHashtagIds() --}}
-                    @foreach($post->hashtags as $hashtag)
+                    @foreach($post->cardHashtags() as $hashtag)
                         @php $isOwnHashtag = in_array((int)$hashtag->id, $post->own_hashtag_ids ?? [], true); @endphp
                         <li data-id="{{ $hashtag->id }}" data-title="{{ $hashtag->title }}" @if ($isOwnHashtag) class="tags__own" title="Хештег только этого поста группы" @endif>
                             <a rel="tag" href="#">#{{ $hashtag->title }}</a>
                         </li>
                     @endforeach
                 </ul>
+                {{-- не <li>: список читают как хештеги поста (окно "Добавить тег", admin.js). Надпись ведёт admin.js
+                     (refreshCardTagsMore) — и после правки хештегов прямо с карточки --}}
+                <button type="button" class="tags__more js-tags-more" @if ($hiddenHashtagsCount <= 0) hidden @endif>+{{ max($hiddenHashtagsCount, 0) }}</button>
             </div><!-- /.card-footer -->
         @endif
 
