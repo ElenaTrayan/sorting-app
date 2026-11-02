@@ -276,17 +276,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              if (isLoadingMore || noMoreRecords) {
                  return;
              }
-             console.log(window.location.pathname);
-             console.log('---scroll---');
-             console.log($(window).scrollTop());
-             console.log($(window).height());
-             console.log($(document).height());
              // раньше было +10 — запрос уходил, только когда пользователь долистал прямо
              // до низа страницы, и он видел пустые "короткие" колонки, пока грузится и
              // рендерится следующая порция; +800 запускает подгрузку заранее, пока
              // видимая часть ещё не долистана до конца
              if($(window).scrollTop() + $(window).height() + 800 >= $(document).height()) {
-                 console.log('---scroll2---');
                  page++;
                  loadMoreData(page);
              }
@@ -313,10 +307,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              requestUrl = window.location.pathname + '?' + params.toString();
          }
 
-         // disable scrolling on page load
-         document.body.style.overflow = 'hidden';
-
-         //TODO
+         // Прокрутку на время подгрузки больше не выключаем (было body overflow:hidden): вместе с ней пропадала
+         // полоса прокрутки, ширина страницы менялась на её ширину, и вся сетка дёргалась — сначала при
+         // скрытии полосы, потом при возврате. От повторных запросов и так защищает isLoadingMore
 
          $.ajax(
              {
@@ -337,37 +330,26 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  // пустая страница из шаблона — это пробелы/переносы, а не совсем пустая строка
                  if ($.trim(html) === '') {
                      $('.ajax-load').html('<span class="ajax-load__text">Больше постов нет</span>');
-                     // больше подгружать нечего — вернуть возможность скроллить страницу
-                     // и не пытаться больше грузить следующие страницы
-                     document.body.style.overflow = '';
+                     // больше подгружать нечего — не пытаться больше грузить следующие страницы
                      isLoadingMore = false;
                      noMoreRecords = true;
                      return;
                  }
 
-                 // $grid.append(html).masonry('appended', html);
-                 // $grid.masonry();
+                 // В сетку — только когда картинки новых карточек загрузились (картинки грузятся и у ещё не
+                 // вставленной разметки): тогда Masonry сразу знает их высоту и ставит их один раз, добавляя
+                 // снизу ('appended'), а уже стоящие на экране карточки не трогает. Раньше карточки вставлялись
+                 // сразу (с неверной высотой), а потом вся сетка перестраивалась заново (reloadItems + новая
+                 // инициализация) — карточки на экране могли сдвинуться
+                 // document — явно: без него jQuery 3 разбирает разметку в "инертном" документе, где картинки не грузятся
+                 var $content = $($.parseHTML($.trim(html), document)).filter('.grid-item');
+                 $content.imagesLoaded().always(function () {
+                     $content.css('opacity', 0);
+                     $grid.append($content);
+                     $grid.masonry('appended', $content);
 
-                 var $content = $( html );
-                 // прячем новые карточки, пока картинки не загрузились и Masonry не расставила
-                 // их по местам — иначе видно, как они наезжают друг на друга в процессе
-                 $content.css('opacity', 0);
-                 $grid.append( $content );
-                 $grid.masonry( 'appended', $content) ;
-
-                 // wait for images and Masonry layout to load
-                 var $gridd = $('.grid').imagesLoaded( function() {
-                     // init Masonry after all images have loaded
-                     $gridd.masonry('reloadItems');
-                     $gridd.masonry(masonryOptions);
-
-                     // только теперь показываем прелоадер как завершённый и плавно
-                     // проявляем новые карточки — раскладка уже корректная
                      $('.ajax-load').hide();
                      $content.animate({opacity: 1}, 200);
-
-                     // enable scrolling when images and Masonry layout have loaded
-                     document.body.style.overflow = '';
                      isLoadingMore = false;
                  });
 
@@ -399,9 +381,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              .fail(function(jqXHR, ajaxOptions, thrownError)
              {
                   console.log('fff');
-                 // запрос не удался — тоже вернуть возможность скроллить страницу
+                 // запрос не удался — дальше прокрутка может попробовать снова
                  $('.ajax-load').hide();
-                 document.body.style.overflow = '';
                  isLoadingMore = false;
                  alert('server not responding...');
              })
