@@ -1730,9 +1730,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              addImagesToCreationForm(added, file);
              return;
          }
-         // не добавлять — файлы этой картинки во временной папке больше не нужны
+         // не добавлять — файлы этой картинки во временной папке больше не нужны. В "Не добавлены" её не пишем:
+         // это решение самого пользователя в окне сравнения, а не ошибка загрузки
          deleteTempFile(duplicate.image.image_name, duplicate.image.image_extension);
-         showRejectedUploads([{file: duplicate.file, message: 'не добавлена — такая картинка уже есть на форме'}]);
      }
 
      // Список картинок, которые не попали на форму создания: в блоке предупреждения под загрузкой
