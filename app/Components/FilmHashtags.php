@@ -3,6 +3,7 @@
 namespace App\Components;
 
 use App\Models\Hashtag;
+use App\Models\Post;
 use App\Models\PostFilm;
 
 /**
@@ -35,6 +36,10 @@ class FilmHashtags
         'Хочу посмотреть' => 'хочу посмотреть',
         'Бросил(а)' => 'брошено',
     ];
+
+    // пост с одним из этих хештегов и хештегом с названием фильма — кадр этого фильма: сам попадает
+    // во вкладку "Кадры" на странице фильма (PostController::autoAttachFilmStills)
+    public const STILL_HASHTAGS = ['кадр из фильма', 'кадр из кино', 'кинокадр'];
 
     // актёров на сайтах бывает 20+ — хештегами только главные роли (первые в списке)
     private const MAX_ACTORS = 5;
@@ -86,7 +91,7 @@ class FilmHashtags
      * Хештег с названием фильма — "фильм Багровый пик", "сериал Сплетница". Только уже заведённый
      * пользователем: такие хештеги он пишет сам, новый не создаём. Префикс — по виду (у сериалов сначала
      * "сериал", потом "фильм", у остальных наоборот: бывают оба). Сравнение без регистра, ё/е и знаков
-     * препинания ("Она - мужчина" = "Она — мужчина"); у названия пробуем и вариант без года в скобках
+     * препинания ("Она - мужчина" = "Она — мужчина"); у названия пробуем и вариант без приписки в скобках
      *
      * @param int $userId
      * @param string[] $filmTitles название поста, оригинальное название
@@ -102,11 +107,11 @@ class FilmHashtags
                 continue;
             }
             $variants[] = $title;
-            // "Багровый пик (2015)", "Багровый пик, 2015". Год без скобок/запятой не трогаем: в "Бегущий
-            // по лезвию 2049" это часть названия
-            $withoutYear = trim(preg_replace('~\s*(\(\s*(18|19|20)\d{2}\s*\)|,\s*(18|19|20)\d{2})\s*$~u', '', $title));
-            if ($withoutYear !== '' && $withoutYear !== $title) {
-                $variants[] = $withoutYear;
+            // приписка в конце: "Багровый пик (2015)", "Любовницы (1-4 сезон)", "Багровый пик, 2015". Год без
+            // скобок/запятой не трогаем: в "Бегущий по лезвию 2049" это часть названия
+            $withoutSuffix = trim(preg_replace('~\s*(\([^()]*\)|,\s*(18|19|20)\d{2})\s*$~u', '', $title));
+            if ($withoutSuffix !== '' && $withoutSuffix !== $title) {
+                $variants[] = $withoutSuffix;
             }
         }
         if (empty($variants)) {
@@ -137,6 +142,44 @@ class FilmHashtags
         }
 
         return null;
+    }
+
+    /**
+     * id хештегов-кадров пользователя (STILL_HASHTAGS; без регистра, ё/е и знаков препинания)
+     *
+     * @param int $userId
+     * @return int[]
+     */
+    public static function stillHashtagIds(int $userId): array
+    {
+        $keys = array_map([self::class, 'looseKey'], self::STILL_HASHTAGS);
+
+        // все STILL_HASHTAGS содержат "кадр" — им и отсекаем лишнее в БД, точное сравнение ниже
+        return Hashtag::where('user_id', $userId)
+            ->where('title', 'like', '%кадр%')
+            ->get(['id', 'title'])
+            ->filter(fn (Hashtag $hashtag) => in_array(self::looseKey($hashtag->title), $keys, true))
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * id хештега с названием фильма ("фильм Багровый пик") — по названию и оригинальному (findTitleHashtag).
+     * Хештеги "фильм …", стоящие у самого поста-фильма, не берём: среди них бывают и чужие (у "Прости за
+     * любовь" — "фильм Сумерки"), кадры ушли бы не к тому фильму
+     *
+     * @param Post $film пост типа "Фильм / Сериал"
+     * @return int[]
+     */
+    public static function titleHashtagIds(Post $film): array
+    {
+        $byTitle = self::findTitleHashtag(
+            (int)$film->user_id,
+            [$film->title, optional($film->film)->original_title],
+            optional($film->film)->kind
+        );
+
+        return $byTitle !== null ? [$byTitle->id] : [];
     }
 
     /**

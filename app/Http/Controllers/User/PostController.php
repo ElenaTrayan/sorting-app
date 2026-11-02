@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Components\ColorMatch;
+use App\Components\FilmHashtags;
 use App\Components\HashtagSuggester;
 use App\Components\ImagePalette;
 use App\Components\ImageReader;
@@ -700,8 +701,39 @@ class PostController extends Controller
             'post' => $post,
             'galleryImages' => $galleryImages,
             'groupCount' => $groupCount,
-            'filmMaterials' => $post->type === Post::TYPE_FILM ? $this->filmMaterialsBySection($post) : null,
+            'filmMaterials' => $post->type === Post::TYPE_FILM ? $this->filmMaterialsBySection($post, true) : null,
         ]);
+    }
+
+    /**
+     * Кадры фильма по хештегам: пост с хештегом-кадром (#кадр из фильма, #кадр из кино, #кинокадр) и хештегом
+     * с названием этого фильма (#фильм Багровый пик) прикрепляем к нему как кадр. Только свободные посты:
+     * прикреплённые к другому фильму не переносим, открепленные вручную (Post::MATERIAL_NO_AUTO) не возвращаем
+     *
+     * @param Post $film
+     * @return int сколько прикреплено
+     */
+    private function autoAttachFilmStills(Post $film): int
+    {
+        $titleIds = FilmHashtags::titleHashtagIds($film);
+        if (empty($titleIds)) {
+            return 0;
+        }
+        $stillIds = FilmHashtags::stillHashtagIds((int)$film->user_id);
+        if (empty($stillIds)) {
+            return 0;
+        }
+
+        // toBase(): не трогаем updated_at — сами посты не менялись
+        return Post::where('user_id', $film->user_id)
+            ->where('id', '!=', $film->id)
+            ->where('type', '!=', Post::TYPE_FILM)
+            ->whereNull('film_post_id')
+            ->whereNull('film_material_kind')
+            ->whereHas('hashtags', fn ($q) => $q->whereIn('hashtags.id', $titleIds))
+            ->whereHas('hashtags', fn ($q) => $q->whereIn('hashtags.id', $stillIds))
+            ->toBase()
+            ->update(['film_post_id' => $film->id, 'film_material_kind' => Post::MATERIAL_STILL]);
     }
 
     /**
@@ -709,10 +741,15 @@ class PostController extends Controller
      * [раздел => коллекция постов], разделы — все из Post::MATERIAL_SECTION_LABELS, в том числе пустые
      *
      * @param Post $film
+     * @param bool $autoAttach сначала прикрепить кадры по хештегам (autoAttachFilmStills)
      * @return array
      */
-    private function filmMaterialsBySection(Post $film): array
+    private function filmMaterialsBySection(Post $film, bool $autoAttach = false): array
     {
+        if ($autoAttach) {
+            $this->autoAttachFilmStills($film);
+        }
+
         $materials = Post::where('film_post_id', $film->id)
             ->where('user_id', auth()->id())
             ->orderBy('id')
@@ -820,11 +857,12 @@ class PostController extends Controller
      */
     public function detachFilmMaterial(Post $post, $materialId)
     {
+        // MATERIAL_NO_AUTO: открепили сами — кадр по хештегам сюда больше сам не вернётся (autoAttachFilmStills)
         $detached = Post::where('user_id', auth()->id())
             ->where('id', $materialId)
             ->where('film_post_id', $post->id)
             ->toBase()
-            ->update(['film_post_id' => null, 'film_material_kind' => null]);
+            ->update(['film_post_id' => null, 'film_material_kind' => Post::MATERIAL_NO_AUTO]);
 
         abort_unless($detached, 404);
 
