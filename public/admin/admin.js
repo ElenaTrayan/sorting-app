@@ -612,46 +612,88 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
      }
 
-     // При перетаскивании файлов в форму, подсветить
-     uploadImageSection.on('dragover', function (e) {
-         $(this).addClass('dd');
-         e.preventDefault();
-         e.stopPropagation();
-     });
+     // ===== Перетаскивание файлов на всю страницу (как в Google Диске) =====
+     // Файл можно бросить куда угодно на странице создания, а не целиться в дропзону: пока файл тащат над
+     // окном, страницу накрывает панель "Отпустите, чтобы загрузить" (.js-page-drop), бросили — та же загрузка,
+     // что и из дропзоны (картинки — на форму, видео — в видео поста). Реагируем только на файлы: перетаскивание
+     // текста и сортировка превью (jQuery UI, не drag&drop) не трогаются. Панель лежит поверх всего, и редактора
+     // текста тоже — иначе TinyMCE вставил бы брошенную картинку прямо в текст
+     if (uploadImageSection.length) {
+         const pageDrop = $(
+             '<div class="b-page-drop js-page-drop" hidden>' +
+                 '<div class="b-page-drop__box">' +
+                     '<i class="fas fa-cloud-upload-alt b-page-drop__icon"></i>' +
+                     '<div class="b-page-drop__title">Отпустите, чтобы загрузить</div>' +
+                     '<div class="b-page-drop__hint">Картинки и видео — на форму поста</div>' +
+                 '</div>' +
+             '</div>'
+         ).appendTo('body');
+         // dragenter/dragleave приходят на каждый элемент под курсором — считаем глубину, чтобы панель
+         // не мигала при переходе с элемента на элемент
+         let pageDragDepth = 0;
 
-     // Предотвратить действие по умолчанию для события dragenter
-     uploadImageSection.on('dragenter', function (e) {
-         e.preventDefault();
-         e.stopPropagation();
-     });
-
-     uploadImageSection.on('dragleave', function (e) {
-         $(this).removeClass('dd');
-     });
-
-     uploadImageSection.on('drop', function (e) {
-         $(this).addClass('active');
-
-         console.log($(this));
-         console.log($(e.target));
-
-         var url = $(e.target).closest('.js-upload-image-section').attr('data-action');
-
-         if (e.originalEvent.dataTransfer) {
-             if (e.originalEvent.dataTransfer.files.length) {
-                 e.preventDefault();
-                 e.stopPropagation();
-
-                 console.log(e.originalEvent.dataTransfer);
-
-                 // Вызвать функцию загрузки. Перетаскиваемые файлы содержатся
-                 // в свойстве e.originalEvent.dataTransfer.files
-                 uploadDroppedFiles(e.originalEvent.dataTransfer.files, url);
-
-                 //$('#add-project-form').trigger('click');
-             }
+         function isFileDrag(e) {
+             let dt = e.originalEvent && e.originalEvent.dataTransfer;
+             return !!dt && Array.prototype.indexOf.call(dt.types || [], 'Files') !== -1;
          }
-     });
+
+         function hidePageDrop() {
+             pageDragDepth = 0;
+             pageDrop.prop('hidden', true);
+             uploadImageSection.removeClass('dd');
+         }
+
+         $(document).on('dragenter', function (e) {
+             // открыто окно (сравнение дубликатов, редактор картинки) — не до загрузки
+             if (!isFileDrag(e) || $('.modal.show').length) {
+                 return;
+             }
+             e.preventDefault();
+             pageDragDepth++;
+             pageDrop.prop('hidden', false);
+             uploadImageSection.addClass('dd');
+         });
+
+         $(document).on('dragover', function (e) {
+             if (!isFileDrag(e)) {
+                 return;
+             }
+             e.preventDefault();
+             // панель скрыта (открыто окно) — бросить нельзя: иначе браузер открыл бы файл вместо страницы,
+             // и заполненная форма пропала бы
+             e.originalEvent.dataTransfer.dropEffect = pageDrop.prop('hidden') ? 'none' : 'copy';
+         });
+
+         $(document).on('dragleave', function (e) {
+             if (!isFileDrag(e) || pageDrop.prop('hidden')) {
+                 return;
+             }
+             pageDragDepth = Math.max(0, pageDragDepth - 1);
+             if (!pageDragDepth) {
+                 hidePageDrop();
+             }
+         });
+
+         $(document).on('drop', function (e) {
+             if (!isFileDrag(e)) {
+                 return;
+             }
+             e.preventDefault();
+             if (pageDrop.prop('hidden')) {
+                 return;
+             }
+             hidePageDrop();
+
+             let files = e.originalEvent.dataTransfer.files;
+             if (files && files.length) {
+                 uploadImageSection.addClass('active');
+                 uploadDroppedFiles(files, uploadImageSection.attr('data-action'));
+             }
+         });
+
+         // перетаскивание отменили (Esc, увели за окно и отпустили) — dragleave может и не прийти
+         $(window).on('blur', hidePageDrop);
+     }
 
      // Классическая загрузка файлов через input[type=file] (кнопка "Выбрать файл"
      // в дропзоне, .js-pin-choose-file, см. /admin/pin-create.js — сам input открывает

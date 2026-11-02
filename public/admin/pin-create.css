@@ -121,6 +121,48 @@
     box-shadow: 0 1px 2px rgba(23, 20, 50, .04);
     padding: 18px 20px;
 }
+/* Перетаскивание файлов на всю страницу (admin.js, .js-page-drop): пока файл над окном — панель поверх
+   всей страницы, бросить можно куда угодно */
+.b-page-drop {
+    position: fixed;
+    inset: 0;
+    z-index: 2000; /* выше шапки, сайдбара и нижней панели формы; модальные окна в это время не открыты */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(115, 103, 240, .12);
+    border: 3px dashed #7367f0;
+    backdrop-filter: blur(2px);
+}
+.b-page-drop[hidden] {
+    display: none;
+}
+.b-page-drop__box {
+    /* панель ловит drop сама — подписи не должны перехватывать события перетаскивания */
+    pointer-events: none;
+    padding: 28px 40px;
+    text-align: center;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(23, 20, 50, .18);
+}
+.b-page-drop__icon {
+    font-size: 44px;
+    color: #7367f0;
+}
+.b-page-drop__title {
+    margin-top: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f1f2e;
+}
+.b-page-drop__hint {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #8b89a0;
+}
+
 /* скрытые по типу пина карточка и поле (например, "Количество" и "Дата" у фильма — pin-create.js) */
 .b-pin-card[hidden],
 .b-pin-field[hidden] {
