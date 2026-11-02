@@ -37,9 +37,13 @@ class FilmHashtags
         'Бросил(а)' => 'брошено',
     ];
 
-    // пост с одним из этих хештегов и хештегом с названием фильма — кадр этого фильма: сам попадает
-    // во вкладку "Кадры" на странице фильма (PostController::autoAttachFilmStills)
-    public const STILL_HASHTAGS = ['кадр из фильма', 'кадр из кино', 'кинокадр'];
+    // пост с одним из хештегов раздела и хештегом с названием фильма сам попадает в этот раздел "Материалов"
+    // на странице фильма (PostController::autoAttachFilmMaterials). Порядок важен: пост с хештегами двух
+    // разделов достаётся первому
+    public const MATERIAL_HASHTAGS = [
+        Post::MATERIAL_STILL => ['кадр из фильма', 'кадр из кино', 'кинокадр'],
+        Post::MATERIAL_PROMO => ['промо', 'промоматериал'],
+    ];
 
     // актёров на сайтах бывает 20+ — хештегами только главные роли (первые в списке)
     private const MAX_ACTORS = 5;
@@ -145,18 +149,28 @@ class FilmHashtags
     }
 
     /**
-     * id хештегов-кадров пользователя (STILL_HASHTAGS; без регистра, ё/е и знаков препинания)
+     * id хештегов пользователя для раздела материалов фильма (MATERIAL_HASHTAGS; без регистра, ё/е и знаков
+     * препинания)
      *
      * @param int $userId
+     * @param string $kind Post::MATERIAL_STILL | Post::MATERIAL_PROMO
      * @return int[]
      */
-    public static function stillHashtagIds(int $userId): array
+    public static function materialHashtagIds(int $userId, string $kind): array
     {
-        $keys = array_map([self::class, 'looseKey'], self::STILL_HASHTAGS);
+        $titles = self::MATERIAL_HASHTAGS[$kind] ?? [];
+        if (empty($titles)) {
+            return [];
+        }
+        $keys = array_map([self::class, 'looseKey'], $titles);
 
-        // все STILL_HASHTAGS содержат "кадр" — им и отсекаем лишнее в БД, точное сравнение ниже
+        // в БД отсекаем лишнее по первому слову ("кадр", "промо"), точное сравнение — ниже
         return Hashtag::where('user_id', $userId)
-            ->where('title', 'like', '%кадр%')
+            ->where(function ($query) use ($titles) {
+                foreach ($titles as $title) {
+                    $query->orWhere('title', 'like', '%' . strtok($title, ' ') . '%');
+                }
+            })
             ->get(['id', 'title'])
             ->filter(fn (Hashtag $hashtag) => in_array(self::looseKey($hashtag->title), $keys, true))
             ->pluck('id')

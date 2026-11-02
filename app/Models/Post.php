@@ -71,7 +71,7 @@ class Post extends Model
     public const MATERIAL_VIDEO = 'video';
 
     // film_material_kind у поста, который открепили от фильма вручную (film_post_id = null): автоматически
-    // в кадры его больше не прикрепляем (PostController::autoAttachFilmStills). Прикрепить вручную — можно
+    // в материалы его больше не прикрепляем (PostController::autoAttachFilmMaterials). Прикрепить вручную — можно
     public const MATERIAL_NO_AUTO = 'no_auto';
 
     public const MATERIAL_KIND_LABELS = [

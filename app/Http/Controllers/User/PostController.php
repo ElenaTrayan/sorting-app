@@ -706,34 +706,41 @@ class PostController extends Controller
     }
 
     /**
-     * Кадры фильма по хештегам: пост с хештегом-кадром (#кадр из фильма, #кадр из кино, #кинокадр) и хештегом
-     * с названием этого фильма (#фильм Багровый пик) прикрепляем к нему как кадр. Только свободные посты:
-     * прикреплённые к другому фильму не переносим, открепленные вручную (Post::MATERIAL_NO_AUTO) не возвращаем
+     * Материалы фильма по хештегам: пост с хештегом раздела (кадры — #кадр из фильма, #кадр из кино, #кинокадр;
+     * промо — #промо, #промоматериал, FilmHashtags::MATERIAL_HASHTAGS) и хештегом с названием этого фильма
+     * (#фильм Багровый пик) прикрепляем к нему в этот раздел. Только свободные посты: прикреплённые к другому
+     * фильму не переносим, открепленные вручную (Post::MATERIAL_NO_AUTO) не возвращаем
      *
      * @param Post $film
      * @return int сколько прикреплено
      */
-    private function autoAttachFilmStills(Post $film): int
+    private function autoAttachFilmMaterials(Post $film): int
     {
         $titleIds = FilmHashtags::titleHashtagIds($film);
         if (empty($titleIds)) {
             return 0;
         }
-        $stillIds = FilmHashtags::stillHashtagIds((int)$film->user_id);
-        if (empty($stillIds)) {
-            return 0;
+
+        $attached = 0;
+        foreach (array_keys(FilmHashtags::MATERIAL_HASHTAGS) as $kind) {
+            $kindIds = FilmHashtags::materialHashtagIds((int)$film->user_id, $kind);
+            if (empty($kindIds)) {
+                continue;
+            }
+
+            // toBase(): не трогаем updated_at — сами посты не менялись
+            $attached += Post::where('user_id', $film->user_id)
+                ->where('id', '!=', $film->id)
+                ->where('type', '!=', Post::TYPE_FILM)
+                ->whereNull('film_post_id')
+                ->whereNull('film_material_kind')
+                ->whereHas('hashtags', fn ($q) => $q->whereIn('hashtags.id', $titleIds))
+                ->whereHas('hashtags', fn ($q) => $q->whereIn('hashtags.id', $kindIds))
+                ->toBase()
+                ->update(['film_post_id' => $film->id, 'film_material_kind' => $kind]);
         }
 
-        // toBase(): не трогаем updated_at — сами посты не менялись
-        return Post::where('user_id', $film->user_id)
-            ->where('id', '!=', $film->id)
-            ->where('type', '!=', Post::TYPE_FILM)
-            ->whereNull('film_post_id')
-            ->whereNull('film_material_kind')
-            ->whereHas('hashtags', fn ($q) => $q->whereIn('hashtags.id', $titleIds))
-            ->whereHas('hashtags', fn ($q) => $q->whereIn('hashtags.id', $stillIds))
-            ->toBase()
-            ->update(['film_post_id' => $film->id, 'film_material_kind' => Post::MATERIAL_STILL]);
+        return $attached;
     }
 
     /**
@@ -741,13 +748,13 @@ class PostController extends Controller
      * [раздел => коллекция постов], разделы — все из Post::MATERIAL_SECTION_LABELS, в том числе пустые
      *
      * @param Post $film
-     * @param bool $autoAttach сначала прикрепить кадры по хештегам (autoAttachFilmStills)
+     * @param bool $autoAttach сначала прикрепить кадры по хештегам (autoAttachFilmMaterials)
      * @return array
      */
     private function filmMaterialsBySection(Post $film, bool $autoAttach = false): array
     {
         if ($autoAttach) {
-            $this->autoAttachFilmStills($film);
+            $this->autoAttachFilmMaterials($film);
         }
 
         $materials = Post::where('film_post_id', $film->id)
@@ -857,7 +864,7 @@ class PostController extends Controller
      */
     public function detachFilmMaterial(Post $post, $materialId)
     {
-        // MATERIAL_NO_AUTO: открепили сами — кадр по хештегам сюда больше сам не вернётся (autoAttachFilmStills)
+        // MATERIAL_NO_AUTO: открепили сами — кадр по хештегам сюда больше сам не вернётся (autoAttachFilmMaterials)
         $detached = Post::where('user_id', auth()->id())
             ->where('id', $materialId)
             ->where('film_post_id', $post->id)
