@@ -613,21 +613,34 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      }
 
      // ===== Перетаскивание файлов на всю страницу (как в Google Диске) =====
-     // Файл можно бросить куда угодно на странице создания, а не целиться в дропзону: пока файл тащат над
-     // окном, страницу накрывает панель "Отпустите, чтобы загрузить" (.js-page-drop), бросили — та же загрузка,
-     // что и из дропзоны (картинки — на форму, видео — в видео поста). Реагируем только на файлы: перетаскивание
-     // текста и сортировка превью (jQuery UI, не drag&drop) не трогаются. Панель лежит поверх всего, и редактора
-     // текста тоже — иначе TinyMCE вставил бы брошенную картинку прямо в текст
+     // Файл можно бросить куда угодно на странице создания или редактирования поста, а не целиться в дропзону:
+     // пока файл тащат над окном, страницу накрывает панель "Отпустите, чтобы загрузить" (.js-page-drop),
+     // бросили — на document приходит событие page-files-drop (detail.files), загрузку делает сама страница:
+     // создание — та же загрузка, что из дропзоны, редактирование — блоки "Изображения" и "Видео" (ниже).
+     // Реагируем только на файлы: перетаскивание текста и сортировка превью (jQuery UI, не drag&drop) не
+     // трогаются. Панель лежит поверх всего, и редактора текста тоже — иначе TinyMCE вставил бы брошенную
+     // картинку прямо в текст
+     const pageDropHint = uploadImageSection.length ? 'Картинки и видео — на форму поста'
+         : (document.getElementById('post-images') ? 'Картинки — в изображения поста, видео — в видео поста' : '');
+
      if (uploadImageSection.length) {
+         document.addEventListener('page-files-drop', function (e) {
+             uploadImageSection.addClass('active');
+             uploadDroppedFiles(e.detail.files, uploadImageSection.attr('data-action'));
+         });
+     }
+
+     if (pageDropHint) {
          const pageDrop = $(
              '<div class="b-page-drop js-page-drop" hidden>' +
                  '<div class="b-page-drop__box">' +
                      '<i class="fas fa-cloud-upload-alt b-page-drop__icon"></i>' +
                      '<div class="b-page-drop__title">Отпустите, чтобы загрузить</div>' +
-                     '<div class="b-page-drop__hint">Картинки и видео — на форму поста</div>' +
+                     '<div class="b-page-drop__hint"></div>' +
                  '</div>' +
              '</div>'
          ).appendTo('body');
+         pageDrop.find('.b-page-drop__hint').text(pageDropHint);
          // dragenter/dragleave приходят на каждый элемент под курсором — считаем глубину, чтобы панель
          // не мигала при переходе с элемента на элемент
          let pageDragDepth = 0;
@@ -686,8 +699,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
              let files = e.originalEvent.dataTransfer.files;
              if (files && files.length) {
-                 uploadImageSection.addClass('active');
-                 uploadDroppedFiles(files, uploadImageSection.attr('data-action'));
+                 document.dispatchEvent(new CustomEvent('page-files-drop', {detail: {files: Array.from(files)}}));
              }
          });
 
@@ -6586,7 +6598,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              errorBox.textContent = '';
          }
 
-         function uploadImage(file, onSuccess) {
+         // onDone — загрузка этого файла закончена любым исходом (для этого файла окно дубликата закрыто)
+         function uploadImage(file, onSuccess, onDone) {
              let formData = new FormData();
              formData.append('image', file);
 
@@ -6603,16 +6616,55 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      if (response.status === true) {
                          onSuccess(response.image);
                      } else if (response.needs_choice) {
+                         duplicateChoiceDone = onDone;
                          showDuplicateChoice(response, onSuccess);
+                         return;
                      } else {
-                         showError(response.message || 'Не удалось загрузить изображение');
+                         showError((file.name ? file.name + ': ' : '') + (response.message || 'Не удалось загрузить изображение'));
                      }
+                     onDone();
                  },
                  error: function () {
-                     showError('Не удалось загрузить изображение');
+                     showError((file.name ? file.name + ': ' : '') + 'Не удалось загрузить изображение');
+                     onDone();
                  }
              });
          }
+
+         // Несколько файлов (выбор нескольких, перетаскивание на страницу) — строго по одному: у каждого может
+         // выскочить окно выбора дубликата, а оно одно на всех. Следующий файл — когда окно предыдущего закрыто
+         let imageQueue = [];
+         let imageQueueRunning = false;
+         let duplicateChoiceDone = null;
+
+         function addImageFiles(files) {
+             if (!files.length) {
+                 return;
+             }
+             clearError();
+             imageQueue = imageQueue.concat(files);
+             if (!imageQueueRunning) {
+                 uploadNextImage();
+             }
+         }
+
+         function uploadNextImage() {
+             if (!imageQueue.length) {
+                 imageQueueRunning = false;
+                 return;
+             }
+             imageQueueRunning = true;
+             uploadImage(imageQueue.shift(), function (newImage) {
+                 list.appendChild(buildItem(newImage.name, newImage.extension, newImage.path));
+                 toastr.success('Изображение добавлено');
+             }, uploadNextImage);
+         }
+
+         document.addEventListener('page-files-drop', function (e) {
+             addImageFiles(e.detail.files.filter(function (file) {
+                 return !isVideoFile(file);
+             }));
+         });
 
          // найден похожий дубликат — показываем сравнение и даём пользователю выбрать,
          // что делать (набор кнопок зависит от response.mode, см. PostController::addImage())
@@ -6695,6 +6747,13 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  deleteTempFile(pendingDuplicateChoice.staged_image.image_name, pendingDuplicateChoice.staged_image.image_extension);
              }
              pendingDuplicateChoice = null;
+
+             // окно закрыто (выбором или отменой) — можно грузить следующий файл из очереди
+             if (duplicateChoiceDone) {
+                 let done = duplicateChoiceDone;
+                 duplicateChoiceDone = null;
+                 done();
+             }
          });
 
          function bindItem(item) {
@@ -6946,20 +7005,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          const addInput = panel.querySelector('.js-post-images__add-input');
          addInput.addEventListener('change', function () {
-             if (!addInput.files.length) {
-                 return;
-             }
-
-             let file = addInput.files[0];
+             let files = Array.from(addInput.files);
              addInput.value = '';
-
-             clearError();
-
-             uploadImage(file, function (newImage) {
-                 let newItem = buildItem(newImage.name, newImage.extension, newImage.path);
-                 list.appendChild(newItem);
-                 toastr.success('Изображение добавлено');
-             });
+             addImageFiles(files);
          });
      })();
 
@@ -6999,6 +7047,26 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
              let file = addInput.files[0];
              addInput.value = '';
+             uploadVideo(file);
+         });
+
+         // видео, брошенное на страницу (перетаскивание на всю страницу, см. page-files-drop): видео у поста
+         // одно — уже есть, спрашиваем, заменить ли (по кнопке "Заменить видео" и так ясно, что будет)
+         document.addEventListener('page-files-drop', function (e) {
+             let videos = e.detail.files.filter(isVideoFile);
+             if (!videos.length) {
+                 return;
+             }
+             if (videos.length > 1) {
+                 toastr.warning('К посту можно добавить только одно видео — загружено первое');
+             }
+             if (player.querySelector('video') && !confirm('Заменить видео поста на «' + videos[0].name + '»?')) {
+                 return;
+             }
+             uploadVideo(videos[0]);
+         });
+
+         function uploadVideo(file) {
              clearError();
 
              let formData = new FormData();
@@ -7025,7 +7093,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      showError('Не удалось загрузить видео');
                  }
              });
-         });
+         }
 
          deleteBtn.addEventListener('click', function () {
              if (!confirm('Удалить видео поста?')) {

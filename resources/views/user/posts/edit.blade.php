@@ -201,7 +201,7 @@
                                 <label class="b-post-edit__add-tile js-post-images__add-label">
                                     <span class="b-post-edit__add-icon"><i class="fas fa-plus"></i></span>
                                     <span>Добавить изображение</span>
-                                    <input type="file" class="js-post-images__add-input" accept="image/*" hidden>
+                                    <input type="file" class="js-post-images__add-input" accept="image/*" multiple hidden>
                                 </label>
                             </div>
 
