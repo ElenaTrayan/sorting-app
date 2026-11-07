@@ -12,7 +12,8 @@
     <div class="grid-item @if ($isStack) grid-item--stack @endif" data-id="{{ $post->id }}" @if (!empty($post->group_id)) data-group-id="{{ $post->group_id }}" @endif>
 
         <div class="b-card__user-options">
-            <a href="#" id="triggerId" class="button" data-toggle="dropdown" aria-haspopup="true"
+            {{-- data-offset — зазор 6px между кнопкой и списком (Popper в Bootstrap 4) --}}
+            <a href="#" id="triggerId" class="button" data-toggle="dropdown" data-offset="0,6" aria-haspopup="true"
                aria-expanded="false">
                 <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
             </a>
@@ -78,6 +79,7 @@
                 @endif
                 {{-- у стопки "Удалить" нет: удалился бы только первый пост группы, а не то, что видно на карточке --}}
                 @if (!$isStack && empty($linksOnly))
+                <div class="dropdown-divider"></div>
                 <span class="dropdown-item text-danger" data-action="delete"
                       data-url="{{ route('posts.destroy', [$post->id]) }}" data-page-id="posts"><i
                         class="fa fa-trash mr-1"></i>Удалить</span>
