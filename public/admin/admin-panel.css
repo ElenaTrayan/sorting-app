@@ -1105,6 +1105,11 @@ text-align: center;
 .b-posts-sort.is-open .b-posts-sort__list {
     display: block;
 }
+/* слева мало места (боковое меню, край окна) — список открывается вправо от кнопки (admin.js, alignPostsSortList) */
+.b-posts-sort.is-align-left .b-posts-sort__list {
+    left: 0;
+    right: auto;
+}
 .b-posts-sort__option {
     display: block;
     padding: 8px 10px;

@@ -4155,8 +4155,25 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      }
                  });
                  postsSortWrap.classList.toggle('is-open');
+                 alignPostsSortList(postsSortWrap);
              });
          });
+
+         // Список открывается влево от правого края кнопки. У дропдауна, что стоит у левого края контента,
+         // он уходил под боковое меню (.main-sidebar лежит выше) — тогда открываем вправо от левого края кнопки
+         function alignPostsSortList(postsSortWrap) {
+             const list = postsSortWrap.querySelector('.js-posts-sort-list');
+             postsSortWrap.classList.remove('is-align-left');
+             if (!list || !postsSortWrap.classList.contains('is-open')) {
+                 return;
+             }
+             const sidebar = document.querySelector('.main-sidebar');
+             const sidebarRect = sidebar ? sidebar.getBoundingClientRect() : null;
+             const leftLimit = (sidebarRect && sidebarRect.width && sidebarRect.right > 0 ? sidebarRect.right : 0) + 8;
+             if (list.getBoundingClientRect().left < leftLimit) {
+                 postsSortWrap.classList.add('is-align-left');
+             }
+         }
          if (postsSortWraps.length) {
              document.addEventListener('click', function (event) {
                  if (!event.target.closest('.js-posts-sort')) {
