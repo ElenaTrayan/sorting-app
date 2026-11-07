@@ -321,32 +321,51 @@
 
                 <div class="b-list-of-posts">
 
-                    <div class="modal fade" id="modal-add-hashtag" tabindex="-1" role="dialog" aria-labelledby="modalAddHashtagLabel"
+                    {{-- Хештеги поста: "Добавить тег" в меню карточки и "Добавить хештеги" в режиме выбора (posts-bulk.js).
+                         Поиск, создание тега и выбор — те же обработчики admin.js, что на форме поста (#search-input-2,
+                         #add-tag, #b-search__results-2, #b-selected-tags-2); data-related-action — связанные хештеги
+                         выбранного тега добавляются сами, более конкретные — подсказками в #b-suggested-tags-2.
+                         Стили — .b-tag-modal в admin-panel.css --}}
+                    <div class="modal fade b-tag-modal" id="modal-add-hashtag" tabindex="-1" role="dialog" aria-labelledby="modalAddHashtagLabel"
                          aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered" role="document">
                             <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="modalAddHashtagLabel"></h5>
+                                <div class="b-tag-modal__header">
+                                    <span class="b-tag-modal__icon"><i class="fas fa-hashtag"></i></span>
+                                    <div class="b-tag-modal__heading">
+                                        <h5 class="b-tag-modal__title modal-title" id="modalAddHashtagLabel"></h5>
+                                        <div class="b-tag-modal__subtitle">Найдите тег или создайте новый — Enter</div>
+                                    </div>
+                                    <button type="button" class="b-tag-modal__close" data-action="close-modal-add-hashtag" aria-label="Закрыть">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                 </div>
-                                <div class="modal-body">
-                                    <div class="b-add-tag">
-                                        <div class="input-group input-group-sm add-tag">
-                                            <input id="search-input-2" type="text" class="form-control"
-                                                   data-action="{{ route('search.hashtag') }}">
-                                            <span class="input-group-append">
-                            <button type="button" class="btn btn-info btn-flat" id="add-tag"
-                                    data-action="{{ route('hashtags.store') }}">Добавить тег</button>
-                        </span>
+                                <div class="b-tag-modal__body">
+                                    <div class="b-add-tag b-tag-modal__picker">
+                                        <div class="add-tag b-tag-modal__search">
+                                            <i class="fas fa-search b-tag-modal__search-icon"></i>
+                                            <input id="search-input-2" type="text" class="b-tag-modal__input" placeholder="Начните вводить хештег…"
+                                                   autocomplete="off" data-action="{{ route('search.hashtag') }}">
+                                            <button type="button" class="b-tag-modal__add" id="add-tag"
+                                                    data-action="{{ route('hashtags.store') }}"><i class="fas fa-plus"></i> Добавить</button>
                                         </div>
-                                        <ul id="b-search__results-2" class="b-search__results-2"></ul>
-                                        <ul id="b-selected-tags-2" class="b-selected-tags-2"></ul>
+                                        <ul id="b-search__results-2" class="b-search__results-2 b-tag-modal__results"></ul>
+
+                                        <div class="b-tag-modal__label">Хештеги</div>
+                                        <ul id="b-selected-tags-2" class="b-selected-tags-2 b-tag-modal__tags"
+                                            data-related-action="{{ route('search.related-hashtags') }}"></ul>
+                                        <div class="b-tag-modal__empty">Пока ни одного — выберите из поиска</div>
+
+                                        <div class="b-tag-modal__label b-tag-modal__label--suggested">Связанные — нажмите, чтобы добавить</div>
+                                        <ul id="b-suggested-tags-2" class="b-selected-tags-2 b-tag-modal__tags b-suggested-tags"
+                                            title="Нажмите на тег, чтобы добавить"></ul>
                                     </div>
                                 </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-primary" data-action="save-request">Сохранить</button>
-                                    <button type="button" class="btn btn-secondary" data-action="close-modal-add-hashtag">Отмена
+                                <div class="b-tag-modal__footer">
+                                    <button type="button" class="b-tag-modal__btn" data-action="close-modal-add-hashtag">Отмена</button>
+                                    <button type="button" class="b-tag-modal__btn b-tag-modal__btn--primary" data-action="save-request">
+                                        <i class="fas fa-check"></i> Сохранить
                                     </button>
-                                    {{--                data-dismiss="modal"--}}
                                 </div>
                             </div>
                         </div>

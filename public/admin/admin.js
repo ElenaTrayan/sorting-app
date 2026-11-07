@@ -3931,7 +3931,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      }
                  });
                  mutation.addedNodes.forEach(function (node) {
-                     if (node.nodeType !== 1 || !node.classList.contains('tag') || node.classList.contains('tag--related')) {
+                     // data-initial — хештеги, что уже были у поста, когда открыли окно хештегов в ленте
+                     if (node.nodeType !== 1 || !node.classList.contains('tag') || node.classList.contains('tag--related')
+                         || node.hasAttribute('data-initial')) {
                          return;
                      }
                      const id = node.getAttribute('data-id');
@@ -5523,43 +5525,57 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
      //страница - список постов: кнопка Добавить тег -> открывается поп-ап окно
      $(document).on('click', '#posts-index [data-action=add-hashtag]', function(event) {
-         $('#modal-add-hashtag').modal('show', $(this));
-
-         let searchInput = $('#modal-add-hashtag #search-input-2')[0];
-         console.log(searchInput);
-         setTimeout(function() { searchInput.focus() }, 500);
+         // начинаем с чистого окна: в нём могли остаться результаты поиска и подсказки прошлого поста
+         clearAddHashtagModal();
+         $('#modal-add-hashtag .modal-title').text('Хештеги поста');
 
          let tagsBlockElement = $(this).closest('.grid-item').find('.tags li');
-         console.log(tagsBlockElement);
 
          let hashtags = {};
          tagsBlockElement.each(function(i,elem) {
-             //TODO добавить к .tags li  data-id
-             console.log('data-id = ' + elem.getAttribute('data-id'));
              let hashtagId = elem.getAttribute('data-id');
              let hashtagTitle = elem.getAttribute('data-title');
              hashtags[hashtagId] = hashtagTitle;
 
-             let postHashtag = '<span class="tag" data-id="' + hashtagId + '" data-name="' + hashtagTitle + '">#' + hashtagTitle + '<span class="icon font-icon fas close"></span></span>';
+             // data-initial — хештег уже был у поста: связанные к нему не подтягиваем (см. блок связанных хештегов),
+             // иначе каждое открытие окна добавляло бы посту новые теги само
+             let postHashtag = $('<span class="tag" data-initial="1"></span>')
+                 .attr('data-id', hashtagId)
+                 .attr('data-name', hashtagTitle)
+                 .text('#' + hashtagTitle)
+                 .append('<span class="icon font-icon fas close"></span>');
              $(containerSelectedHashtagsTags2).append(postHashtag);
          });
 
          sessionStorage.setItem('hashtags2', JSON.stringify(hashtags));
+
+         $('#modal-add-hashtag').modal('show', $(this));
      });
 
-     // закрыть popup окно при клике вне его области
-     $(document).mouseup(function(e) {
-         var container = $('#modal-add-hashtag');
-         if (!container.is(e.target) && container.has(e.target).length === 0) {
-             container.hide();
-         }
+     // окно хештегов в ленте: выбранные, найденные, подсказки и поле поиска — пустые, хештеги формы забыты
+     function clearAddHashtagModal() {
+         let modal = $('#modal-add-hashtag');
+         modal.find('#b-selected-tags-2, #b-search__results-2, #b-suggested-tags-2').empty();
+         modal.find('#search-input-2').val('');
+         sessionStorage.removeItem('hashtags2');
+         // удалённые в прошлый раз теги в другом посте снова можно подставлять как связанные
+         dismissedRelatedHashtags = {};
+     }
+
+     // поле поиска — в фокус, как только окно показалось (и для одного поста, и для выбранных, posts-bulk.js)
+     $(document).on('shown.bs.modal', '#modal-add-hashtag', function () {
+         $(this).find('#search-input-2').trigger('focus');
      });
+
+     // закрыли любым способом (Отмена, крестик, Esc, клик мимо окна, после сохранения) — окно очищаем.
+     // Раньше чистила только "Отмена": после Esc или клика мимо теги прошлого поста оставались и при
+     // следующем открытии к ним добавлялись теги другого поста. Старый обработчик "клик вне окна → hide()"
+     // убран: он прятал окно в обход Bootstrap (клик по уведомлению — и оставался затемнённый фон)
+     $(document).on('hidden.bs.modal', '#modal-add-hashtag', clearAddHashtagModal);
 
      //страница - список постов: кнопка Отмена -> закрывается поп-ап окно
      $(document).on('click', '#posts-index [data-action=close-modal-add-hashtag]', function(event) {
          $('#modal-add-hashtag').modal('hide');
-         //очистить блок свыбранными хештегами в поп-ап окне
-         $(containerSelectedHashtagsTags2).html('');
      });
 
      $(document).on('shown.bs.modal','#modal-add-hashtag', function (event) {

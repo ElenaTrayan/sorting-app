@@ -2739,6 +2739,326 @@ margin: 0 0 20px 0;
     border-top-color: #eeeef4;
 }
 
+/* ===== Окно "Хештеги поста" в ленте (#modal-add-hashtag, posts/index.blade.php) =====
+   Разметка поиска и тегов — общая с формой поста (admin.js), поэтому здесь перекрываем старые общие
+   правила .b-add-tag / .b-selected-tags-2 / .b-search__results-2: float, фиксированные ширину и высоту */
+.b-tag-modal .modal-dialog {
+    max-width: 520px;
+}
+.b-tag-modal .modal-content {
+    border: 0;
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, .22);
+    overflow: hidden;
+    font-family: 'Manrope', inherit;
+}
+.b-tag-modal__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 22px 6px;
+}
+.b-tag-modal__icon {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #f1f0fe;
+    color: #7367f0;
+    font-size: 16px;
+}
+.b-tag-modal__heading {
+    flex: 1;
+    min-width: 0;
+}
+.b-tag-modal__title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #1f1f2b;
+}
+.b-tag-modal__subtitle {
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: #8b8b99;
+}
+.b-tag-modal__close {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #8b8b99;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.b-tag-modal__close:hover {
+    background: #f3f3f7;
+    color: #1f1f2b;
+}
+.b-tag-modal__body {
+    padding: 14px 22px 8px;
+}
+.b-tag-modal .b-add-tag {
+    margin: 0;
+}
+/* поле поиска с иконкой и кнопкой "Добавить" внутри одной рамки */
+.b-tag-modal .b-add-tag .add-tag.b-tag-modal__search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 0;
+    padding: 4px 4px 4px 38px;
+    border: 1.5px solid #e6e6ee;
+    border-radius: 12px;
+    background: #fafafc;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.b-tag-modal__search:focus-within {
+    border-color: #7367f0;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(115, 103, 240, .12);
+}
+.b-tag-modal__search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #a5a5b3;
+    font-size: 13px;
+    pointer-events: none;
+}
+.b-tag-modal .b-add-tag .add-tag input.b-tag-modal__input {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    padding: 0 8px 0 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 14px;
+    color: #1f1f2b;
+}
+.b-tag-modal__input::placeholder {
+    color: #a5a5b3;
+}
+.b-tag-modal__add {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 9px;
+    background: #7367f0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+}
+.b-tag-modal__add:hover {
+    background: #5e50ee;
+}
+.b-tag-modal__add i {
+    font-size: 11px;
+}
+/* найденные хештеги — список прямо под полем, в потоке (а не absolute поверх тегов) */
+.b-tag-modal .b-search__results-2.b-tag-modal__results {
+    position: relative;
+    top: auto;
+    width: 100%;
+    max-height: 220px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: #fff;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+.b-tag-modal__results:not(:empty) {
+    margin-top: 6px !important;
+    padding: 4px !important;
+    border: 1px solid #eeeef4;
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+}
+.b-tag-modal .b-search__results-2 li {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13.5px;
+    color: #3a3a46;
+    cursor: pointer;
+}
+.b-tag-modal .b-search__results-2 li::before {
+    content: '#';
+    margin-right: 2px;
+    color: #a5a5b3;
+}
+.b-tag-modal .b-search__results-2 li:hover {
+    background: #f1f0fe;
+    color: #7367f0;
+}
+.b-tag-modal__label {
+    margin: 18px 0 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #8b8b99;
+}
+/* подписи пустого списка и связанных — только когда есть что показывать */
+.b-tag-modal__empty {
+    padding: 12px;
+    border: 1.5px dashed #e6e6ee;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 13px;
+    color: #a5a5b3;
+}
+.b-tag-modal__tags:not(:empty) + .b-tag-modal__empty {
+    display: none;
+}
+.b-tag-modal__picker:not(:has(#b-suggested-tags-2 > *)) .b-tag-modal__label--suggested {
+    display: none;
+}
+.b-tag-modal .b-selected-tags-2.b-tag-modal__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    height: auto;
+    max-height: 220px;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+.b-tag-modal .b-selected-tags-2 .tag {
+    float: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: auto;
+    margin: 0;
+    padding: 5px 8px 5px 11px;
+    border: 1px solid #e0d7fd;
+    border-radius: 999px;
+    background: #f1edfe;
+    color: #5735d6;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.b-tag-modal .b-selected-tags-2 .tag .close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    top: 0;
+    border-radius: 50%;
+    color: #9e8ae0;
+    font-size: 10px;
+    opacity: 1;
+    text-shadow: none;
+    transition: background .12s, color .12s;
+}
+.b-tag-modal .b-selected-tags-2 .tag .close:hover {
+    background: #e0d7fd;
+    color: #5735d6;
+}
+/* связанный хештег, подставленный сам (admin.js, tag--related) — светлее выбранных вручную */
+.b-tag-modal .b-selected-tags-2 .tag.tag--related {
+    background: #fff;
+    border-color: #d4c8fb;
+}
+.b-tag-modal .b-selected-tags-2 .tag.tag--related::before {
+    content: '↳';
+    color: #9e8ae0;
+}
+/* подсказки связанных — пунктиром, клик добавляет */
+.b-tag-modal .b-suggested-tags .tag {
+    padding-right: 11px;
+    border-style: dashed;
+    background: #fff;
+    color: #6b5bd6;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+}
+.b-tag-modal .b-suggested-tags .tag:hover {
+    border-style: solid;
+    background: #f1edfe;
+}
+.b-tag-modal .b-suggested-tags__more {
+    align-self: center;
+    padding: 4px 11px;
+    border: 0;
+    border-radius: 999px;
+    background: #eef0fe;
+    color: #7367f0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.b-tag-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 14px 22px 18px;
+    border-top: 1px solid #f0f0f5;
+    background: #fbfbfd;
+}
+.b-tag-modal__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 40px;
+    padding: 0 18px;
+    border: 1px solid #e6e6ee;
+    border-radius: 11px;
+    background: #fff;
+    color: #4a4a56;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.b-tag-modal__btn:hover {
+    border-color: #cfc4ff;
+    color: #7367f0;
+}
+.b-tag-modal__btn--primary {
+    border-color: #7367f0;
+    background: #7367f0;
+    color: #fff;
+}
+.b-tag-modal__btn--primary:hover {
+    background: #5e50ee;
+    border-color: #5e50ee;
+    color: #fff;
+}
+.b-tag-modal__btn:disabled {
+    opacity: .6;
+    cursor: default;
+}
+@media (max-width: 575px) {
+    .b-tag-modal .modal-dialog {
+        margin: 12px;
+    }
+    .b-tag-modal__add span {
+        display: none;
+    }
+}
+
 .b-card__content__image {
     cursor: pointer;
 }

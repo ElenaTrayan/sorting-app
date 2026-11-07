@@ -86,6 +86,23 @@ class HashtagController extends Controller
         $search = new SearchController();
         $foundHashtags = $search->searchTagByTitle($request->title, $request->hashtags ?? '');
         if (!$foundHashtags->isEmpty()) {
+            // AJAX ("Добавить тег" в форме поста и в окне хештегов ленты, группа, контакты): такой хештег уже есть —
+            // отдаём его, и он добавится, как найденный поиском. Раньше уходил редирект на список хештегов,
+            // AJAX получал вместо JSON страницу и писал "Хештег не был добавлен"
+            if ($request->ajax() || $request->wantsJson()) {
+                $existingHashtag = $foundHashtags->first();
+
+                return response()->json([
+                    'status' => true,
+                    'existing' => true,
+                    'message' => 'Такой хештег уже есть — добавлен',
+                    'info' => [
+                        'id' => $existingHashtag->id,
+                        'title' => $existingHashtag->title,
+                    ],
+                ]);
+            }
+
             return redirect()->route('hashtags.index')->withErrors('Хештег уже сущетвует!');
         }
 
