@@ -641,70 +641,142 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              '</div>'
          ).appendTo('body');
          pageDrop.find('.b-page-drop__hint').text(pageDropHint);
-         // dragenter/dragleave приходят на каждый элемент под курсором — считаем глубину, чтобы панель
-         // не мигала при переходе с элемента на элемент
-         let pageDragDepth = 0;
+         // Панель держится, пока приходят dragover: браузер шлёт их всё время, пока файл над окном (и когда курсор
+         // стоит — раз в ~350 мс). Счётчик dragenter/dragleave тут не годится: на части элементов он сбивался
+         // в ноль, панель пряталась посреди перетаскивания и бросить было нельзя (значок запрета)
+         let pageDropTimer = null;
+         // перетаскивание началось на самой странице (текст, ссылка, картинка из текста) — это не загрузка
+         let pageInnerDrag = false;
+         document.addEventListener('dragstart', function () {
+             pageInnerDrag = true;
+         });
+         document.addEventListener('dragend', function () {
+             pageInnerDrag = false;
+         });
 
+         function dragHasType(e, type) {
+             let dt = e.dataTransfer;
+             return !!dt && Array.prototype.indexOf.call(dt.types || [], type) !== -1;
+         }
+
+         // файлы с компьютера или картинка из другой вкладки браузера: у такой не всегда есть файл,
+         // бывает только ссылка (text/uri-list) — её пробуем скачать при броске (fetchDroppedImage())
          function isFileDrag(e) {
-             let dt = e.originalEvent && e.originalEvent.dataTransfer;
-             return !!dt && Array.prototype.indexOf.call(dt.types || [], 'Files') !== -1;
+             return !pageInnerDrag && (dragHasType(e, 'Files') || dragHasType(e, 'text/uri-list'));
+         }
+
+         // открыто окно (сравнение дубликатов, редактор картинки) — не до загрузки
+         function pageDropBlocked() {
+             return $('.modal.show:visible').length > 0;
          }
 
          function hidePageDrop() {
-             pageDragDepth = 0;
+             clearTimeout(pageDropTimer);
              pageDrop.prop('hidden', true);
              uploadImageSection.removeClass('dd');
          }
 
-         $(document).on('dragenter', function (e) {
-             // открыто окно (сравнение дубликатов, редактор картинки) — не до загрузки
-             if (!isFileDrag(e) || $('.modal.show').length) {
-                 return;
-             }
-             e.preventDefault();
-             pageDragDepth++;
-             pageDrop.prop('hidden', false);
-             uploadImageSection.addClass('dd');
-         });
-
-         $(document).on('dragover', function (e) {
+         // e — нативное событие (со страницы или из окна редактора текста)
+         function onPageDragOver(e) {
              if (!isFileDrag(e)) {
                  return;
              }
              e.preventDefault();
-             // панель скрыта (открыто окно) — бросить нельзя: иначе браузер открыл бы файл вместо страницы,
-             // и заполненная форма пропала бы
-             e.originalEvent.dataTransfer.dropEffect = pageDrop.prop('hidden') ? 'none' : 'copy';
-         });
-
-         $(document).on('dragleave', function (e) {
-             if (!isFileDrag(e) || pageDrop.prop('hidden')) {
+             if (pageDropBlocked()) {
+                 // бросить нельзя: иначе браузер открыл бы файл вместо страницы, и заполненная форма пропала бы
+                 e.dataTransfer.dropEffect = 'none';
                  return;
              }
-             pageDragDepth = Math.max(0, pageDragDepth - 1);
-             if (!pageDragDepth) {
+             // dropEffect не задаём: браузер сам берёт допустимый для источника. Принудительный 'copy' давал
+             // запрет, когда программа, из которой тащат, разрешает только "переместить"
+             pageDrop.prop('hidden', false);
+             uploadImageSection.addClass('dd');
+             clearTimeout(pageDropTimer);
+             pageDropTimer = setTimeout(hidePageDrop, 700);
+         }
+
+         document.addEventListener('dragenter', onPageDragOver);
+         document.addEventListener('dragover', onPageDragOver);
+
+         // файл увели за окно — прячем сразу, не дожидаясь таймера
+         document.addEventListener('dragleave', function (e) {
+             if (isFileDrag(e) && !e.relatedTarget
+                 && (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight)) {
                  hidePageDrop();
              }
          });
 
+         // поле текста (TinyMCE) — отдельный iframe, его события до страницы не доходят: слушаем и там.
+         // Как только панель показалась, она накрывает и поле текста — дальше всё идёт через страницу
+         if (window.tinymce) {
+             let bindEditorDrag = function (editor) {
+                 editor.on('dragenter dragover', onPageDragOver);
+             };
+             try {
+                 (tinymce.get() || []).forEach(bindEditorDrag);
+                 tinymce.on('AddEditor', function (e) {
+                     bindEditorDrag(e.editor);
+                 });
+             } catch (err) {
+                 // без этого над полем текста панель не появится, остальная страница работает
+             }
+         }
+
+         function dispatchPageFiles(files) {
+             document.dispatchEvent(new CustomEvent('page-files-drop', {detail: {files: files}}));
+         }
+
+         // картинка из другой вкладки, браузер отдал только ссылку: скачиваем её сами. Получится, только если
+         // сайт картинки разрешает (CORS) — иначе просим сохранить картинку на компьютер и бросить файлом
+         function fetchDroppedImage(url) {
+             let failed = function () {
+                 toastr.warning('Этот сайт не даёт забрать картинку напрямую — сохраните её на компьютер и перетащите файл');
+             };
+             if (!/^https?:\/\//i.test(url) || !window.fetch) {
+                 failed();
+                 return;
+             }
+             fetch(url, {mode: 'cors', credentials: 'omit'}).then(function (response) {
+                 if (!response.ok) {
+                     throw new Error('HTTP ' + response.status);
+                 }
+                 return response.blob();
+             }).then(function (blob) {
+                 if (!/^(image|video)\//.test(blob.type)) {
+                     throw new Error('not an image');
+                 }
+                 let name = decodeURIComponent((url.split(/[?#]/)[0].split('/').pop() || '')) || 'image';
+                 if (!/\.[a-z0-9]{2,5}$/i.test(name)) {
+                     name += '.' + (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+                 }
+                 dispatchPageFiles([new File([blob], name, {type: blob.type})]);
+             }).catch(failed);
+         }
+
          $(document).on('drop', function (e) {
-             if (!isFileDrag(e)) {
+             let event = e.originalEvent;
+             if (!isFileDrag(event)) {
                  return;
              }
              e.preventDefault();
-             if (pageDrop.prop('hidden')) {
+             hidePageDrop();
+             if (pageDropBlocked()) {
                  return;
              }
-             hidePageDrop();
 
-             let files = e.originalEvent.dataTransfer.files;
+             let files = event.dataTransfer.files;
              if (files && files.length) {
-                 document.dispatchEvent(new CustomEvent('page-files-drop', {detail: {files: Array.from(files)}}));
+                 dispatchPageFiles(Array.from(files));
+                 return;
+             }
+             let url = (event.dataTransfer.getData('text/uri-list') || '').split(/\r?\n/).filter(function (line) {
+                 return line && line.charAt(0) !== '#';
+             })[0];
+             if (url) {
+                 fetchDroppedImage(url.trim());
              }
          });
-
-         // перетаскивание отменили (Esc, увели за окно и отпустили) — dragleave может и не прийти
-         $(window).on('blur', hidePageDrop);
+         // перетаскивание отменили (Esc) — dragover перестают приходить, панель уберёт таймер
      }
 
      // Классическая загрузка файлов через input[type=file] (кнопка "Выбрать файл"
