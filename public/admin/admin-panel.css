@@ -2160,34 +2160,85 @@ text-align: center;
     border-style: solid;
     border-color: #7367f0;
 }
+/* подсказки — как найденные хештеги в окне "Хештеги поста" ленты (.b-tag-modal__results): "#" серым перед
+   названием (post-group.js кладёт в пункт только название), "Создать #…" — отдельной строкой под чертой */
 .b-post-group__own-tag-results {
     position: absolute;
     z-index: 20;
     top: 100%;
     left: 0;
-    min-width: 170px;
-    max-width: 260px;
-    max-height: 220px;
-    margin: 4px 0 0;
+    width: max-content;
+    min-width: 220px;
+    max-width: 300px;
+    max-height: 240px;
+    margin: 6px 0 0;
     padding: 4px;
+    overflow-x: hidden;
     overflow-y: auto;
     list-style: none;
     background: #fff;
-    border: 1px solid #ececf1;
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(23, 23, 36, .12);
+    border: 1px solid #eeeef4;
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
 }
 .b-post-group__own-tag-results li {
-    padding: 5px 8px;
-    border-radius: 6px;
-    font-size: 12.5px;
-    color: #4a4a56;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.35;
+    color: #3a3a46;
+    overflow-wrap: anywhere;
     cursor: pointer;
+    transition: background .12s, color .12s;
+}
+.b-post-group__own-tag-results li.js-post-group-own-tag-option::before {
+    content: '#';
+    margin-right: 2px;
+    color: #a5a5b3;
 }
 .b-post-group__own-tag-results li:hover,
 .b-post-group__own-tag-results li.is-active {
-    background: #eef0fe;
+    background: #f1f0fe;
     color: #7367f0;
+}
+.b-post-group__own-tag-results li.js-post-group-own-tag-option:hover::before,
+.b-post-group__own-tag-results li.js-post-group-own-tag-option.is-active::before {
+    color: #a99ff5;
+}
+.b-post-group__own-tag-results li.js-post-group-own-tag-create {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #7367f0;
+    font-weight: 500;
+}
+.b-post-group__own-tag-results li.js-post-group-own-tag-option + li.js-post-group-own-tag-create {
+    position: relative;
+    margin-top: 9px;
+}
+.b-post-group__own-tag-results li.js-post-group-own-tag-option + li.js-post-group-own-tag-create::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 4px;
+    right: 4px;
+    border-top: 1px solid #eeeef4;
+}
+.b-post-group__own-tag-create-icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: #f1f0fe;
+    font-size: 10px;
+}
+.b-post-group__own-tag-results li.js-post-group-own-tag-create:hover .b-post-group__own-tag-create-icon,
+.b-post-group__own-tag-results li.js-post-group-own-tag-create.is-active .b-post-group__own-tag-create-icon {
+    background: #7367f0;
+    color: #fff;
 }
 .b-post-group__own-tag-results li.is-hint {
     color: #a3a1b4;

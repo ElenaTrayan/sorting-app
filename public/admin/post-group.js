@@ -296,16 +296,17 @@
 
         hashtags.slice(0, 8).forEach(function (hashtag) {
             exact = exact || hashtag.title.toLowerCase() === query.toLowerCase();
+            // "#" перед названием рисует CSS (.b-post-group__own-tag-results), как в других списках хештегов
             $('<li class="js-post-group-own-tag-option"></li>')
                 .attr('data-id', hashtag.id)
                 .attr('data-name', hashtag.title)
-                .text('#' + hashtag.title)
+                .text(hashtag.title)
                 .appendTo($results);
         });
         if (!exact) {
             $('<li class="js-post-group-own-tag-create"></li>')
                 .attr('data-name', query)
-                .html('Создать <b>#' + escapeHtml(query) + '</b>')
+                .html('<span class="b-post-group__own-tag-create-icon"><i class="fas fa-plus"></i></span><span>Создать <b>#' + escapeHtml(query) + '</b></span>')
                 .appendTo($results);
         }
 
