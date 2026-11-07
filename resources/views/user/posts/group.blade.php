@@ -194,17 +194,26 @@
 
                     <div class="b-post-group__tags">
                         <label for="search-input-2">Общие хештеги <span class="b-post-group__tags-hint">— у всех постов группы; свои хештеги поста — под его карточкой</span></label>
-                        <div class="b-add-tag b-pin-tags">
-                            <div class="input-group input-group-sm add-tag b-pin-tags__row">
-                                <input id="search-input-2" type="text" class="b-pin-input" placeholder="Найти или создать тег…" data-action="{{ route('search.hashtag') }}">
-                                <button type="button" class="b-pin-btn b-pin-btn--ghost" id="add-tag" data-action="{{ route('hashtags.store') }}">Добавить тег</button>
+                        {{-- .b-tag-picker — то же оформление, что у окна "Хештеги поста" в ленте (admin-panel.css);
+                             #b-suggested-tags-2 — подсказки связанных хештегов (admin.js), как на форме поста --}}
+                        <div class="b-add-tag b-tag-picker">
+                            <div class="add-tag b-tag-picker__search">
+                                <i class="fas fa-search b-tag-picker__search-icon"></i>
+                                <input id="search-input-2" type="text" class="b-tag-picker__input" placeholder="Найти или создать тег…"
+                                       autocomplete="off" data-action="{{ route('search.hashtag') }}">
+                                <button type="button" class="b-tag-picker__add" id="add-tag" data-action="{{ route('hashtags.store') }}"><i class="fas fa-plus"></i> Добавить</button>
                             </div>
-                            <ul id="b-search__results-2" class="b-search__results-2"></ul>
-                            <ul id="b-selected-tags-2" class="b-selected-tags-2 b-pin-tags__selected" data-related-action="{{ route('search.related-hashtags') }}">
+                            <ul id="b-search__results-2" class="b-search__results-2 b-tag-picker__results"></ul>
+                            <ul id="b-selected-tags-2" class="b-selected-tags-2 b-tag-picker__tags b-post-group__tags-list" data-related-action="{{ route('search.related-hashtags') }}">
                                 @foreach($hashtags as $hashtag)
                                     <span class="tag" data-id="{{ $hashtag->id }}" data-name="{{ $hashtag->title }}">#{{ $hashtag->title }}<span class="icon font-icon fas close"></span></span>
                                 @endforeach
                             </ul>
+                            <div class="b-tag-picker__empty">Общих хештегов пока нет — найдите или создайте тег</div>
+
+                            <div class="b-tag-picker__label b-tag-picker__label--suggested">Связанные — нажмите, чтобы добавить</div>
+                            <ul id="b-suggested-tags-2" class="b-selected-tags-2 b-tag-picker__tags b-suggested-tags"
+                                title="Нажмите на тег, чтобы добавить"></ul>
                         </div>
                     </div>
                 </section>
