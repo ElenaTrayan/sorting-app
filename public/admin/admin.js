@@ -600,7 +600,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // Адрес — из фона превью: после правки в редакторе там адрес с меткой версии (creationImageCard)
      $(document).on('click', '.js-upload-image-section .images .image', function (e) {
          if (creationImageDragged || !window.Fancybox
-             || $(e.target).closest('.js-delete-image, .js-edit-image, .js-image-date').length) {
+             || $(e.target).closest('.js-delete-image, .js-edit-image, .js-image-date, .js-image-missing').length) {
              return;
          }
 
@@ -633,7 +633,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              // карточка видео (.b-pin-video) двигается вместе с картинками: её место — место видео в посте
              // (creationFormFields() ниже); в порядок картинок в sessionStorage она не входит (update)
              items: '.image, .b-pin-video',
-             cancel: '.js-delete-image, .js-edit-image, .js-image-date, .js-post-video__remove',
+             cancel: '.js-delete-image, .js-edit-image, .js-image-date, .js-post-video__remove, .js-reupload-image',
              tolerance: 'pointer',
              placeholder: 'image-sort-placeholder',
              forcePlaceholderSize: true,
@@ -646,22 +646,26 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      creationImageDragged = false;
                  }, 0);
              },
-             update: function () {
-                 let savedImages = sessionStorage.getItem('images');
-                 if (!savedImages) {
-                     return;
-                 }
-                 let images = JSON.parse(savedImages);
-                 let reordered = {};
-                 $('.js-images .image').each(function () {
-                     let name = this.dataset.name;
-                     if (name in images) {
-                         reordered[name] = images[name];
-                     }
-                 });
-                 sessionStorage.setItem('images', JSON.stringify(reordered));
+             update: syncCreationImagesOrder
+         });
+     }
+
+     // порядок картинок в sessionStorage "images" — как у карточек на форме (после перетаскивания,
+     // после "Загрузить заново" под другим именем)
+     function syncCreationImagesOrder() {
+         let savedImages = sessionStorage.getItem('images');
+         if (!savedImages) {
+             return;
+         }
+         let images = JSON.parse(savedImages);
+         let reordered = {};
+         $('.js-images .image').each(function () {
+             let name = this.dataset.name;
+             if (name in images) {
+                 reordered[name] = images[name];
              }
          });
+         sessionStorage.setItem('images', JSON.stringify(reordered));
      }
 
      // ===== Перетаскивание файлов на всю страницу (как в Google Диске) =====
@@ -881,6 +885,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // Пока файл ждёт или грузится, на форме стоит его плитка-заготовка с локальным превью; над ней —
      // полоса "Загрузка 2 из 5". Готовая картинка встаёт на место заготовки.
      let uploadQueue = [];      // [{file, url, placeholder}] — ещё не отправленные
+     // {имя картинки формы: File, из которого она загружена} — только в памяти вкладки (после перезагрузки
+     // страницы для "Загрузить заново" файл выбирают сами), см. reuploadCreationImage()
+     let creationSourceFiles = {};
      let uploadTotal = 0;       // сколько файлов в текущей серии (растёт, если докинули ещё)
      let uploadFinished = 0;    // сколько из них уже обработано
      let uploadRunning = false;
@@ -954,20 +961,24 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              if (added && item.onAdded) {
                  item.onAdded();
              }
+             if (item.onDone) {
+                 item.onDone(added);
+             }
              setUploadProgress(uploadFinished / uploadTotal, 'Загружено ' + uploadFinished + ' из ' + uploadTotal);
              runUploadQueue();
          });
      }
 
-     // Поставить файлы в очередь загрузки. onAdded() — когда файл встал на форму (для каждого файла)
-     function upload(files, url = '', onAdded = null) {
+     // Поставить файлы в очередь загрузки. onAdded() — когда файл встал на форму (для каждого файла),
+     // onDone(added) — когда с файлом закончили, встал он на форму или нет
+     function upload(files, url = '', onAdded = null, onDone = null) {
          // новая серия — прошлое предупреждение о незагруженных картинках уже неактуально
          if (!uploadRunning) {
              $('.js-error-block').removeClass('active');
          }
 
          for (let i = 0; i < files.length; ++i) {
-             uploadQueue.push({file: files[i], url: url, placeholder: addUploadPlaceholder(files[i]), onAdded: onAdded});
+             uploadQueue.push({file: files[i], url: url, placeholder: addUploadPlaceholder(files[i]), onAdded: onAdded, onDone: onDone});
          }
          uploadTotal += files.length;
 
@@ -1078,6 +1089,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
                      // подбор хештегов по картинкам — один раз, когда загрузится вся очередь (runUploadQueue)
                      addImagesToCreationForm(uploadedImages, files.length === 1 ? files[0] : null);
+                     // из какого файла картинка — для "Загрузить заново", если её файл пропадёт (markMissingCreationImages)
+                     if (files.length === 1) {
+                         Object.keys(uploadedImages || {}).forEach(function (key) {
+                             creationSourceFiles[key] = files[0];
+                         });
+                     }
                      added = Object.keys(uploadedImages || {}).length > 0;
 
                      // похожие на картинки этой же формы сервер не добавил, а оставил во временной папке —
@@ -1522,6 +1539,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  });
                  images[name] = updated;
                  sessionStorage.setItem('images', JSON.stringify(images));
+                 // исходный файл больше не тот, что на форме: "Загрузить заново" отменила бы правку — пусть выбирают файл
+                 delete creationSourceFiles[name];
 
                  // новой карточкой, а не правкой фона — превью пина (pin-create.js) следит за списком карточек
                  card.replaceWith(creationImageCard(updated, Date.now()));
@@ -2327,6 +2346,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              return;
          }
 
+         // у картинки нет файла (прошлое сохранение, markMissingCreationImages) — сервер снова споткнулся бы о неё
+         let missingCount = $('.js-images .image.is-missing').length;
+         if (missingCount) {
+             toastr.error(missingCount === 1
+                 ? 'У одной картинки нет файла — нажмите на её превью «Загрузить заново» или уберите её крестиком'
+                 : 'У ' + missingCount + ' картинок нет файлов — нажмите на их превью «Загрузить заново» или уберите их крестиком');
+             return;
+         }
+
          // картинки или видео ещё грузятся — сохранять рано: в пост попало бы не всё
          if (uploadInProgress() || videoUploading) {
              toastr.info('Дождитесь окончания загрузки — полоса над формой покажет, когда всё готово');
@@ -2372,6 +2400,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  console.log('message' + result.message);
 
                  let createdKeys = result.created_keys || [];
+                 // картинки без файла во временной папке — "Загрузить заново" на их превью
+                 markMissingCreationImages(result.missing_keys);
                  if (chunked) {
                      createdKeys.forEach(removeImageFromCreationForm);
                      creationChunks.created += createdKeys.length;
@@ -2507,6 +2537,98 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          $('.js-images .image').filter(function () {
              return this.getAttribute('data-name') === imageKey;
          }).remove();
+     }
+
+     function creationImageCardByName(imageKey) {
+         return $('.js-upload-image-section .images .image').filter(function () {
+             return this.dataset.name === String(imageKey);
+         });
+     }
+
+     // Сохранение ответило, что файлов этих картинок нет во временной папке (missing_keys, PostController::store) —
+     // на их превью "Файла нет" и кнопка "Загрузить заново" (reuploadCreationImage). Пока такая картинка на форме,
+     // сохранить форму нельзя (submitCreationForm): сервер снова споткнулся бы о неё
+     function markMissingCreationImages(keys) {
+         (keys || []).forEach(function (key) {
+             let card = creationImageCardByName(key);
+             if (!card.length || card.find('.js-image-missing').length) {
+                 return;
+             }
+             // не <span> и не <i>: все span'ы и i в превью стилизованы как фон картинки и значки углов
+             card.addClass('is-missing').append(
+                 $('<div class="image-missing js-image-missing"></div>')
+                     .attr('title', 'Файла этой картинки нет во временной папке — загрузите её заново или уберите крестиком')
+                     .append('<div class="image-missing__text">Файла нет</div>')
+                     .append('<button type="button" class="image-missing__btn js-reupload-image">Загрузить заново</button>')
+             );
+         });
+     }
+
+     // "Загрузить заново": файл, из которого картинку загрузили (creationSourceFiles), — сразу; его нет (страницу
+     // перезагружали, картинка из склейки или правилась в редакторе) — выбрать файл
+     $(document).on('click', '.js-upload-image-section .js-reupload-image', function (e) {
+         e.preventDefault();
+         e.stopPropagation();
+
+         let card = $(this).closest('.image');
+         let sourceFile = creationSourceFiles[card.attr('data-name')];
+         if (sourceFile) {
+             reuploadCreationImage(card, sourceFile);
+             return;
+         }
+
+         let input = $('<input type="file" accept="image/x-png,image/jpeg,image/avif,image/webp">');
+         input.on('change', function () {
+             if (this.files && this.files[0]) {
+                 reuploadCreationImage(card, this.files[0]);
+             }
+         });
+         input.trigger('click');
+     });
+
+     // Загрузка той же очередью upload(), картинка остаётся на своём месте среди остальных. Тот же файл сервер
+     // сохраняет под прежним именем (прежнего файла во временной папке нет) — карточка та же, обновляем её;
+     // другой файл приходит под своим именем — новая карточка встаёт на место пропавшей, пропавшая уходит с формы
+     function reuploadCreationImage(card, file) {
+         let oldName = card.attr('data-name');
+         let oldData = (JSON.parse(sessionStorage.getItem('images') || '{}') || {})[oldName] || {};
+         let namesBefore = $('.js-upload-image-section .images .image').map(function () {
+             return this.dataset.name;
+         }).get();
+
+         card.addClass('is-reuploading');
+         card.find('.js-reupload-image').prop('disabled', true).text('Загружаю…');
+
+         upload([file], uploadImageSection.attr('data-action'), function () {
+             let fresh = $('.js-upload-image-section .images .image').filter(function () {
+                 return namesBefore.indexOf(this.dataset.name) === -1;
+             }).first();
+             let images = JSON.parse(sessionStorage.getItem('images') || '{}') || {};
+
+             if (fresh.length) {
+                 card.after(fresh);
+                 removeImageFromCreationForm(oldName);
+                 syncCreationImagesOrder();
+                 return;
+             }
+
+             if (!images[oldName]) {
+                 return;
+             }
+             // дата, введённая для картинки на превью, — её, а не нового файла
+             if (oldData.event_date_manual) {
+                 images[oldName].event_date_manual = oldData.event_date_manual;
+                 sessionStorage.setItem('images', JSON.stringify(images));
+             }
+             card.replaceWith(creationImageCard(images[oldName], Date.now()));
+             refreshCreationImageDates();
+         }, function (added) {
+             if (!added) {
+                 // не встала на форму (сервер отказал, ушла в окно сравнения похожих) — пометка остаётся
+                 card.removeClass('is-reuploading');
+                 card.find('.js-reupload-image').prop('disabled', false).text('Загрузить заново');
+             }
+         });
      }
 
      // Окно сравнения (#modal-duplicate-merge на странице создания) для одной найденной картинки.

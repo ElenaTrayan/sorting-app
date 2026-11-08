@@ -468,12 +468,14 @@ class PostController extends Controller
                         return response()->json([
                             'errors' => $newPost['errors'],
                             'duplicate_infos' => $newPost['duplicate_infos'] ?? null,
+                            'missing_keys' => $newPost['missing_keys'] ?? [],
                         ]);
                     }
                 } else {
                     $count = 0;
                     $errors = [];
                     $duplicateInfos = [];
+                    $missingKeys = [];
 
                     // "Группировать посты" (галочка group-posts) — посты остаются отдельными
                     // записями (в отличие от "Один пост", где картинки объединяются в один),
@@ -538,6 +540,7 @@ class PostController extends Controller
                             if (!empty($newPost['duplicate_infos'])) {
                                 $duplicateInfos = array_merge($duplicateInfos, $newPost['duplicate_infos']);
                             }
+                            $missingKeys = array_merge($missingKeys, $newPost['missing_keys'] ?? []);
                             continue;
                         }
 
@@ -556,6 +559,7 @@ class PostController extends Controller
                         return response()->json([
                             'errors' => $errors,
                             'duplicate_infos' => $duplicateInfos,
+                            'missing_keys' => $missingKeys,
                             'created_keys' => $createdKeys,
                             'created_ids' => $createdIds,
                             'group_id' => $groupId,
@@ -589,6 +593,7 @@ class PostController extends Controller
             return response()->json([
                 'errors' => $newPost['errors'],
                 'duplicate_infos' => $newPost['duplicate_infos'] ?? null,
+                'missing_keys' => $newPost['missing_keys'] ?? [],
             ]);
         }
 
@@ -2557,6 +2562,8 @@ class PostController extends Controller
             // уже перенесённые из временной папки картинки: [результат saveImageForPost, картинка формы] —
             // пост не сохранится (ошибка на другой картинке) — вернём их обратно, см. ниже
             $savedForRollback = [];
+            // картинки, чьих файлов нет во временной папке, — форма предложит загрузить их заново
+            $missingKeys = [];
             $originalImages = [];
             $mediumImages = [];
             $smallImages = [];
@@ -2584,6 +2591,9 @@ class PostController extends Controller
 
                 if (!empty($saveImageForPost['errors'])) {
                     $errors[] = $this->imageSaveError($img, $saveImageForPost['errors']);
+                    if ($this->imageFileMissing($saveImageForPost['errors'])) {
+                        $missingKeys[] = (string)($img['image_name'] ?? '');
+                    }
                 } elseif (!empty($saveImageForPost)) {
                     $savedImageKeys[] = $img['image_name'] ?? null;
                     $savedForRollback[] = [$saveImageForPost, $img];
@@ -2631,7 +2641,7 @@ class PostController extends Controller
                     (new UploadImageController)->returnImageToTemp($saved, $img, $userId);
                 }
 
-                return ['errors' => $errors];
+                return ['errors' => $errors, 'missing_keys' => $missingKeys];
             } else {
                 $new_post->original_image = json_encode($originalImages);
                 $new_post->medium_image = json_encode($mediumImages);
@@ -2659,7 +2669,10 @@ class PostController extends Controller
                 $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $userId, $categoryId, false, true);
                 //dd($saveImageForPost);
                 if (!empty($saveImageForPost['errors'])) {
-                    return ['errors' => [$this->imageSaveError($image, $saveImageForPost['errors'])]];
+                    return [
+                        'errors' => [$this->imageSaveError($image, $saveImageForPost['errors'])],
+                        'missing_keys' => $this->imageFileMissing($saveImageForPost['errors']) ? [(string)($image['image_name'] ?? '')] : [],
+                    ];
                 } else {
                     $savedImageKeys[] = $image['image_name'] ?? null;
                     $new_post->original_image = json_encode($saveImageForPost['original_image']);
@@ -3664,12 +3677,27 @@ class PostController extends Controller
     {
         $name = trim(($image['image_name'] ?? '') . (!empty($image['image_extension']) ? '.' . $image['image_extension'] : ''), '.');
         $details = implode('; ', array_filter(\Illuminate\Support\Arr::flatten((array)$errors), 'is_string'));
-        $missing = str_contains($details, 'не существует');
+        $missing = $this->imageFileMissing($errors);
 
         return 'Картинку «' . ($name ?: 'без имени') . '» не удалось сохранить'
-            . ($missing ? ': её файла нет во временной папке' : '')
-            . '. Уберите её с формы и загрузите заново.'
+            . ($missing
+                ? ': её файла нет во временной папке. Нажмите «Загрузить заново» на её превью.'
+                : '. Уберите её с формы и загрузите заново.')
             . ($details !== '' && !$missing ? ' (' . $details . ')' : '');
+    }
+
+    /**
+     * Ошибка saveImageForPost() — "файла картинки нет во временной папке" (UploadImageController::moveImage()):
+     * такую картинку форма предлагает загрузить заново (missing_keys в ответе store())
+     *
+     * @param array|string $errors
+     * @return bool
+     */
+    private function imageFileMissing($errors): bool
+    {
+        $details = implode('; ', array_filter(\Illuminate\Support\Arr::flatten((array)$errors), 'is_string'));
+
+        return str_contains($details, 'не существует');
     }
 
     /**

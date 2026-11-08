@@ -1410,6 +1410,51 @@
     border-top-color: #7367f0;
     animation: b-pin-spin .8s linear infinite;
 }
+/* у картинки нет файла во временной папке (сохранение ответило missing_keys, admin.js markMissingCreationImages):
+   поверх превью — "Файла нет" и "Загрузить заново"; крестик удаления (z-index 9) остаётся сверху */
+.b-pin-create .upload-image-section .images .image.is-missing {
+    border-color: #ea5455;
+    cursor: default;
+}
+.b-pin-create .upload-image-section .images .image-missing {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .86);
+    text-align: center;
+}
+.b-pin-create .upload-image-section .images .image-missing__text {
+    color: #ea5455;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.b-pin-create .upload-image-section .images .image-missing__btn {
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 7px;
+    background: #7367f0;
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.25;
+    cursor: pointer;
+}
+.b-pin-create .upload-image-section .images .image-missing__btn:hover {
+    background: #5e50ee;
+}
+.b-pin-create .upload-image-section .images .image-missing__btn:disabled {
+    opacity: .7;
+    cursor: progress;
+}
+
 /* крутилка на кнопке "Сохранить пин", пока идёт сохранение */
 .b-pin-btn__spinner {
     display: inline-block;
