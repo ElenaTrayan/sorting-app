@@ -2732,6 +2732,15 @@ margin: 0 0 20px 0;
     right: 10px;
     z-index: 100;
 }
+/* открытое меню — над всеми карточками: у "⋮" (и значка стопки) каждой карточки тот же z-index 100 в общем
+   слое ленты, и при равном z-index карточка ниже по разметке перекрывала меню карточки выше.
+   Карточку с открытым меню тоже поднимаем — на случай, если у неё свой слой (transform masonry при анимации) */
+.b-card__user-options.show {
+    z-index: 1000;
+}
+.grid-item:has(.b-card__user-options.show) {
+    z-index: 1000;
+}
 .b-card__user-options .button {
     width: 34px;
     height: 34px;
