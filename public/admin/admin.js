@@ -288,9 +288,40 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      });
 
 
+     // "Выбрать все найденные" в режиме выбора (posts-bulk.js): догружает подряд все оставшиеся страницы ленты
+     // или поиска — те же, что дала бы прокрутка до конца. onPage — после каждой вставленной порции
+     window.postsFeedLoadAll = function (onPage) {
+         let all = $.Deferred();
+
+         (function next() {
+             if (noMoreRecords) {
+                 all.resolve();
+                 return;
+             }
+             // порцию уже грузит прокрутка — дождаться её
+             if (isLoadingMore) {
+                 setTimeout(next, 200);
+                 return;
+             }
+             page++;
+             loadMoreData(page)
+                 .done(function () {
+                     if (onPage) {
+                         onPage();
+                     }
+                     next();
+                 })
+                 .fail(all.reject);
+         })();
+
+         return all.promise();
+     };
+
+     // promise: порция вставлена в сетку (или страниц больше нет), reject — запрос не удался
      function loadMoreData(page){
          console.log('loadMoreData');
 
+         let loaded = $.Deferred();
          isLoadingMore = true;
 
          let requestUrl;
@@ -333,6 +364,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      // больше подгружать нечего — не пытаться больше грузить следующие страницы
                      isLoadingMore = false;
                      noMoreRecords = true;
+                     loaded.resolve();
                      return;
                  }
 
@@ -351,6 +383,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      $('.ajax-load').hide();
                      $content.animate({opacity: 1}, 200);
                      isLoadingMore = false;
+                     loaded.resolve();
                  });
 
                  // $grid.imagesLoaded().progress( function() {
@@ -385,11 +418,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  $('.ajax-load').hide();
                  isLoadingMore = false;
                  alert('server not responding...');
+                 loaded.reject();
              })
              .always(function(html)
              {
                  console.log('aaa');
              });
+
+         return loaded.promise();
      }
 
      // Галочка "Свернуть группы" (posts/index.blade.php): отмечена — группа одной карточкой-стопкой, снята — посты

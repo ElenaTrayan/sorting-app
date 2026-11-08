@@ -210,6 +210,8 @@
                      data-used-action="{{ route('posts.bulk.used') }}" hidden>
                     <span class="b-posts-select-bar__count js-posts-select-count">Выбрано: 0</span>
                     <button type="button" class="b-posts-select-bar__btn js-posts-select-all">Выбрать все показанные</button>
+                    {{-- догружает оставшиеся страницы ленты (или поиска) и отмечает всё — posts-bulk.js --}}
+                    <button type="button" class="b-posts-select-bar__btn js-posts-select-found">Выбрать все найденные</button>
                     <button type="button" class="b-posts-select-bar__btn b-posts-select-bar__btn--accent js-posts-select-action js-posts-select-hashtags" disabled>
                         <i class="fas fa-tags"></i> Добавить хештеги
                     </button>

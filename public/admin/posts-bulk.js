@@ -1,5 +1,6 @@
 // Режим выбора на "Все посты" (resources/views/user/posts/index.blade.php): кнопка "Выбрать" в панели над лентой
 // включает его, клик по карточке отмечает пост (вместо открытия превью), панель внизу — действия с отмеченными.
+// "Выбрать все найденные" догружает оставшиеся страницы ленты (или поиска) и отмечает всё.
 // Действия:
 //  - "Добавить хештеги" — то же окно #modal-add-hashtag, что и у "Добавить тег" в меню карточки (блок хештегов
 //    в нём обслуживает admin.js), но хештеги получают все отмеченные посты (PostController::bulkAddHashtags;
@@ -72,11 +73,52 @@
         setSelecting(false);
     });
 
-    $bar.on('click', '.js-posts-select-all', function () {
+    function selectAllShown() {
         $page.find('.grid-item').each(function () {
             selected[$(this).data('id')] = true;
         });
         refresh();
+    }
+
+    $bar.on('click', '.js-posts-select-all', selectAllShown);
+
+    // "Выбрать все найденные": сначала догружаем в ленту все оставшиеся страницы — ленты с фильтрами или поиска
+    // (admin.js, postsFeedLoadAll), потом отмечаем все карточки. Именно карточки, а не id с сервера: отмеченная
+    // стопка — это вся группа, и остальные действия панели работают с ними как с отмеченными вручную
+    $bar.on('click', '.js-posts-select-found', function () {
+        var $button = $(this);
+        var label = $button.text();
+
+        if (typeof window.postsFeedLoadAll !== 'function') {
+            selectAllShown();
+            return;
+        }
+
+        function progress() {
+            $button.text('Загружаю… ' + $page.find('.grid-item').length);
+        }
+
+        $button.prop('disabled', true);
+        progress();
+        window.postsFeedLoadAll(progress)
+            .done(function () {
+                // режим могли выключить, пока грузилось
+                if (!selecting) {
+                    return;
+                }
+                selectAllShown();
+                var count = selectedIds().length;
+                toastr.info('Отмечено: ' + count + ' ' + plural(count, ['пост', 'поста', 'постов']));
+            })
+            .fail(function () {
+                if (selecting) {
+                    toastr.error('Не удалось загрузить все посты — отмечены только показанные');
+                    selectAllShown();
+                }
+            })
+            .always(function () {
+                $button.prop('disabled', false).text(label);
+            });
     });
 
     // в режиме выбора клик по карточке только отмечает её. Перехват — на фазе capture: превью (Fancybox), ссылки
