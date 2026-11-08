@@ -2107,6 +2107,19 @@ class PostController extends Controller
 
         foreach ($posts as $post) {
             $post->hashtags()->syncWithoutDetaching($hashtags->pluck('id')->all());
+            // "Сохранить изменения" на странице редактирования: уходим на список постов,
+            // сообщение показывает уже он (user_layout, session('toast_success')).
+            // Окно хештегов в ленте шлёт сюда же, но без этого флага — остаётся на месте
+            if ($request->boolean('redirect_to_list')) {
+                session()->flash('toast_success', 'Пост был успешно обновлен');
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Пост был успешно обновлен',
+                    'redirect' => route('posts.index'),
+                ]);
+            }
+
         }
 
         return response()->json([

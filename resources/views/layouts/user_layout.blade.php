@@ -469,6 +469,11 @@
 <script src="/admin/plugins/tinymce/tinymce.min.js"></script>
 
 <script src="/admin/plugins/toastr/toastr.min.js"></script>
+{{-- сообщение после перехода с AJAX-действия (напр. "Сохранить изменения" поста → список постов).
+     Отдельный ключ: session('success') часть страниц показывает сама --}}
+@if (session('toast_success'))
+    <script>toastr.success(@json(session('toast_success')));</script>
+@endif
 
 <script src="/admin/plugins/fancybox/fancybox.umd.js"></script>
 

@@ -2758,6 +2758,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let data = editForm.serializeArray();
          data.push({name: 'hashtags', value: hashtags});
          data.push({name: 'images', value: images});
+         // после сохранения — на список постов (сообщение об успехе покажет он, см. PostController::update)
+         data.push({name: 'redirect_to_list', value: 1});
          console.log(data);
 
          $.ajaxSetup({
@@ -2777,7 +2779,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  let result = JSON.parse(response.responseText);
 
                  //выводим исчезающее сообщение об успехе
-                 if (result.status === true) {
+                 if (result.status === true && result.redirect) {
+                     window.location.href = result.redirect;
+                 } else if (result.status === true) {
                      toastr.success(result.message);
                      // тип поста мог смениться (добавили текст к картинке и т.п.) — см. post-edit.js
                      document.dispatchEvent(new CustomEvent('post:updated', {detail: result}));
