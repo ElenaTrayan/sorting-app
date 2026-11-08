@@ -33,8 +33,10 @@
                     <div class="card-body-block">
                         <div class="form-group">
                             <label for="title">Хештег</label>
-                            <input type="text" class="form-control" name="title" id="title" placeholder="Введите название хештега" data-action="{{ route('search.hashtag-by-title') }}" data-edit-url="{{ route('hashtags.edit', '__ID__') }}" autocomplete="off" required>
+                            <input type="text" class="form-control" name="title" id="title" placeholder="Введите название хештега" data-action="{{ route('search.hashtag-by-title') }}" data-edit-url="{{ route('hashtags.edit', '__ID__') }}" data-search-action="{{ route('search.hashtag') }}" autocomplete="off" required>
                             <span class="error invalid-feedback"></span>
+                            {{-- уже существующие хештеги с введённым текстом в названии — с первой буквы (admin.js) --}}
+                            <div class="b-hashtag-title-matches js-hashtag-title-matches" hidden></div>
                         </div>
 
                         <div class="form-group">

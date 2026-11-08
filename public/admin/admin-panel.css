@@ -5475,6 +5475,46 @@ margin: 0 0 20px 0;
     justify-content: center;
     pointer-events: none;
 }
+/* Страница создания хештега: уже существующие хештеги с введённым текстом (под полем "Хештег", admin.js) */
+.b-hashtag-title-matches {
+    margin-top: 8px;
+    font-size: 13px;
+}
+.b-hashtag-title-matches__label,
+.b-hashtag-title-matches__empty {
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+.b-hashtag-title-matches__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.b-hashtag-title-matches__item {
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: #f1f0fb;
+    color: #4b4f58;
+}
+.b-hashtag-title-matches__item:hover {
+    background: #e4e1fa;
+    color: #1f2430;
+    text-decoration: none;
+}
+.b-hashtag-title-matches__item mark {
+    padding: 0;
+    background: #ffe58f;
+    color: inherit;
+}
+.b-hashtag-title-matches__item.is-exact {
+    background: #fde2e1;
+    color: #b02a2a;
+    font-weight: 600;
+}
+.b-hashtag-title-matches__more {
+    color: #6c757d;
+}
 /* Поп-ап "Фото контакта" (photo_crop_modal.blade.php): область Cropper.js с круглой рамкой — как кружок фото контакта */
 .b-contact-photo-crop {
     height: 420px;

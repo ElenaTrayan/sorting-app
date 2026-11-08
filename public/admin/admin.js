@@ -3373,6 +3373,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                                      form[0].reset();
                                      fieldTitle.removeClass('is-invalid');
                                      errorMessageElement.removeClass('active').text('');
+                                     $('.js-hashtag-title-matches').prop('hidden', true).empty();
                                      fieldTitle.focus();
 
                                      createPageRelatedHashtags = {};
@@ -3412,8 +3413,32 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          clearTimeout(createTitleCheckTimer);
 
+         let matchesBox = fieldTitle.closest('.form-group').find('.js-hashtag-title-matches');
          if (!query.length) {
+             matchesBox.prop('hidden', true).empty();
              return;
+         }
+
+         // страница создания: под полем — уже существующие хештеги, в названии которых есть введённый текст
+         // (поиск по подстроке, SearchController::searchHashtag), чтобы дубль был виден до того, как название введено целиком
+         if (matchesBox.length && fieldTitle.data('search-action')) {
+             setTimeout(function () {
+                 if (fieldTitle.val().trim() !== query) {
+                     return;
+                 }
+                 $.ajax({
+                     type: 'post',
+                     url: fieldTitle.data('search-action'),
+                     headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                     data: {search: query},
+                     success: function (response) {
+                         if (fieldTitle.val().trim() !== query) {
+                             return;
+                         }
+                         renderHashtagTitleMatches(matchesBox, query, (response && response.status && response.hashtags) || [], fieldTitle.data('edit-url'));
+                     }
+                 });
+             }, 200);
          }
 
          createTitleCheckTimer = setTimeout(function () {
@@ -3448,6 +3473,45 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
          }, 300);
      });
+
+     // Список "Уже есть" под полем названия на странице создания хештега: первые HASHTAG_TITLE_MATCHES_SHOWN
+     // найденных (сначала те, где текст ближе к началу названия), совпадающая часть выделена, каждый — ссылка
+     // на редактирование; точное совпадение — отдельной пометкой
+     const HASHTAG_TITLE_MATCHES_SHOWN = 12;
+     function renderHashtagTitleMatches(box, query, hashtags, editUrlTemplate) {
+         box.empty();
+         if (!hashtags.length) {
+             box.append($('<div>', {class: 'b-hashtag-title-matches__empty', text: 'Хештегов с «' + query + '» пока нет'}));
+             box.prop('hidden', false);
+             return;
+         }
+         const lowerQuery = query.toLowerCase();
+         box.append($('<div>', {class: 'b-hashtag-title-matches__label', text: 'Уже есть (' + hashtags.length + '):'}));
+         const list = $('<div>', {class: 'b-hashtag-title-matches__list'});
+         hashtags.slice(0, HASHTAG_TITLE_MATCHES_SHOWN).forEach(function (hashtag) {
+             const title = String(hashtag.title);
+             const position = title.toLowerCase().indexOf(lowerQuery);
+             const link = $('<a>', {
+                 class: 'b-hashtag-title-matches__item' + (title.toLowerCase() === lowerQuery ? ' is-exact' : ''),
+                 href: String(editUrlTemplate || '').replace('__ID__', hashtag.id),
+                 target: '_blank',
+                 title: 'Открыть хештег',
+             });
+             link.append(document.createTextNode('#'));
+             if (position >= 0) {
+                 link.append(document.createTextNode(title.slice(0, position)));
+                 link.append($('<mark>', {text: title.slice(position, position + query.length)}));
+                 link.append(document.createTextNode(title.slice(position + query.length)));
+             } else {
+                 link.append(document.createTextNode(title));
+             }
+             list.append(link);
+         });
+         if (hashtags.length > HASHTAG_TITLE_MATCHES_SHOWN) {
+             list.append($('<span>', {class: 'b-hashtag-title-matches__more', text: 'и ещё ' + (hashtags.length - HASHTAG_TITLE_MATCHES_SHOWN)}));
+         }
+         box.append(list).prop('hidden', false);
+     }
 
      // страница редактирования: пока название совпадает с другим хештегом — не сохраняем
      // (на сервере update() проверяет то же самое)
