@@ -45,8 +45,11 @@
                                    data-hashtag-id="{{ $hashtag->id }}"
                                    data-action="{{ route('search.hashtag-by-title') }}"
                                    data-edit-url="{{ route('hashtags.edit', '__ID__') }}"
+                                   data-search-action="{{ route('search.hashtag') }}"
                                    autocomplete="off" required>
                             <span class="error invalid-feedback @error('title') active @enderror">@error('title'){{ $message }}@enderror</span>
+                            {{-- при изменении названия — другие хештеги с введённым текстом в названии (admin.js) --}}
+                            <div class="b-hashtag-title-matches js-hashtag-title-matches" hidden></div>
                         </div>
                         <div class="form-group">
                             <label for="parent_id">Хештег-родитель</label>

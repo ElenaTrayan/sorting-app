@@ -3419,7 +3419,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              return;
          }
 
-         // страница создания: под полем — уже существующие хештеги, в названии которых есть введённый текст
+         // страницы создания и редактирования: под полем — уже существующие хештеги, в названии которых есть введённый текст
          // (поиск по подстроке, SearchController::searchHashtag), чтобы дубль был виден до того, как название введено целиком
          if (matchesBox.length && fieldTitle.data('search-action')) {
              setTimeout(function () {
@@ -3435,7 +3435,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          if (fieldTitle.val().trim() !== query) {
                              return;
                          }
-                         renderHashtagTitleMatches(matchesBox, query, (response && response.status && response.hashtags) || [], fieldTitle.data('edit-url'));
+                         // на странице редактирования сам хештег в списке не показываем
+                         let found = ((response && response.status && response.hashtags) || []).filter(function (hashtag) {
+                             return String(hashtag.id) !== ownId;
+                         });
+                         renderHashtagTitleMatches(matchesBox, query, found, fieldTitle.data('edit-url'), ownId !== '');
                      }
                  });
              }, 200);
@@ -3474,14 +3478,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }, 300);
      });
 
-     // Список "Уже есть" под полем названия на странице создания хештега: первые HASHTAG_TITLE_MATCHES_SHOWN
-     // найденных (сначала те, где текст ближе к началу названия), совпадающая часть выделена, каждый — ссылка
-     // на редактирование; точное совпадение — отдельной пометкой
+     // Список "Уже есть" под полем названия на страницах создания и редактирования хештега (на редактировании —
+     // без него самого, isEdit): первые HASHTAG_TITLE_MATCHES_SHOWN найденных (сначала те, где текст ближе к началу
+     // названия), совпадающая часть выделена, каждый — ссылка на редактирование; точное совпадение — отдельной пометкой
      const HASHTAG_TITLE_MATCHES_SHOWN = 12;
-     function renderHashtagTitleMatches(box, query, hashtags, editUrlTemplate) {
+     function renderHashtagTitleMatches(box, query, hashtags, editUrlTemplate, isEdit) {
          box.empty();
          if (!hashtags.length) {
-             box.append($('<div>', {class: 'b-hashtag-title-matches__empty', text: 'Хештегов с «' + query + '» пока нет'}));
+             box.append($('<div>', {class: 'b-hashtag-title-matches__empty', text: (isEdit ? 'Других хештегов с «' : 'Хештегов с «') + query + '» нет'}));
              box.prop('hidden', false);
              return;
          }
