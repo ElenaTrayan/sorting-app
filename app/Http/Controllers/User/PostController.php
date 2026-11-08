@@ -2425,14 +2425,10 @@ class PostController extends Controller
         // хеши сохранённых изображений — записываем в image_hashes уже после того,
         // как известен id поста (после $new_post->save())
         $imageHashesToStore = [];
-        // ключи (image_name) изображений, для которых пользователь уже подтвердил
-        // "это не дубликат, добавить всё равно" при повторной отправке формы
-        // (см. PostController::store() и JS-обработчик #creationform)
-        $forceDuplicateKeys = json_decode($request->force_duplicate_keys ?? '[]', true) ?: [];
-        // картинки, про которые при загрузке сказали "это разные" с похожей картинкой этой же формы (окно
-        // #modal-form-duplicate, admin.js): иначе вторая из них споткнулась бы о первую, уже сохранённую в пост
-        // этой же отправки. С картинками постов, что были до неё, их уже сравнил findDuplicatesBeforeCreate()
-        $forceDuplicateKeys = array_merge($forceDuplicateKeys, json_decode($request->form_distinct_keys ?? '[]', true) ?: []);
+        // Похожие картинки здесь второй раз не ищем (forceAdd в saveImageForPost): store() уже сравнил все картинки
+        // формы с постами до сохранения (findDuplicatesBeforeCreate — окно сравнения с объединением), а похожие
+        // внутри одной формы спросили ещё при загрузке (окно #modal-form-duplicate). Повторная проверка находила
+        // "дубликаты" там, где пользователь уже всё решил, и форма выдавала лишний вопрос "добавить всё равно?"
         // {image_name: {post_id, image_name}} — у этих картинок лучшая копия идёт в новый пост,
         // а старую копию из другого поста удаляем, когда новый пост сохранён (окно сравнения
         // дубликатов в режиме карусели, см. admin.js)
@@ -2486,7 +2482,9 @@ class PostController extends Controller
         if (!empty($image) && !isset($image['image_path']) && !empty($request->numberOfPosts) && $request->numberOfPosts === 'one-post') {
             //dd('ssss');
             $errors = [];
-            $duplicateInfos = [];
+            // уже перенесённые из временной папки картинки: [результат saveImageForPost, картинка формы] —
+            // пост не сохранится (ошибка на другой картинке) — вернём их обратно, см. ниже
+            $savedForRollback = [];
             $originalImages = [];
             $mediumImages = [];
             $smallImages = [];
@@ -2507,21 +2505,16 @@ class PostController extends Controller
                 //  "m_image_path" => "temp_directory/243283257-579176736665198-7143984547937799899-n_800_994.jpg"
                 //]
 
-                $forceThisImage = !empty($img['image_name']) && in_array($img['image_name'], $forceDuplicateKeys, true);
-                $saveImageForPost = (new UploadImageController)->saveImageForPost($img, $userId, $categoryId, false, $forceThisImage);
+                $saveImageForPost = (new UploadImageController)->saveImageForPost($img, $userId, $categoryId, false, true);
 
                 $lastImage = $saveImageForPost;
                 //dd($saveImageForPost);
 
                 if (!empty($saveImageForPost['errors'])) {
-                    $errors[] = $saveImageForPost['errors'];
-                    $duplicateInfos[] = [
-                        'image_key' => $img['image_name'] ?? null,
-                        'duplicate' => $this->formatDuplicateForFrontend($saveImageForPost['duplicate'] ?? null),
-                        'staged_image' => $saveImageForPost['staged_image'] ?? $img,
-                    ];
+                    $errors[] = $this->imageSaveError($img, $saveImageForPost['errors']);
                 } elseif (!empty($saveImageForPost)) {
                     $savedImageKeys[] = $img['image_name'] ?? null;
+                    $savedForRollback[] = [$saveImageForPost, $img];
                     $originalImages[$saveImageForPost['original_image']['name']] = $saveImageForPost['original_image'];
                     if (!empty($saveImageForPost['medium_image'])) {
                         $mediumImages[$saveImageForPost['medium_image']['name']] = $saveImageForPost['medium_image'];
@@ -2559,7 +2552,14 @@ class PostController extends Controller
             //]
 
             if (!empty($errors)) {
-                return ['errors' => $errors, 'duplicate_infos' => $duplicateInfos];
+                // пост не сохраняем — картинки, что успели перенести, возвращаем во временную папку: форма на месте,
+                // и при повторной отправке они найдутся (раньше они пропадали оттуда, и сохранение срывалось
+                // на них каждый раз)
+                foreach ($savedForRollback as [$saved, $img]) {
+                    (new UploadImageController)->returnImageToTemp($saved, $img, $userId);
+                }
+
+                return ['errors' => $errors];
             } else {
                 $new_post->original_image = json_encode($originalImages);
                 $new_post->medium_image = json_encode($mediumImages);
@@ -2583,18 +2583,11 @@ class PostController extends Controller
         } else {
             //dd('tttt');
             if (!empty($image)) {
-                $forceThisImage = !empty($image['image_name']) && in_array($image['image_name'], $forceDuplicateKeys, true);
-                $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $userId, $categoryId, false, $forceThisImage);
+                // похожие уже проверены в store() — см. комментарий в начале метода
+                $saveImageForPost = (new UploadImageController)->saveImageForPost($image, $userId, $categoryId, false, true);
                 //dd($saveImageForPost);
                 if (!empty($saveImageForPost['errors'])) {
-                    return [
-                        'errors' => $saveImageForPost['errors'],
-                        'duplicate_infos' => [[
-                            'image_key' => $image['image_name'] ?? null,
-                            'duplicate' => $this->formatDuplicateForFrontend($saveImageForPost['duplicate'] ?? null),
-                            'staged_image' => $saveImageForPost['staged_image'] ?? $image,
-                        ]],
-                    ];
+                    return ['errors' => [$this->imageSaveError($image, $saveImageForPost['errors'])]];
                 } else {
                     $savedImageKeys[] = $image['image_name'] ?? null;
                     $new_post->original_image = json_encode($saveImageForPost['original_image']);
@@ -3594,6 +3587,26 @@ class PostController extends Controller
      * @param object|null $duplicate
      * @return array|null
      */
+    /**
+     * Текст ошибки сохранения картинки формы для пользователя (createPost): какая картинка и что делать.
+     * Подробности (путь, исключение) — в скобках: по ним видно, что именно сломалось
+     *
+     * @param array $image картинка формы (image_name, image_extension)
+     * @param array|string $errors ошибки saveImageForPost()
+     * @return string
+     */
+    private function imageSaveError(array $image, $errors): string
+    {
+        $name = trim(($image['image_name'] ?? '') . (!empty($image['image_extension']) ? '.' . $image['image_extension'] : ''), '.');
+        $details = implode('; ', array_filter(\Illuminate\Support\Arr::flatten((array)$errors), 'is_string'));
+        $missing = str_contains($details, 'не существует');
+
+        return 'Картинку «' . ($name ?: 'без имени') . '» не удалось сохранить'
+            . ($missing ? ': её файла нет во временной папке' : '')
+            . '. Уберите её с формы и загрузите заново.'
+            . ($details !== '' && !$missing ? ' (' . $details . ')' : '');
+    }
+
     private function formatDuplicateForFrontend($duplicate): ?array
     {
         if (empty($duplicate)) {

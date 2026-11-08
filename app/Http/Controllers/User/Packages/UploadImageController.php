@@ -923,6 +923,40 @@ class UploadImageController extends Controller
     }
 
     /**
+     * Вернуть во временную папку уже перенесённые saveImageForPost() файлы картинки — пост из них так и не
+     * сохранили (ошибка на другом размере или на другой картинке того же поста, PostController::createPost()).
+     * Пути во временной папке — те же, откуда saveImageForPost() их брал, поэтому повторная отправка формы
+     * найдёт файлы на месте
+     *
+     * @param array $saved результат saveImageForPost() (или его части): original_image/medium_image/small_image с path
+     * @param array $image данные картинки формы (image_path, m_image_name, s_image_name, image_extension)
+     * @param string $userId
+     * @return void
+     */
+    public function returnImageToTemp(array $saved, array $image, string $userId): void
+    {
+        $extension = $image['image_extension'] ?? '';
+        $tempPaths = [
+            'original_image' => !empty($image['image_path']) ? '/' . ltrim($image['image_path'], '/') : null,
+            'medium_image' => !empty($image['m_image_name']) ? '/temp_directory/' . $userId . '/' . $image['m_image_name'] . '.' . $extension : null,
+            'small_image' => !empty($image['s_image_name']) ? '/temp_directory/' . $userId . '/' . $image['s_image_name'] . '.' . $extension : null,
+        ];
+
+        foreach ($tempPaths as $size => $tempPath) {
+            $savedPath = $saved[$size]['path'] ?? null;
+            if ($tempPath === null || empty($savedPath) || !Storage::disk('local')->exists($savedPath)) {
+                continue;
+            }
+            if (Storage::disk('local')->exists($tempPath)) {
+                // во временной папке копия уже есть — перенесённая не нужна
+                Storage::disk('local')->delete($savedPath);
+                continue;
+            }
+            $this->moveImage($savedPath, $tempPath);
+        }
+    }
+
+    /**
      * Переместить изображение из временной папки в нужную
      * и получить путь к перемещенному изображению, имя и тип
      *
@@ -1374,6 +1408,14 @@ class UploadImageController extends Controller
             }
 
             if (!empty($errors)) {
+                // часть размеров уже перенесена — возвращаем их во временную папку: иначе при повторной отправке
+                // формы их там не найти, и сохранение срывалось бы на этой картинке каждый раз
+                $this->returnImageToTemp([
+                    'original_image' => empty($saveOriginalImage['error']) ? $saveOriginalImage : null,
+                    'medium_image' => !empty($saveMediumImage) && empty($saveMediumImage['error']) ? $saveMediumImage : null,
+                    'small_image' => !empty($saveSmallImage) && empty($saveSmallImage['error']) ? $saveSmallImage : null,
+                ], $image, $userId);
+
                 return [
                     'errors' => $errors
                 ];

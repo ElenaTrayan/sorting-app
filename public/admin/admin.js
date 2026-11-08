@@ -2354,9 +2354,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      //showAlert(result.message, 'alert-info', 'fa-check');
                  } else if (result.needs_choice && result.duplicate_infos && result.duplicate_infos.length) {
                      resolveDuplicatesAndRetry(result, duplicateState);
-                 } else if (result.duplicate_infos && result.duplicate_infos.length) {
-                     // дубликат нашёлся уже при сохранении (например, две одинаковые картинки в одной загрузке)
-                     confirmDuplicatesAndRetry(result.duplicate_infos, duplicateState);
+                 } else if (result.duplicate_infos && result.duplicate_infos.some(function (info) { return info && info.duplicate; })) {
+                     // похожая картинка нашлась уже при сохранении и сервер назвал, в каком посте. Без поста это не
+                     // совпадение, а ошибка сохранения (файл не перенёсся) — она уходит в сообщение ниже, а не в
+                     // вопрос "добавить всё равно?", который раньше повторялся без конца
+                     confirmDuplicatesAndRetry(result.duplicate_infos.filter(function (info) { return info && info.duplicate; }), duplicateState);
                  } else {
                      // сервер при ошибке отдаёт либо message, либо errors
                      // (плоский массив строк или массив массивов — например, по одной ошибке на картинку)
@@ -2379,11 +2381,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          for (let i = 0; i < duplicateInfos.length; i++) {
              let info = duplicateInfos[i];
              let duplicate = info.duplicate;
-             let message = duplicate
-                 ? 'Похоже, такая картинка уже есть в посте #' + duplicate.post_id + ' (' + duplicate.width + '×' + duplicate.height + ').\n\n'
-                     + 'Посмотреть: ' + window.location.origin + '/cabinet/posts/' + duplicate.post_id + '/edit\n\n'
-                     + 'Это точно другая картинка — добавить всё равно?'
-                 : 'Похоже, такая картинка уже есть на сайте. Это точно другая картинка — добавить всё равно?';
+             // сюда приходят только совпадения с названным постом (см. вызов выше)
+             let message = 'Похоже, такая картинка уже есть в посте #' + duplicate.post_id + ' (' + duplicate.width + '×' + duplicate.height + ').\n\n'
+                 + 'Посмотреть: ' + window.location.origin + '/cabinet/posts/' + duplicate.post_id + '/edit\n\n'
+                 + 'Это точно другая картинка — добавить всё равно?';
 
              if (window.confirm(message)) {
                  if (info.image_key) {
