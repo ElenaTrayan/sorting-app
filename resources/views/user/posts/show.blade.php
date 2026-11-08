@@ -99,34 +99,47 @@
                 <div class="b-post-show__grid">
 
                     <div class="b-post-show__media">
-                        @if ($post->video_url)
+                        @if ($post->video_url && count($galleryImages) === 0)
                             <div class="b-post-show__media-frame b-post-show__media-frame--video">
                                 <video src="{{ $post->video_url }}" controls preload="metadata"></video>
                             </div>
-                        @elseif (count($galleryImages) > 0)
-                            <div class="b-post-show__media-frame js-post-gallery" data-count="{{ count($galleryImages) }}">
+                        @elseif (count($mediaItems) > 0)
+                            {{-- карусель: картинки и видео на своём месте среди них (Post::mediaItems, место ставят на
+                                 форме создания и на странице редактирования). Раньше при видео показывалось только оно,
+                                 картинки поста видно не было. data-src — адрес для "Скачать" и "На весь экран" --}}
+                            <div class="b-post-show__media-frame js-post-gallery @if (count($mediaItems) > 1) has-footer @endif" data-count="{{ count($mediaItems) }}">
                                 <div class="b-post-show__media-slides">
-                                    @foreach ($galleryImages as $i => $image)
-                                        <a href="/storage{{ $image['full'] }}" data-fancybox="post-gallery" class="b-post-show__media-slide js-post-gallery-slide @if ($i === 0) is-active @endif">
-                                            <img src="/storage{{ $image['medium'] }}" alt="">
-                                        </a>
+                                    @foreach ($mediaItems as $i => $item)
+                                        @if ($item['type'] === 'video')
+                                            <div class="b-post-show__media-slide b-post-show__media-slide--video js-post-gallery-slide @if ($i === 0) is-active @endif" data-type="video" data-src="{{ $item['url'] }}">
+                                                <video src="{{ $item['url'] }}" controls preload="metadata"></video>
+                                            </div>
+                                        @else
+                                            <a href="/storage{{ $item['full'] }}" data-fancybox="post-gallery" data-type="image" data-src="/storage{{ $item['full'] }}" class="b-post-show__media-slide js-post-gallery-slide @if ($i === 0) is-active @endif">
+                                                <img src="/storage{{ $item['medium'] }}" alt="">
+                                            </a>
+                                        @endif
                                     @endforeach
                                 </div>
 
                                 <div class="b-post-show__media-actions">
                                     <button type="button" class="b-post-show__media-btn js-post-gallery-expand" title="Открыть на весь экран"><i class="fas fa-expand"></i></button>
-                                    <a href="/storage{{ $galleryImages[0]['full'] }}" download class="b-post-show__media-btn js-post-gallery-download" title="Скачать"><i class="fas fa-download"></i></a>
+                                    <a href="{{ $mediaItems[0]['type'] === 'video' ? $mediaItems[0]['url'] : '/storage' . $mediaItems[0]['full'] }}" download class="b-post-show__media-btn js-post-gallery-download" title="Скачать"><i class="fas fa-download"></i></a>
                                 </div>
 
-                                @if (count($galleryImages) > 1)
+                                @if (count($mediaItems) > 1)
                                     <button type="button" class="b-post-show__media-nav b-post-show__media-nav--prev js-post-gallery-prev" title="Предыдущее"><i class="fas fa-chevron-left"></i></button>
                                     <button type="button" class="b-post-show__media-nav b-post-show__media-nav--next js-post-gallery-next" title="Следующее"><i class="fas fa-chevron-right"></i></button>
 
                                     <div class="b-post-show__media-footer">
-                                        <span class="b-post-show__media-counter js-post-gallery-counter">1 / {{ count($galleryImages) }}</span>
+                                        <span class="b-post-show__media-counter js-post-gallery-counter">1 / {{ count($mediaItems) }}</span>
                                         <div class="b-post-show__media-thumbs">
-                                            @foreach ($galleryImages as $i => $image)
-                                                <button type="button" class="b-post-show__media-thumb js-post-gallery-thumb @if ($i === 0) is-active @endif" data-index="{{ $i }}" style="background-image: url('/storage{{ $image['medium'] }}')" title="Изображение {{ $i + 1 }}"></button>
+                                            @foreach ($mediaItems as $i => $item)
+                                                @if ($item['type'] === 'video')
+                                                    <button type="button" class="b-post-show__media-thumb b-post-show__media-thumb--video js-post-gallery-thumb @if ($i === 0) is-active @endif" data-index="{{ $i }}" title="Видео"><i class="fas fa-play"></i></button>
+                                                @else
+                                                    <button type="button" class="b-post-show__media-thumb js-post-gallery-thumb @if ($i === 0) is-active @endif" data-index="{{ $i }}" style="background-image: url('/storage{{ $item['medium'] }}')" title="Изображение {{ $i + 1 }}"></button>
+                                                @endif
                                             @endforeach
                                         </div>
                                     </div>
@@ -148,7 +161,8 @@
                             @if ($post->video_url)
                                 <span class="b-post-show__meta-sep"></span>
                                 <span class="b-post-show__meta-item"><i class="fas fa-video"></i> Видео</span>
-                            @elseif (count($galleryImages) > 0)
+                            @endif
+                            @if (count($galleryImages) > 0)
                                 <span class="b-post-show__meta-sep"></span>
                                 <span class="b-post-show__meta-item"><i class="far fa-images"></i> {{ count($galleryImages) }} {{ $pluralizeImages(count($galleryImages)) }}</span>
                             @endif
@@ -342,10 +356,20 @@
         var total = slides.length;
         var current = 0;
 
+        // адрес слайда — для "Скачать" и "На весь экран" (у видео-слайда нет href, только data-src)
+        function slideSrc(slide) {
+            return slide.getAttribute('data-src') || slide.getAttribute('href');
+        }
+
         function setActive(index) {
             current = (index + total) % total;
             slides.forEach(function (slide, i) {
                 slide.classList.toggle('is-active', i === current);
+                // ушли с видео — не играет в скрытом слайде
+                var video = i !== current && slide.querySelector('video');
+                if (video && !video.paused) {
+                    video.pause();
+                }
             });
             thumbs.forEach(function (thumb, i) {
                 thumb.classList.toggle('is-active', i === current);
@@ -354,7 +378,7 @@
                 counter.textContent = (current + 1) + ' / ' + total;
             }
             if (downloadBtn) {
-                downloadBtn.setAttribute('href', slides[current].getAttribute('href'));
+                downloadBtn.setAttribute('href', slideSrc(slides[current]));
             }
         }
 
@@ -376,7 +400,10 @@
         if (expandBtn) {
             expandBtn.addEventListener('click', function () {
                 var items = slides.map(function (slide) {
-                    return {src: slide.getAttribute('href'), type: 'image'};
+                    // у видео тип не задаём: Fancybox сам распознаёт HTML5-видео по расширению (html5video)
+                    return slide.getAttribute('data-type') === 'video'
+                        ? {src: slideSrc(slide)}
+                        : {src: slideSrc(slide), type: 'image'};
                 });
                 Fancybox.show(items, {startIndex: current, infinite: false});
             });

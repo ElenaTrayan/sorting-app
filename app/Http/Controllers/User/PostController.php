@@ -700,6 +700,8 @@ class PostController extends Controller
             'categories' => $categories,
             'post' => $post,
             'galleryImages' => $galleryImages,
+            // карусель: картинки и видео на его месте (Post::mediaItems)
+            'mediaItems' => $post->mediaItems($galleryImages),
             'groupCount' => $groupCount,
             'filmMaterials' => $post->type === Post::TYPE_FILM ? $this->filmMaterialsBySection($post, true) : null,
         ]);
@@ -2470,6 +2472,12 @@ class PostController extends Controller
             if (is_array($videoData)) {
                 $savedVideo = $this->saveVideoForPost($videoData, $userId);
                 if ($savedVideo) {
+                    // место видео среди картинок — как карточку видео поставили на форме (сколько картинок перед
+                    // ней, submitCreationForm() в admin.js); только у одного поста со всеми картинками, в
+                    // "Несколько постов" у каждого поста своя картинка, и видео — первым (Post::video_position)
+                    if ($request->numberOfPosts === 'one-post' && is_numeric($request->input('video_position'))) {
+                        $savedVideo['position'] = max(0, (int)$request->input('video_position'));
+                    }
                     $new_post->video = json_encode($savedVideo);
                 }
             }
@@ -2979,6 +2987,10 @@ class PostController extends Controller
                 'extension' => $extension,
                 'path' => '/' . $dir . '/' . $name . '.' . $extension,
             ];
+            // заменили видео — новое встаёт на место прежнего среди картинок (Post::video_position)
+            if (isset($post->video_data['position'])) {
+                $video['position'] = $post->video_position;
+            }
 
             $post->video = json_encode($video);
             $post->save();
@@ -3102,6 +3114,32 @@ class PostController extends Controller
         $post->save();
 
         return response()->json(['status' => true, 'message' => 'Видео удалено']);
+    }
+
+    /**
+     * Место видео среди картинок поста (страница редактирования, блок "Видео" — "Место в карусели"):
+     * сколько картинок стоит перед видео, 0 — видео первым. Хранится в JSON поля video (Post::video_position)
+     *
+     * @param Request $request
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function setVideoPosition(Request $request, Post $post)
+    {
+        abort_unless((string)$post->user_id === (string)auth()->id(), 404);
+
+        $request->validate(['position' => 'required|integer|min:0']);
+
+        $video = $post->video_data;
+        if (empty($video['path'])) {
+            return response()->json(['status' => false, 'message' => 'У поста нет видео']);
+        }
+
+        $video['position'] = (int)$request->input('position');
+        // updated_at не трогаем: порядок показа — не правка содержимого поста
+        $post->newQuery()->whereKey($post->id)->toBase()->update(['video' => json_encode($video)]);
+
+        return response()->json(['status' => true, 'message' => 'Место видео сохранено', 'position' => $video['position']]);
     }
 
     private function deletePostVideoFile(Post $post): void

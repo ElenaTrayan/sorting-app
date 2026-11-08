@@ -82,6 +82,7 @@ Route::middleware(['auth'])->prefix('cabinet')->group(function () {
         Route::post('upload-video-to-temp-directory', [User\PostController::class, 'uploadVideoToTempDirectory'])->name('video.upload-to-temp-directory');
         Route::post('/posts/{post}/video', [User\PostController::class, 'addVideo'])->name('posts.video.add');
         Route::delete('/posts/{post}/video', [User\PostController::class, 'deleteVideo'])->name('posts.video.delete');
+Route::post('/posts/{post}/video/position', [User\PostController::class, 'setVideoPosition'])->name('posts.video.position');
         Route::post('delete-post-file', [User\PostController::class, 'deletePostFile'])->name('posts.images.delete');
         Route::post('/posts/{post}/images', [User\PostController::class, 'addImage'])->name('posts.images.add');
         // палитра обложки, поправленная вручную (блок "Палитра" на странице редактирования, palette-editor.js)

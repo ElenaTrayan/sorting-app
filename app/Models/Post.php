@@ -917,4 +917,50 @@ class Post extends Model
         return !empty($data['path']) ? '/storage' . $data['path'] : null;
     }
 
+    /**
+     * Место видео среди картинок поста: сколько картинок стоит перед ним (0 — видео первым). Хранится в том же
+     * JSON поля video (ключ position, его ставят форма создания и PostController::setVideoPosition); у старых
+     * постов ключа нет — видео первым, как и показывалось раньше. Больше числа картинок быть может (картинки
+     * удалили) — тогда видео просто последним, см. mediaItems()
+     *
+     * @return int
+     */
+    public function getVideoPositionAttribute(): int
+    {
+        $data = $this->video_data;
+
+        return max(0, (int)($data['position'] ?? 0));
+    }
+
+    /**
+     * Видео — обложка поста (первое по порядку): в карточке ленты и в превью вместо картинки показываем видео.
+     * Картинок нет вовсе — тоже видео, иначе на карточке не было бы ничего
+     *
+     * @return bool
+     */
+    public function videoIsCover(): bool
+    {
+        return $this->video_url !== null && ($this->video_position === 0 || $this->coverImagePath() === null);
+    }
+
+    /**
+     * Картинки и видео поста в порядке показа (карусель на странице поста): видео встаёт на своё место
+     * (video_position) среди картинок
+     *
+     * @param array $galleryImages [['full' => путь, 'medium' => путь], ...] — см. PostController::show()
+     * @return array [['type' => 'image', 'full' => ..., 'medium' => ...] | ['type' => 'video', 'url' => ...], ...]
+     */
+    public function mediaItems(array $galleryImages): array
+    {
+        $items = array_map(function (array $image) {
+            return ['type' => 'image'] + $image;
+        }, array_values($galleryImages));
+
+        if ($this->video_url !== null) {
+            array_splice($items, min($this->video_position, count($items)), 0, [['type' => 'video', 'url' => $this->video_url]]);
+        }
+
+        return $items;
+    }
+
 }

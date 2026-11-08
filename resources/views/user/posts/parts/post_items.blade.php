@@ -104,7 +104,8 @@
                 : 'href="' . e($galleryUrl) . '" data-fancybox="posts-gallery" data-type="ajax"';
         @endphp
         <div class="b-card__content">
-            @if ($post->video_url)
+            {{-- видео на карточке — когда оно первое среди картинок поста (или картинок нет), Post::videoIsCover --}}
+            @if ($post->videoIsCover())
                 <a {!! $cardLink !!} class="b-card__content__image b-card__content__video">
                     <video src="{{ $post->video_url }}" controls preload="metadata"></video>
                 </a>

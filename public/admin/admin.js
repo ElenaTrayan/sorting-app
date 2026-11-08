@@ -580,8 +580,10 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      // PostController::store()/createPost() — sort_order при "Сгруппировать посты")
      if ($('.js-images').length && $.fn.sortable) {
          $('.js-images').sortable({
-             items: '.image',
-             cancel: '.js-delete-image, .js-edit-image, .js-image-date',
+             // карточка видео (.b-pin-video) двигается вместе с картинками: её место — место видео в посте
+             // (creationFormFields() ниже); в порядок картинок в sessionStorage она не входит (update)
+             items: '.image, .b-pin-video',
+             cancel: '.js-delete-image, .js-edit-image, .js-image-date, .js-post-video__remove',
              tolerance: 'pointer',
              placeholder: 'image-sort-placeholder',
              forcePlaceholderSize: true,
@@ -2058,8 +2060,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          resetVideoPreview();
      }
 
-     // карточка видео в .js-images рядом с картинками, но без класса .image — иначе её
-     // подхватят сортировка картинок, удаление .js-delete-image и превью пина (pin-create.js)
+     // карточка видео в .js-images рядом с картинками, но без класса .image — иначе её подхватят удаление
+     // .js-delete-image, просмотр картинок и превью пина (pin-create.js). Перетаскивается вместе с картинками
+     // (sortable выше) — где стоит, там видео и будет в посте
      function renderVideoPreview(file) {
          resetVideoPreview();
 
@@ -2181,6 +2184,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          data.push({name: 'hashtags', value: postStorage('hashtags2').getItem('hashtags2')});
          data.push({name: 'text', value: tinyMCE.activeEditor.getContent({format: 'raw'})});
          data.push({name: 'video', value: sessionStorage.getItem('postVideo') || ''});
+         // место видео среди картинок — сколько картинок стоит перед его карточкой (перетаскивается вместе с
+         // ними); сервер берёт его только для одного поста со всеми картинками (PostController::createPost)
+         let videoCard = $('.js-images .b-pin-video');
+         if (videoCard.length) {
+             data.push({name: 'video_position', value: videoCard.prevAll('.image').length});
+         }
          return data;
      }
 
@@ -7145,6 +7154,75 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              errorBox.textContent = '';
          }
 
+         // "Место в карусели": сколько картинок стоит перед видео на странице поста (Post::video_position).
+         // Пункты — по числу картинок в блоке "Изображения", пересобираются, когда их добавляют или удаляют
+         const positionUrl = panel.getAttribute('data-position-action');
+         const positionField = panel.querySelector('.js-post-video__position-field');
+         const positionSelect = panel.querySelector('.js-post-video__position');
+         const imagesList = document.querySelector('#post-images .js-post-images__list');
+         let videoPosition = parseInt(panel.getAttribute('data-position'), 10) || 0;
+
+         function imageCount() {
+             return imagesList ? imagesList.querySelectorAll('.b-post-images__item').length : 0;
+         }
+
+         function renderPositionOptions() {
+             if (!positionField) {
+                 return;
+             }
+             let count = imageCount();
+             // без видео или без картинок выбирать нечего
+             positionField.hidden = !player.querySelector('video') || count === 0;
+             if (positionField.hidden) {
+                 return;
+             }
+
+             positionSelect.innerHTML = '';
+             for (let i = 0; i <= count; i++) {
+                 let label = i === 0 ? 'Первым, перед картинками'
+                     : (i === count ? 'Последним, после всех картинок' : 'После ' + i + '-й картинки');
+                 positionSelect.appendChild(new Option(label, String(i)));
+             }
+             // картинок стало меньше, чем было перед видео, — оно и так показывается последним
+             positionSelect.value = String(Math.min(videoPosition, count));
+         }
+
+         if (positionSelect) {
+             positionSelect.addEventListener('change', function () {
+                 let position = parseInt(positionSelect.value, 10) || 0;
+                 clearError();
+                 positionSelect.disabled = true;
+
+                 $.ajax({
+                     url: positionUrl,
+                     type: 'post',
+                     headers: {'X-CSRF-TOKEN': csrfToken()},
+                     data: {position: position},
+                     success: function (response) {
+                         if (response.status === true) {
+                             videoPosition = response.position;
+                             toastr.success(response.message || 'Место видео сохранено');
+                         } else {
+                             showError(response.message || 'Не удалось сохранить место видео');
+                             renderPositionOptions();
+                         }
+                     },
+                     error: function () {
+                         showError('Не удалось сохранить место видео');
+                         renderPositionOptions();
+                     },
+                     complete: function () {
+                         positionSelect.disabled = false;
+                     }
+                 });
+             });
+         }
+
+         if (imagesList && typeof MutationObserver !== 'undefined') {
+             new MutationObserver(renderPositionOptions).observe(imagesList, {childList: true});
+         }
+         renderPositionOptions();
+
          addInput.addEventListener('change', function () {
              if (!addInput.files.length) {
                  return;
@@ -7189,6 +7267,9 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          player.innerHTML = '<video src="/storage' + response.video.path + '" controls preload="metadata"></video>';
                          addLabelText.textContent = 'Заменить видео';
                          deleteBtn.style.display = '';
+                         // замена встаёт на место прежнего видео (PostController::addVideo), новое — первым
+                         videoPosition = response.video.position || 0;
+                         renderPositionOptions();
                          toastr.success(response.message || 'Видео добавлено');
                      } else {
                          showError(response.message || 'Не удалось загрузить видео');
@@ -7216,6 +7297,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          player.innerHTML = '';
                          addLabelText.textContent = 'Добавить видео';
                          deleteBtn.style.display = 'none';
+                         videoPosition = 0;
+                         renderPositionOptions();
                          toastr.success(response.message || 'Видео удалено');
                      } else {
                          showError(response.message || 'Не удалось удалить видео');

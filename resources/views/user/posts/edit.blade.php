@@ -222,9 +222,12 @@
                             <span class="b-pin-card__hint">Изменения сохраняются сразу</span>
                         </div>
 
+                        {{-- data-position — место видео среди картинок (Post::video_position), меняет "Место в карусели" ниже --}}
                         <div class="b-post-images__video b-post-edit__video" id="post-video"
                              data-add-action="{{ route('posts.video.add', $post->id) }}"
-                             data-delete-action="{{ route('posts.video.delete', $post->id) }}">
+                             data-delete-action="{{ route('posts.video.delete', $post->id) }}"
+                             data-position-action="{{ route('posts.video.position', $post->id) }}"
+                             data-position="{{ $post->video_position }}">
 
                             <div class="js-post-video__player b-post-edit__video-player">
                                 @if ($post->video_url)
@@ -242,6 +245,13 @@
                                     <i class="fas fa-trash"></i> Удалить видео
                                 </button>
                             </div>
+
+                            {{-- где видео стоит среди картинок на странице поста; пункты строит admin.js по числу картинок
+                                 в блоке "Изображения", без видео или без картинок блок скрыт --}}
+                            <label class="b-post-edit__video-position js-post-video__position-field" hidden>
+                                <span>Место в карусели</span>
+                                <select class="b-pin-input js-post-video__position"></select>
+                            </label>
 
                             <div class="js-post-video__error b-post-edit__error" style="display: none;"></div>
                         </div>

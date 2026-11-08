@@ -772,6 +772,13 @@
 .b-pin-create .upload-image-section .images .b-pin-video:hover {
     border-color: #428bcb;
 }
+/* карточку видео перетаскивают среди картинок — её место и есть место видео в посте (admin.js, sortable) */
+.b-pin-create .upload-image-section .images .b-pin-video {
+    cursor: grab;
+}
+.b-pin-create .upload-image-section .images .b-pin-video.ui-sortable-helper {
+    cursor: grabbing;
+}
 .b-pin-create .upload-image-section .images .b-pin-video video {
     display: block;
     width: 100%;

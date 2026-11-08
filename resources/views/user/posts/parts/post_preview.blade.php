@@ -13,7 +13,9 @@
 <div class="b-post-preview @if ($hasMedia && !$hasText) b-post-preview--media-only @endif @if (!$hasMedia) b-post-preview--text-only @endif">
     @if ($hasMedia)
         <div class="b-post-preview__media">
-            @if ($post->video_url)
+            {{-- видео вместо картинки — только когда оно первое по порядку (Post::videoIsCover), иначе первая картинка
+                 и значок: в посте есть ещё и видео (всё целиком — на странице поста) --}}
+            @if ($post->videoIsCover() || count($galleryImages) === 0)
                 <video src="{{ $post->video_url }}" controls preload="metadata"></video>
             @else
                 {{-- отдельный Fancybox-триггер поверх уже открытого поп-апа — клик по
@@ -26,8 +28,11 @@
                 <a href="/storage{{ $galleryImages[0]['full'] }}" data-fancybox="post-preview-image-{{ $post->id }}">
                     <img src="/storage{{ $galleryImages[0]['full'] }}" alt="">
                 </a>
-                @if (count($galleryImages) > 1)
-                    <span class="b-post-preview__media-badge"><i class="far fa-images"></i> {{ count($galleryImages) }}</span>
+                @if (count($galleryImages) > 1 || $post->video_url)
+                    <span class="b-post-preview__media-badge">
+                        @if (count($galleryImages) > 1)<i class="far fa-images"></i> {{ count($galleryImages) }}@endif
+                        @if ($post->video_url)<i class="fas fa-video"></i>@endif
+                    </span>
                 @endif
             @endif
         </div>
