@@ -133,3 +133,5 @@
         </div>
     </div>
 </div>
+
+@include('user.contacts.parts.photo_crop_modal')

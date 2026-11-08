@@ -5475,6 +5475,26 @@ margin: 0 0 20px 0;
     justify-content: center;
     pointer-events: none;
 }
+/* Поп-ап "Фото контакта" (photo_crop_modal.blade.php): область Cropper.js с круглой рамкой — как кружок фото контакта */
+.b-contact-photo-crop {
+    height: 420px;
+    max-height: 60vh;
+    background: #f7f7fe;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.b-contact-photo-crop img {
+    display: block;
+    max-width: 100%;
+}
+.b-contact-photo-crop .cropper-view-box,
+.b-contact-photo-crop .cropper-face {
+    border-radius: 50%;
+}
+.b-contact-photo-crop .cropper-view-box {
+    outline: 0;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(91, 75, 219, .6);
+}
 .b-contact-form__photo-drop {
     flex: 1 1 0%;
     min-width: 210px;

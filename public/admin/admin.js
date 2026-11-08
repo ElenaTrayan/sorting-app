@@ -9052,6 +9052,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              if (inputEl.files.length) {
                  onFile(inputEl.files[0]);
              }
+             // сбрасываем, чтобы повторный выбор того же файла (после "Отмена" в обрезке) снова сработал
+             inputEl.value = '';
          });
 
          ['dragover', 'dragenter'].forEach(function (evt) {
@@ -9078,6 +9080,84 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              }
              onFile(file);
          });
+     }
+
+     // Поп-ап "Фото контакта" (photo_crop_modal.blade.php): выбранный файл открывается в Cropper.js с круглой
+     // рамкой — какая часть попадёт в кружок. onDone(file, dataUrl) получает уже обрезанный квадрат
+     // (CONTACT_PHOTO_SIZE px, JPEG) — его и отправляет форма; по "Отмена" фото не меняется.
+     // Окно открывается поверх формы контакта, поэтому поднимаем его и его фон над ней.
+     const CONTACT_PHOTO_SIZE = 800;
+     function cropContactPhoto(file, onDone) {
+         const modal = $('#modal-contact-photo-crop');
+         if (!modal.length || typeof Cropper === 'undefined') {
+             // без Cropper.js — как раньше, целиком
+             let reader = new FileReader();
+             reader.onload = function () { onDone(file, reader.result); };
+             reader.readAsDataURL(file);
+             return;
+         }
+         const img = modal.find('.js-contact-photo-crop-image');
+         const objectUrl = URL.createObjectURL(file);
+         let cropper = null;
+
+         modal.off('.photoCrop');
+         img.attr('src', objectUrl);
+         modal.one('show.bs.modal.photoCrop', function () {
+             modal.css('z-index', 1060);
+         });
+         modal.one('shown.bs.modal.photoCrop', function () {
+             $('.modal-backdrop').last().css('z-index', 1055);
+             cropper = new Cropper(img[0], {
+                 viewMode: 1,
+                 aspectRatio: 1,
+                 autoCropArea: 0.9,
+                 dragMode: 'move',
+                 background: false,
+                 guides: false,
+                 center: false,
+                 toggleDragModeOnDblclick: false,
+                 responsive: true,
+             });
+         });
+         modal.on('click.photoCrop', '.js-contact-photo-crop-apply', function () {
+             if (!cropper) {
+                 return;
+             }
+             const canvas = cropper.getCroppedCanvas({
+                 width: CONTACT_PHOTO_SIZE,
+                 height: CONTACT_PHOTO_SIZE,
+                 fillColor: '#fff', // прозрачный PNG — на белом, а не на чёрном
+                 imageSmoothingEnabled: true,
+                 imageSmoothingQuality: 'high',
+             });
+             if (!canvas) {
+                 return;
+             }
+             const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+             canvas.toBlob(function (blob) {
+                 if (!blob) {
+                     toastr.error('Не удалось обрезать фото');
+                     return;
+                 }
+                 const name = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+                 onDone(new File([blob], name, {type: 'image/jpeg'}), dataUrl);
+                 modal.modal('hide');
+             }, 'image/jpeg', 0.92);
+         });
+         modal.one('hidden.bs.modal.photoCrop', function () {
+             modal.off('.photoCrop');
+             if (cropper) {
+                 cropper.destroy();
+                 cropper = null;
+             }
+             img.attr('src', '');
+             URL.revokeObjectURL(objectUrl);
+             // форма контакта под ним ещё открыта — Bootstrap снял с body modal-open, возвращаем прокрутку окна
+             if ($('.modal.show').length) {
+                 document.body.classList.add('modal-open');
+             }
+         });
+         modal.modal('show');
      }
 
      // Кнопка "×" внутри поля "Место жительства" (contact_form_modal.blade.php, оба
@@ -9311,14 +9391,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          });
 
          bindPhotoDropzone(photoDropzone, photoInput, function (file) {
-             selectedPhotoFile = file;
-             let reader = new FileReader();
-             reader.onload = function () {
-                 photoPreview.style.backgroundImage = 'url(' + reader.result + ')';
+             cropContactPhoto(file, function (croppedFile, dataUrl) {
+                 selectedPhotoFile = croppedFile;
+                 photoPreview.style.backgroundImage = 'url(' + dataUrl + ')';
                  // прячет плейсхолдер (иконка + "фото") — см. .has-photo в admin-panel.css
                  photoPreview.classList.add('has-photo');
-             };
-             reader.readAsDataURL(selectedPhotoFile);
+             });
          });
 
          document.querySelector('#modal-create-contact .js-contact-form__save').addEventListener('click', function () {
@@ -9608,13 +9686,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          let editSelectedPhotoFile = null;
 
          bindPhotoDropzone(editPhotoDropzone, editPhotoInput, function (file) {
-             editSelectedPhotoFile = file;
-             let reader = new FileReader();
-             reader.onload = function () {
-                 editPhotoPreview.style.backgroundImage = 'url(' + reader.result + ')';
+             cropContactPhoto(file, function (croppedFile, dataUrl) {
+                 editSelectedPhotoFile = croppedFile;
+                 editPhotoPreview.style.backgroundImage = 'url(' + dataUrl + ')';
                  editPhotoPreview.classList.add('has-photo');
-             };
-             reader.readAsDataURL(editSelectedPhotoFile);
+             });
          });
 
          document.querySelector('#modal-edit-contact .js-contact-form__save').addEventListener('click', function () {
