@@ -348,6 +348,11 @@ class ContactController extends Controller
         }
 
         $this->syncHashtags($contact, $request->hashtag_ids);
+        // форма сама подставляет хештег с именем контакта (admin.js bindContactNameHashtag), но если хештеги
+        // не пришли вовсе (форма открыта со старым скриптом, сохранили, не дождавшись подстановки) — подставляем здесь
+        if ($contact->hashtags()->doesntExist()) {
+            $contact->hashtags()->sync($this->nameHashtagIds($contact->name));
+        }
         $contact->save();
 
         return response()->json([
@@ -1164,6 +1169,31 @@ class ContactController extends Controller
     {
         $ids = json_decode($hashtagIdsJson ?? '[]', true);
         $model->hashtags()->sync(is_array($ids) ? $ids : []);
+    }
+
+    /**
+     * Хештег пользователя с тем же названием, что имя контакта (ударения не в счёт), и его связанные
+     * с авто-добавлением — то же, что подставляет форма при выборе хештега (HashtagController::relatedFor)
+     */
+    private function nameHashtagIds(?string $name): array
+    {
+        $name = trim((string)$name);
+        $names = array_values(array_unique(array_filter([$name, str_replace("\u{0301}", '', $name)])));
+        if (!$names) {
+            return [];
+        }
+        $ids = Hashtag::where('user_id', Auth::id())->whereIn('title', $names)->pluck('id');
+        if ($ids->isEmpty()) {
+            return [];
+        }
+        $relatedIds = DB::table('hashtag_relations')
+            ->join('hashtags', 'hashtags.id', '=', 'hashtag_relations.related_hashtag_id')
+            ->whereIn('hashtag_relations.hashtag_id', $ids)
+            ->where('hashtag_relations.auto_add', 1)
+            ->where('hashtags.user_id', Auth::id())
+            ->pluck('hashtags.id');
+
+        return $ids->merge($relatedIds)->unique()->values()->all();
     }
 
     /**
