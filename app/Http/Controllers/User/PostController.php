@@ -40,6 +40,9 @@ class PostController extends Controller
     private const EVENT_DATE_ERROR = 'Не понял дату — введите её как 12.03.2024, 03.2024, «март 2024» или 2024';
     // event_date_manual картинки на форме создания: на её превью выбрали "без даты" (admin.js CREATION_IMAGE_NO_DATE)
     private const IMAGE_NO_EVENT_DATE = 'none';
+    // фильтры и сортировка ленты "Все посты", которые помнятся, пока их не сбросят (см. rememberFeedFilters)
+    private const FEED_FILTER_KEYS = ['without_hashtags', 'used', 'type', 'sort', 'post_type', 'clothes_color', 'clothes_brand', 'clothes_print'];
+    private const FEED_FILTERS_COOKIE = 'posts_feed_filters';
 
     /**
      * Display a listing of the resource.
@@ -49,6 +52,10 @@ class PostController extends Controller
     public function index(Request $request)
     {
         //$posts = Post::orderBy('title', 'asc')->get();
+
+        if ($redirect = $this->rememberFeedFilters($request)) {
+            return $redirect;
+        }
 
         $withoutHashtags = $request->boolean('without_hashtags');
         // фильтр по отметке "Использовано" (posts.is_used): used=no — ещё не использованные, used=yes — использованные
@@ -288,6 +295,9 @@ class PostController extends Controller
             'ungrouped' => $ungrouped,
             'clothesFilterOptions' => $clothesFilterOptions,
             'activeClothes' => $activeClothes,
+            // кнопка "Сбросить фильтры" — выбран хоть один фильтр или сортировка не по умолчанию
+            'hasFeedFilters' => $withoutHashtags || $activeUsed || $activeType !== 'all' || $activeSort !== 'new'
+                || $activePostType || array_filter($activeClothes),
             // окно "Сменить категорию" режима выбора
             'categories' => PostsCategory::where('user_id', auth()->id())->orderBy('title', 'DESC')->get(),
             // счётчик на кнопке "Корзина"
@@ -320,6 +330,52 @@ class PostController extends Controller
         }
 
         return $imagesCount > 1 ? 'carousel' : 'photo';
+    }
+
+    /**
+     * Фильтры и сортировка "Все посты" помнятся (cookie), пока их не сбросят: список, открытый без них
+     * (меню, "Сохранить изменения" и "Отменить" на форме поста, хлебные крошки), получает последние выбранные.
+     * Пункты "Все"/"Любые" в фильтрах шлют параметр пустым (?type=), а не убирают его — так понятно,
+     * что фильтр сняли, а не пришли со стороны. ?reset_filters=1 — сбросить всё.
+     * Поиск по цвету (?color=) — разовый: фильтры не подставляет и не запоминает
+     *
+     * @return \Illuminate\Http\RedirectResponse|null редирект на список с фильтрами или null — показывать как есть
+     */
+    private function rememberFeedFilters(Request $request): ?\Illuminate\Http\RedirectResponse
+    {
+        if ($request->ajax()) {
+            return null;
+        }
+
+        if ($request->boolean('reset_filters')) {
+            cookie()->queue(cookie()->forget(self::FEED_FILTERS_COOKIE));
+
+            return redirect()->route('posts.index');
+        }
+
+        $present = array_intersect(self::FEED_FILTER_KEYS, array_keys($request->query()));
+
+        if (!$present) {
+            if ($request->has('color')) {
+                return null;
+            }
+
+            $saved = json_decode((string)$request->cookie(self::FEED_FILTERS_COOKIE), true);
+            $saved = is_array($saved) ? array_filter(array_intersect_key($saved, array_flip(self::FEED_FILTER_KEYS)), 'is_scalar') : [];
+
+            return $saved ? redirect()->route('posts.index', $saved) : null;
+        }
+
+        $filters = array_filter(
+            $request->only(self::FEED_FILTER_KEYS),
+            fn ($value) => is_scalar($value) && (string)$value !== ''
+        );
+
+        cookie()->queue($filters
+            ? cookie(self::FEED_FILTERS_COOKIE, json_encode($filters), 60 * 24 * 365)
+            : cookie()->forget(self::FEED_FILTERS_COOKIE));
+
+        return null;
     }
 
     /**
@@ -2051,6 +2107,19 @@ class PostController extends Controller
                 $this->removeHashtagsFromPost($post->id, $deleteHashtags);
             }
 
+            // "Сохранить изменения" на странице редактирования: уходим на список постов,
+            // сообщение показывает уже он (user_layout, session('toast_success')).
+            // Окно хештегов в ленте шлёт сюда же, но без этого флага — остаётся на месте
+            if ($request->boolean('redirect_to_list')) {
+                session()->flash('toast_success', 'Пост был успешно обновлен');
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Пост был успешно обновлен',
+                    'redirect' => route('posts.index'),
+                ]);
+            }
+
             return response()->json([
                 'status' => true,
                 'message' => 'Пост был успешно обновлен',
@@ -2107,19 +2176,6 @@ class PostController extends Controller
 
         foreach ($posts as $post) {
             $post->hashtags()->syncWithoutDetaching($hashtags->pluck('id')->all());
-            // "Сохранить изменения" на странице редактирования: уходим на список постов,
-            // сообщение показывает уже он (user_layout, session('toast_success')).
-            // Окно хештегов в ленте шлёт сюда же, но без этого флага — остаётся на месте
-            if ($request->boolean('redirect_to_list')) {
-                session()->flash('toast_success', 'Пост был успешно обновлен');
-
-                return response()->json([
-                    'status' => true,
-                    'message' => 'Пост был успешно обновлен',
-                    'redirect' => route('posts.index'),
-                ]);
-            }
-
         }
 
         return response()->json([

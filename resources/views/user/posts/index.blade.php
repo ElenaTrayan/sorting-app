@@ -36,7 +36,7 @@
                         <i class="fas fa-plus"></i> Добавить пост
                     </a>
                     @if ($withoutHashtags)
-                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'without_hashtags' => null]) }}" class="b-posts-header__btn b-posts-header__btn--active">
+                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'without_hashtags' => '']) }}" class="b-posts-header__btn b-posts-header__btn--active">
                             <i class="fas fa-times"></i> Сбросить фильтр
                         </a>
                     @else
@@ -78,7 +78,7 @@
                 @endphp
                 <div class="b-posts-toolbar">
                     <div class="b-posts-toolbar__tabs">
-                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => null, 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'all') b-posts-toolbar__tab--active @endif">Все ({{ $typeCounts['all'] }})</a>
+                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => '', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'all') b-posts-toolbar__tab--active @endif">Все ({{ $typeCounts['all'] }})</a>
                         <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'photo', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'photo') b-posts-toolbar__tab--active @endif">Фото ({{ $typeCounts['photo'] }})</a>
                         <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'video', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'video') b-posts-toolbar__tab--active @endif">Видео ({{ $typeCounts['video'] }})</a>
                         <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'carousel', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'carousel') b-posts-toolbar__tab--active @endif">Карусель ({{ $typeCounts['carousel'] }})</a>
@@ -96,7 +96,7 @@
                         <ul class="b-posts-sort__list js-posts-sort-list">
                             {{-- смена типа сбрасывает фильтры вещи (цвет/бренд/принт) — они есть только у "Одежды" --}}
                             @php $clothesFiltersReset = ['clothes_color' => null, 'clothes_brand' => null, 'clothes_print' => null]; @endphp
-                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'post_type' => null, 'page' => null] + $clothesFiltersReset) }}" class="b-posts-sort__option @if (!$activePostType) is-active @endif">Все типы</a></li>
+                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'post_type' => '', 'page' => null] + $clothesFiltersReset) }}" class="b-posts-sort__option @if (!$activePostType) is-active @endif">Все типы</a></li>
                             @foreach (\App\Models\Post::TYPE_LABELS as $postTypeKey => $postTypeLabel)
                                 <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'post_type' => $postTypeKey, 'page' => null] + $clothesFiltersReset) }}" class="b-posts-sort__option @if ($activePostType === $postTypeKey) is-active @endif">{{ $postTypeLabel }}</a></li>
                             @endforeach
@@ -115,7 +115,7 @@
                                     <i class="fas fa-chevron-down b-posts-sort__chevron"></i>
                                 </button>
                                 <ul class="b-posts-sort__list js-posts-sort-list">
-                                    <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'clothes_' . $clothesKey => null, 'page' => null]) }}" class="b-posts-sort__option @if (!$clothesActive) is-active @endif">{{ $clothesAnyLabel }}</a></li>
+                                    <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'clothes_' . $clothesKey => '', 'page' => null]) }}" class="b-posts-sort__option @if (!$clothesActive) is-active @endif">{{ $clothesAnyLabel }}</a></li>
                                     @foreach ($clothesFilterOptions[$clothesKey] as $clothesOption)
                                         <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'clothes_' . $clothesKey => $clothesOption->id, 'page' => null]) }}" class="b-posts-sort__option @if ($clothesActive && $clothesActive->id === $clothesOption->id) is-active @endif">@if ($clothesKey === 'color')@include('user.wardrobe.parts.color_label', ['color' => $clothesOption])@else{{ $clothesOption->name }}@endif</a></li>
                                     @endforeach
@@ -137,7 +137,7 @@
                             <i class="fas fa-chevron-down b-posts-sort__chevron"></i>
                         </button>
                         <ul class="b-posts-sort__list js-posts-sort-list">
-                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'used' => null, 'page' => null]) }}" class="b-posts-sort__option @if (!$activeUsed) is-active @endif">Любые</a></li>
+                            <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'used' => '', 'page' => null]) }}" class="b-posts-sort__option @if (!$activeUsed) is-active @endif">Любые</a></li>
                             @foreach ($usedLabels as $usedKey => $usedLabel)
                                 <li><a href="{{ request()->fullUrlWithQuery(['color' => null, 'used' => $usedKey, 'page' => null]) }}" class="b-posts-sort__option @if ($activeUsed === $usedKey) is-active @endif">{{ $usedLabel }}</a></li>
                             @endforeach
@@ -171,6 +171,16 @@
                             <span>Свернуть группы</span>
                         </label>
                     </div>
+
+                    {{-- фильтры помнятся, пока их не сбросят (PostController::rememberFeedFilters) — сбросить все разом --}}
+                    @if ($hasFeedFilters)
+                        <div class="b-posts-sort">
+                            <a href="{{ route('posts.index', ['reset_filters' => 1]) }}" class="b-posts-sort__trigger" title="Убрать все фильтры и сортировку">
+                                <i class="fas fa-times"></i>
+                                <span>Сбросить фильтры</span>
+                            </a>
+                        </div>
+                    @endif
 
                     {{-- режим выбора: отметить несколько постов и добавить им хештеги разом
                          (/admin/posts-bulk.js, PostController::bulkAddHashtags) --}}
