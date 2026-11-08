@@ -526,7 +526,10 @@ class PostController extends Controller
                         $newPost = $this->createPost($request, $user->id, $image, '', $groupId, $shouldGroup ? $sortOrder : null, $createdId, $eventDateInput);
 
                         if ($newPost === true) {
-                            $createdKeys[] = $key;
+                            // строкой: ключ — имя картинки, и цифровое имя (155747204712711248.jpg с Pinterest)
+                            // json_decode делает целым числом. Числом оно уходило бы в JSON, JS округлял его
+                            // (больше 2^53), форма не находила картинку и отправляла её снова — уже без файла
+                            $createdKeys[] = (string)$key;
                             $createdIds[] = $createdId;
                         }
 
@@ -3650,13 +3653,6 @@ class PostController extends Controller
     }
 
     /**
-     * Приводит "сырой" объект дубликата (из UploadImageController::findDuplicateByHash())
-     * к виду, удобному для фронтенда (готовый thumbnail_url вместо внутреннего path).
-     *
-     * @param object|null $duplicate
-     * @return array|null
-     */
-    /**
      * Текст ошибки сохранения картинки формы для пользователя (createPost): какая картинка и что делать.
      * Подробности (путь, исключение) — в скобках: по ним видно, что именно сломалось
      *
@@ -3676,6 +3672,13 @@ class PostController extends Controller
             . ($details !== '' && !$missing ? ' (' . $details . ')' : '');
     }
 
+    /**
+     * Приводит "сырой" объект дубликата (из UploadImageController::findDuplicateByHash())
+     * к виду, удобному для фронтенда (готовый thumbnail_url вместо внутреннего path).
+     *
+     * @param object|null $duplicate
+     * @return array|null
+     */
     private function formatDuplicateForFrontend($duplicate): ?array
     {
         if (empty($duplicate)) {
