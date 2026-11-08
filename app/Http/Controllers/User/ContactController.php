@@ -870,6 +870,25 @@ class ContactController extends Controller
         return response()->json(['status' => true, 'message' => 'Контакт обновлён']);
     }
 
+    /**
+     * Смена главного фото из шапки страницы контакта (клик/перетаскивание на фото → обрезка в поп-апе
+     * "Фото контакта", admin.js) — без остальных полей формы редактирования
+     */
+    public function updateMainPhoto(Request $request, Contact $contact)
+    {
+        $this->authorizeOwner($contact);
+
+        $request->validate([
+            'photo' => 'required|file|mimes:jpeg,png,jpg,gif,webp,avif',
+        ]);
+
+        $this->deleteContactPhotoFile($contact->photo_data);
+        $contact->photo = json_encode($this->storeContactImage($request->file('photo')));
+        $contact->save();
+
+        return response()->json(['status' => true, 'message' => 'Фото обновлено', 'photo_url' => $contact->photo_url]);
+    }
+
     public function destroy(Contact $contact)
     {
         $this->authorizeOwner($contact);

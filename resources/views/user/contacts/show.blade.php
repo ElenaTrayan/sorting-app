@@ -58,12 +58,15 @@
                 {{-- ==================== ШАПКА ==================== --}}
                 <div class="b-contact-head">
                     <div class="b-contact-head__main">
-                        <div class="b-contact-head__photo js-contact-head-photo" @if ($contact->photo_url) style="background-image: url({{ $contact->photo_url }})" @endif>
+                        {{-- клик или перетаскивание файла — новое фото с выбором части в поп-апе обрезки (admin.js) --}}
+                        <label class="b-contact-head__photo js-contact-head-photo" title="Сменить фото" data-action="{{ route('contacts.main-photo.update', $contact) }}" @if ($contact->photo_url) style="background-image: url({{ $contact->photo_url }})" @endif>
                             @if (!$contact->photo_url)
                                 <span class="b-contact-head__photo-initials">{{ $contact->initials }}</span>
                                 <span class="b-contact-head__photo-caption">фото</span>
                             @endif
-                        </div>
+                            <span class="b-contact-head__photo-change"><i class="fas fa-camera"></i></span>
+                            <input type="file" class="js-contact-head-photo-input" accept="image/*" hidden>
+                        </label>
                         <div class="b-contact-head__info">
                             <div class="b-contact-head__toprow">
                                 <div>

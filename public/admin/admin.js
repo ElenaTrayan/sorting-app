@@ -9693,6 +9693,50 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              });
          });
 
+         // Фото в шапке (show.blade.php): клик или перетаскивание файла → выбор части в поп-апе обрезки →
+         // сразу сохраняется (ContactController::updateMainPhoto), без формы "Редактировать"
+         const headPhoto = document.querySelector('.js-contact-head-photo');
+         const headPhotoInput = headPhoto && headPhoto.querySelector('.js-contact-head-photo-input');
+         if (headPhoto && headPhotoInput) {
+             bindPhotoDropzone(headPhoto, headPhotoInput, function (file) {
+                 cropContactPhoto(file, function (croppedFile) {
+                     let formData = new FormData();
+                     formData.append('photo', croppedFile);
+                     headPhoto.classList.add('is-loading');
+                     $.ajax({
+                         url: headPhoto.getAttribute('data-action'),
+                         type: 'post',
+                         headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                         data: formData,
+                         contentType: false,
+                         processData: false,
+                         success: function (response) {
+                             if (!response || response.status !== true) {
+                                 toastr.error((response && response.message) || 'Не удалось сохранить фото');
+                                 return;
+                             }
+                             headPhoto.style.backgroundImage = 'url(' + response.photo_url + ')';
+                             headPhoto.querySelectorAll('.b-contact-head__photo-initials, .b-contact-head__photo-caption').forEach(function (el) {
+                                 el.remove();
+                             });
+                             // то же фото — в форме "Редактировать" (иначе там осталось бы старое)
+                             editPhotoPreview.style.backgroundImage = 'url(' + response.photo_url + ')';
+                             editPhotoPreview.classList.add('has-photo');
+                             editSelectedPhotoFile = null;
+                             toastr.success(response.message || 'Фото обновлено');
+                         },
+                         error: function (xhr) {
+                             let errors = xhr.responseJSON && xhr.responseJSON.errors;
+                             toastr.error(errors && errors.photo ? errors.photo[0] : 'Не удалось сохранить фото');
+                         },
+                         complete: function () {
+                             headPhoto.classList.remove('is-loading');
+                         }
+                     });
+                 });
+             });
+         }
+
          document.querySelector('#modal-edit-contact .js-contact-form__save').addEventListener('click', function () {
              let name = editModalEl.querySelector('.js-contact-form__name').value.trim();
              if (!name) {

@@ -182,7 +182,8 @@ Route::post('/posts/{post}/video/position', [User\PostController::class, 'setVid
         Route::get('/contacts/{contact}/posts', [User\ContactController::class, 'posts'])->name('contacts.posts');
         Route::put('/contacts/{contact}', [User\ContactController::class, 'update'])->name('contacts.update');
         Route::delete('/contacts/{contact}', [User\ContactController::class, 'destroy'])->name('contacts.destroy');
-        Route::post('/contacts/{contact}/photos', [User\ContactController::class, 'storePhoto'])->name('contacts.photos.store');
+        Route::post('/contacts/{contact}/main-photo', [User\ContactController::class, 'updateMainPhoto'])->name('contacts.main-photo.update');
+        Route::post('/contacts/{contact}/photos',[User\ContactController::class, 'storePhoto'])->name('contacts.photos.store');
         Route::delete('/contact-photos/{photo}', [User\ContactController::class, 'destroyPhoto'])->name('contacts.photos.destroy');
         Route::post('/contacts/{contact}/conversations', [User\ContactController::class, 'storeConversation'])->name('contacts.conversations.store');
         Route::delete('/contact-conversations/{conversation}', [User\ContactController::class, 'destroyConversation'])->name('contacts.conversations.destroy');

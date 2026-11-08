@@ -5773,6 +5773,32 @@ margin: 0 0 20px 0;
     font-size: 10px;
     color: #9aa1ac;
 }
+/* фото в шапке — <label> с полем файла: клик/перетаскивание меняет фото, при наведении — затемнение с камерой */
+label.b-contact-head__photo {
+    position: relative;
+    margin: 0;
+    cursor: pointer;
+    overflow: hidden;
+}
+.b-contact-head__photo-change {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(31, 36, 48, .45);
+    color: #fff;
+    font-size: 24px;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.b-contact-head__photo:hover .b-contact-head__photo-change,
+.b-contact-head__photo.is-dragover .b-contact-head__photo-change {
+    opacity: 1;
+}
+.b-contact-head__photo.is-loading .b-contact-head__photo-change {
+    opacity: 1;
+}
 .b-contact-head__info {
     flex: 1;
     min-width: 0;
