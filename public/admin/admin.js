@@ -8970,20 +8970,22 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          function addTag(id, title) {
              if (selected.querySelector('.b-contact-tag-picker__tag[data-id="' + id + '"]')) {
-                 return;
+                 return false;
              }
              let tag = document.createElement('span');
              tag.className = 'b-contact-tag-picker__tag';
              tag.setAttribute('data-id', id);
              tag.innerHTML = '#' + escapeHtml(title) + ' <i class="fas fa-times js-contact-tag-picker__remove"></i>';
              selected.appendChild(tag);
+             return true;
          }
 
          // Если у пикера есть data-related-action (форма контакта), вместе с выбранным хештегом добавляются
          // его связанные с авто-добавлением ("Зои Дойч" → "девушка", "актриса") — как в форме поста;
-         // связанные без авто-добавления не трогаем (HashtagController::relatedFor)
+         // связанные без авто-добавления не трогаем (HashtagController::relatedFor).
+         // onAdded(ids) — какие из них добавлены (тех, что уже были выбраны, там нет)
          const relatedUrl = pickerEl.getAttribute('data-related-action');
-         function addRelatedTags(id) {
+         function addRelatedTags(id, onAdded) {
              if (!relatedUrl) {
                  return;
              }
@@ -9000,11 +9002,15 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                      if (!response || !response.status || !selected.querySelector('.b-contact-tag-picker__tag[data-id="' + id + '"]')) {
                          return;
                      }
+                     let addedIds = [];
                      (response.hashtags || []).forEach(function (related) {
-                         if (related.auto) {
-                             addTag(related.id, related.title);
+                         if (related.auto && addTag(related.id, related.title)) {
+                             addedIds.push(String(related.id));
                          }
                      });
+                     if (onAdded) {
+                         onAdded(addedIds);
+                     }
                  }
              });
          }
@@ -9107,8 +9113,77 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  return Array.from(selected.querySelectorAll('.b-contact-tag-picker__tag')).map(function (tag) {
                      return parseInt(tag.getAttribute('data-id'), 10);
                  });
+             },
+             // хештег вместе со связанными (как выбор из списка); onAdded(ids) — что действительно добавилось
+             addWithRelated: function (id, title, onAdded) {
+                 let added = addTag(id, title) ? [String(id)] : [];
+                 addRelatedTags(id, function (relatedIds) {
+                     if (onAdded) {
+                         onAdded(added.concat(relatedIds));
+                     }
+                 });
+             },
+             removeIds: function (ids) {
+                 ids.forEach(function (id) {
+                     let tag = selected.querySelector('.b-contact-tag-picker__tag[data-id="' + id + '"]');
+                     if (tag) {
+                         tag.remove();
+                     }
+                 });
              }
          };
+     }
+
+     // Форма создания контакта: если есть хештег с точно таким же названием, как введённое имя ("Лаура Берлин",
+     // ударения не в счёт), — он сам подставляется в "Хештеги" вместе со связанными, как при выборе из списка.
+     // Имя изменили — подставленное для прежнего имени убираем (если его не выбрали заодно руками)
+     function bindContactNameHashtag(nameInput, tagPicker, searchUrl) {
+         if (!nameInput || !tagPicker || !searchUrl) {
+             return;
+         }
+         const normalize = function (text) {
+             return String(text || '').replace(/́/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
+         };
+         let timer = null;
+         let autoIds = [];
+         let autoForName = '';
+
+         nameInput.addEventListener('input', function () {
+             clearTimeout(timer);
+             timer = setTimeout(function () {
+                 const name = normalize(nameInput.value);
+                 if (name === autoForName) {
+                     return;
+                 }
+                 tagPicker.removeIds(autoIds);
+                 autoIds = [];
+                 autoForName = name;
+                 if (!name) {
+                     return;
+                 }
+                 $.ajax({
+                     type: 'post',
+                     url: searchUrl,
+                     headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                     data: {search: nameInput.value.replace(/́/g, '').trim()},
+                     success: function (response) {
+                         if (normalize(nameInput.value) !== name) {
+                             return;
+                         }
+                         const exact = ((response && response.status && response.hashtags) || []).find(function (hashtag) {
+                             return normalize(hashtag.title) === name;
+                         });
+                         if (exact) {
+                             tagPicker.addWithRelated(exact.id, exact.title, function (ids) {
+                                 if (autoForName === name) {
+                                     autoIds = autoIds.concat(ids);
+                                 }
+                             });
+                         }
+                     }
+                 });
+             }, 400);
+         });
      }
 
      // Даёт перетащить файл картинки на блок с превью фото (форма создания/редактирования
@@ -9447,6 +9522,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          const createModal = $('#modal-create-contact');
 
          const tagPicker = initHashtagPicker(document.querySelector('#modal-create-contact .js-contact-tag-picker'), searchHashtagUrl, createHashtagUrl);
+         bindContactNameHashtag(document.querySelector('#modal-create-contact .js-contact-form__name'), tagPicker, searchHashtagUrl);
          const photoInput = document.querySelector('#modal-create-contact .js-contact-form__photo-input');
          const photoPreview = document.querySelector('#modal-create-contact .js-contact-form__photo-preview');
          const photoDropzone = document.querySelector('#modal-create-contact .js-contact-photo-dropzone');
