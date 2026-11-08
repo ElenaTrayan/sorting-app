@@ -84,6 +84,20 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      "hideMethod": "fadeOut"
  };
 
+ // Ошибки сами не исчезают — висят, пока их не закроют крестиком: длинную успевают дочитать. Клик по тексту
+ // не закрывает (tapToDismiss) — текст можно выделить и скопировать. Остальные сообщения — как раньше, 5 секунд
+ (function () {
+     let showError = toastr.error;
+     toastr.error = function (message, title, options) {
+         return showError(message, title, $.extend({
+             timeOut: 0,
+             extendedTimeOut: 0,
+             tapToDismiss: false,
+             progressBar: false,
+         }, options));
+     };
+ })();
+
  // function sendCreatePostForm() {
  //     //e.preventDefault();
  //
