@@ -53,6 +53,7 @@
                             @if ($canPickFromPosts)
                                 <button type="button" class="b-stock-btn b-stock-btn--outline b-stock-btn--sm b-wardrobe-form__photo-btn js-wardrobe-pick-from-posts"><i class="far fa-images"></i> Выбрать из постов</button>
                             @endif
+                            <p class="b-wardrobe-gallery__hint">Фото можно перетащить с компьютера в любое место окна.</p>
                             <p class="b-wardrobe-gallery__hint js-wardrobe-gallery-hint" hidden>
                                 Первое фото — обложка. Перетащите, чтобы поменять порядок.
                             </p>

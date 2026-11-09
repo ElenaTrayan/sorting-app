@@ -266,17 +266,31 @@
             return true;
         }
 
-        pickInput.addEventListener('change', function () {
-            Array.prototype.forEach.call(pickInput.files, function (file) {
+        // файлы с кнопки "Загрузить фото" или перетащенные на экран (initItemDrop); не картинки пропускаем
+        function addFiles(files) {
+            let skipped = 0;
+            Array.prototype.forEach.call(files, function (file) {
+                if (!/^image\//.test(file.type)) {
+                    skipped++;
+                    return;
+                }
                 if (hasRoom()) {
                     photos.push({kind: 'new', file: file, url: URL.createObjectURL(file)});
                 }
             });
-            pickInput.value = '';
+            if (skipped) {
+                stockError(new Error(skipped === 1 ? 'Файл не картинка — пропущен.' : 'Пропущено файлов, которые не картинки: ' + skipped + '.'));
+            }
             render();
+        }
+
+        pickInput.addEventListener('change', function () {
+            addFiles(pickInput.files);
+            pickInput.value = '';
         });
 
         return {
+            addFiles: addFiles,
             // photos — [{id, url}] сохранённой вещи (WardrobeItem::toFormArray), [] — новая вещь
             reset: function (savedPhotos) {
                 photos.forEach(function (photo) {
@@ -761,6 +775,72 @@
                 }, 'pins');
             });
         }
+
+        // фото можно бросить в любое место экрана: в открытую форму они добавляются в галерею, а на странице вещей
+        // с закрытой формой открывают форму новой вещи с этими фото. Перетаскивание плиток галереи (порядок фото)
+        // сюда не попадает — в нём нет файлов
+        (function initItemDrop() {
+            const canCreate = !!document.querySelector('.js-wardrobe-item-create');
+            const overlay = document.createElement('div');
+            overlay.className = 'b-wardrobe-drop';
+            overlay.hidden = true;
+            overlay.innerHTML = '<div class="b-wardrobe-drop__box"><i class="fas fa-cloud-upload-alt"></i><span class="js-wardrobe-drop-text"></span></div>';
+            document.body.appendChild(overlay);
+            let depth = 0;
+
+            function hasFiles(e) {
+                return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1;
+            }
+            function formOpen() {
+                return itemModal.classList.contains('show');
+            }
+            function accepts() {
+                return formOpen() || canCreate;
+            }
+            function hide() {
+                depth = 0;
+                overlay.hidden = true;
+            }
+
+            document.addEventListener('dragenter', function (e) {
+                if (!hasFiles(e) || !accepts()) {
+                    return;
+                }
+                e.preventDefault();
+                depth++;
+                overlay.querySelector('.js-wardrobe-drop-text').textContent = formOpen()
+                    ? 'Отпустите — фото добавятся к вещи'
+                    : 'Отпустите — создадим новую вещь с этими фото';
+                overlay.hidden = false;
+            });
+            document.addEventListener('dragover', function (e) {
+                if (hasFiles(e) && accepts()) {
+                    e.preventDefault(); // без этого браузер откроет файл вместо страницы
+                    e.dataTransfer.dropEffect = 'copy';
+                }
+            });
+            document.addEventListener('dragleave', function (e) {
+                if (hasFiles(e) && depth > 0 && --depth === 0) {
+                    overlay.hidden = true;
+                }
+            });
+            document.addEventListener('drop', function (e) {
+                if (!hasFiles(e) || !accepts()) {
+                    return;
+                }
+                e.preventDefault();
+                hide();
+                const files = e.dataTransfer.files;
+                if (!files.length) {
+                    return;
+                }
+                if (!formOpen()) {
+                    openItemForm(null);
+                }
+                gallery.addFiles(files);
+            });
+            window.addEventListener('blur', hide);
+        })();
 
         // пришли с пина "Одежда" (?from_post=ID, ItemController::fromPostImage) — сразу форма новой вещи
         // с картинкой поста; ссылкой "В гардеробе" (?edit_item=ID) — форма уже добавленной вещи.
