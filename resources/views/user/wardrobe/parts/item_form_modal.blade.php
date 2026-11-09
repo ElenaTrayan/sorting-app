@@ -9,8 +9,10 @@
     $canPickFromPosts = auth()->user()->hasService('posts');
 @endphp
 {{-- data-from-post — пришли кнопкой "В гардероб" с пина "Одежда": открыть форму новой вещи с картинкой поста;
-     data-edit-item — ссылкой "В гардеробе": открыть форму уже добавленной вещи (wardrobe.js) --}}
-<div class="modal fade" id="modal-wardrobe-item" tabindex="-1" role="dialog" aria-hidden="true" data-store-url="{{ route('wardrobe.items.store') }}"
+     data-edit-item — ссылкой "В гардеробе": открыть форму уже добавленной вещи (wardrobe.js).
+     Клик мимо окна и Esc форму не закрывают (data-backdrop/data-keyboard) — заполненное пропадало от случайного
+     клика; "Отмена" и крестик при несохранённых изменениях спрашивают подтверждение (wardrobe.js) --}}
+<div class="modal fade" id="modal-wardrobe-item" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false" data-store-url="{{ route('wardrobe.items.store') }}"
      @if (!empty($fromPost)) data-from-post="{{ json_encode($fromPost) }}" @endif
      @if (!empty($editItemId)) data-edit-item="{{ $editItemId }}" @endif>
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">

@@ -679,8 +679,31 @@
                 importBtn.style.display = item ? 'none' : ''; // импорт заполняет форму новой вещи
             }
 
+            savedState = formState();
             $(itemModal).modal('show');
         }
+
+        // Несохранённые изменения: состояние полей (и галереи — photos_order/photos_transform) на момент открытия
+        // формы против текущего. Файлы сами не сравниваем — новые фото и так видны в photos_order
+        let savedState = '';
+        function formState() {
+            const pairs = [];
+            new FormData(form).forEach(function (value, key) {
+                if (typeof value === 'string') {
+                    pairs.push(key + '=' + value);
+                }
+            });
+            return pairs.join('&');
+        }
+        $(itemModal).on('hide.bs.modal', function (e) {
+            // события вложенного окна выбора из постов всплывают сюда же
+            if (e.target !== itemModal) {
+                return;
+            }
+            if (formState() !== savedState && !window.confirm('Закрыть без сохранения? Всё, что вы заполнили, пропадёт.')) {
+                e.preventDefault();
+            }
+        });
 
         document.addEventListener('click', function (e) {
             if (e.target.closest('.js-wardrobe-item-create')) {
