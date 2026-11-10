@@ -131,16 +131,13 @@
                                 </div>
                                 <div class="b-stock-form-field">
                                     <label>Длина</label>
-                                    <div class="b-stock-form-input">
-                                        <i class="fas fa-ruler-vertical"></i>
-                                        {{-- подсказки WardrobeItem::LENGTHS, своё значение можно вписать --}}
-                                        <input type="text" name="length" maxlength="50" list="wardrobe-length-suggestions" placeholder="Напр. миди" autocomplete="off">
-                                        <datalist id="wardrobe-length-suggestions">
-                                            @foreach (WardrobeItem::LENGTHS as $length)
-                                                <option value="{{ $length }}"></option>
-                                            @endforeach
-                                        </datalist>
-                                    </div>
+                                    {{-- WardrobeItem::LENGTHS и "Своя длина…"; хранится текстом, значение ставит wardrobe.js --}}
+                                    @include('user.wardrobe.parts.list_select', [
+                                        'kind' => 'length', 'name' => 'length', 'newName' => 'length_new', 'icon' => 'fa-ruler-vertical',
+                                        'options' => array_combine(WardrobeItem::LENGTHS, WardrobeItem::LENGTHS), 'free' => true, 'maxlength' => 50,
+                                        'texts' => ['empty' => 'Не указана', 'search' => 'Поиск длины', 'notFound' => 'Такой длины в списке нет',
+                                            'new' => 'Своя длина…', 'newPlaceholder' => 'Своя длина, напр. до середины икры'],
+                                    ])
                                 </div>
                             </div>
 
@@ -168,25 +165,23 @@
 
                     <div class="b-stock-form-field">
                         <label>Место хранения</label>
-                        <div class="b-stock-form-input">
-                            <i class="fas fa-box-open"></i>
-                            {{-- свой список пользователя (вкладка "Места хранения"); "Новое место…" открывает поле для названия (wardrobe.js) --}}
-                            <select name="storage_id" class="js-wardrobe-storage-select">
-                                <option value="">Не указано</option>
-                                @foreach ($storages as $storage)
-                                    <option value="{{ $storage->id }}">{{ $storage->name }}</option>
-                                @endforeach
-                                <option value="new">+ Новое место…</option>
-                            </select>
-                        </div>
-                        <div class="b-stock-form-input js-wardrobe-storage-new" style="display:none;margin-top:8px;">
-                            <i class="fas fa-pen"></i>
-                            <input type="text" name="storage_name" maxlength="255" placeholder="Напр. Органайзер ИКЕА BAXNA 204.743.66" autocomplete="off">
-                        </div>
+                        {{-- свой список пользователя (вкладка "Места хранения"); "Новое место…" — поле для названия
+                             (storage_name, ItemController::storageIdFrom) --}}
+                        @include('user.wardrobe.parts.list_select', [
+                            'kind' => 'storage', 'name' => 'storage_id', 'newName' => 'storage_name', 'icon' => 'fa-box-open',
+                            'options' => $storages->pluck('name', 'id')->all(), 'maxlength' => 255,
+                            'texts' => ['empty' => 'Не указано', 'search' => 'Поиск места', 'notFound' => 'Такого места в списке нет',
+                                'new' => 'Новое место…', 'newPlaceholder' => 'Напр. Органайзер ИКЕА BAXNA 204.743.66'],
+                        ])
                     </div>
 
-                    <div class="b-stock-form-field">
-                        <label>Особенности ухода</label>
+                    {{-- раздел свёрнут, раскрывается плюсом в заголовке; в заголовке — сколько всего отмечено (wardrobe.js, refreshCare) --}}
+                    <details class="b-stock-form-field b-wardrobe-care-section js-wardrobe-care-section">
+                        <summary class="b-wardrobe-care-section__head">
+                            <span>Особенности ухода</span>
+                            <span class="b-wardrobe-care__count js-wardrobe-care-total" hidden></span>
+                            <i class="fas fa-plus b-wardrobe-care-section__toggle"></i>
+                        </summary>
                         {{-- пункты для отметки (WardrobeItem::CARE_OPTIONS) по разделам; раздел раскрывается кликом,
                              счётчик отмеченного и раскрытие разделов с отметками — wardrobe.js (refreshCare) --}}
                         <div class="b-wardrobe-care js-wardrobe-care">
@@ -212,7 +207,7 @@
                             <i class="fas fa-pen"></i>
                             <input type="text" name="care" maxlength="2000" placeholder="Другое по уходу — если нужного пункта нет" autocomplete="off">
                         </div>
-                    </div>
+                    </details>
 
                     <div class="b-stock-form-field">
                         <input type="hidden" name="needs_repair" value="0">

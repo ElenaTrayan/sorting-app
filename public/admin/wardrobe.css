@@ -560,6 +560,48 @@ a.b-wardrobe-card__photo:hover {
 }
 .b-wardrobe-choice__item input:focus-visible + span { box-shadow: 0 0 0 2px rgba(75, 59, 245, .25); }
 
+/* форма вещи длинная — "Добавить" всегда виден внизу экрана, листать до конца не нужно.
+   overflow: clip вместо hidden у окна: hidden делает его прокручиваемым блоком, и sticky внутри не работает */
+#modal-wardrobe-item .b-stock-form-modal { overflow: clip; }
+#modal-wardrobe-item .b-stock-form-modal__footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background: #fff;
+    border-radius: 0 0 18px 18px;
+    box-shadow: 0 -6px 16px rgba(31, 36, 48, .06);
+}
+
+/* блок "Особенности ухода" — свёрнут, раскрывается плюсом в заголовке */
+.b-wardrobe-care-section__head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #565b74;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.b-wardrobe-care-section__head::-webkit-details-marker { display: none; }
+.b-wardrobe-care-section__head .b-wardrobe-care__count { margin-left: 0; }
+.b-wardrobe-care-section__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #eef1ff;
+    color: #4b3bf5;
+    font-size: 11px;
+    transition: transform .15s;
+}
+.b-wardrobe-care-section[open] .b-wardrobe-care-section__toggle { transform: rotate(45deg); }
+.b-wardrobe-care-section__head:hover .b-wardrobe-care-section__toggle { background: #e0e4ff; }
+
 /* особенности ухода в форме вещи: разделы с пунктами для отметки, раздел раскрывается кликом */
 .b-wardrobe-care { border: 1px solid #e2e5ee; border-radius: 10px; background: #fff; }
 .b-wardrobe-care__group + .b-wardrobe-care__group { border-top: 1px solid #f1f2f6; }

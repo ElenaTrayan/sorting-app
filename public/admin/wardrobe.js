@@ -587,20 +587,8 @@
         }
         repairCheckbox.addEventListener('change', toggleRepairNote);
 
-        // "+ Новое место…" в списке мест хранения открывает поле для названия
-        const storageSelect = form.querySelector('.js-wardrobe-storage-select');
-        const storageNew = form.querySelector('.js-wardrobe-storage-new');
-        function toggleStorageNew() {
-            const isNew = storageSelect.value === 'new';
-            storageNew.style.display = isNew ? '' : 'none';
-            if (!isNew) { form.elements['storage_name'].value = ''; }
-        }
-        storageSelect.addEventListener('change', function () {
-            toggleStorageNew();
-            if (storageSelect.value === 'new') { form.elements['storage_name'].focus(); }
-        });
-
-        // бренд, принт и материал — списки с образцами (parts/directory_select.blade.php, print-select.js)
+        // бренд, принт и материал — списки с образцами (parts/directory_select.blade.php, print-select.js);
+        // размер, длина и место хранения — такие же списки без образцов (parts/size_select, parts/list_select)
         function setDirectory(kind, id) {
             const el = form.querySelector('.js-print-select[data-select="' + kind + '"]');
             if (window.printSelect && el) {
@@ -620,8 +608,13 @@
             setDirectory('material', id);
         }
 
-        // особенности ухода: счётчик отмеченного у раздела; openChecked — раскрыть разделы с отметками, остальные свернуть
+        // особенности ухода: счётчик отмеченного у раздела и всего — в заголовке свёрнутого блока;
+        // openChecked — раскрыть разделы с отметками, остальные свернуть
+        const careTotal = form.querySelector('.js-wardrobe-care-total');
         function refreshCare(openChecked) {
+            const total = form.querySelectorAll('.js-wardrobe-care input:checked').length;
+            careTotal.textContent = total;
+            careTotal.hidden = total === 0;
             form.querySelectorAll('.js-wardrobe-care-group').forEach(function (group) {
                 const checked = group.querySelectorAll('input:checked').length;
                 const count = group.querySelector('.js-wardrobe-care-count');
@@ -650,11 +643,13 @@
             setBrand(item ? item.brand_id : null);
             setColor(item ? item.color_id : null);
             setDirectory('size', item ? item.size : null);
+            setDirectory('length', item ? item.length : null);
+            setDirectory('storage', item ? item.storage_id : null);
             setPrint(item ? item.print_id : null);
             setMaterial(item ? item.material_id : null);
 
             if (item) {
-                ['name', 'category', 'storage_id', 'composition', 'length', 'temp_min', 'temp_max', 'care', 'wear_level',
+                ['name', 'category', 'composition', 'temp_min', 'temp_max', 'care', 'wear_level',
                     'repair_note', 'price', 'shop_url', 'note'].forEach(function (field) {
                     // не form.elements[field]: form.elements.length — число полей формы, а не поле "Длина"
                     form.querySelector('[name="' + field + '"]').value = item[field] === null || item[field] === undefined ? '' : item[field];
@@ -668,13 +663,13 @@
                 repairCheckbox.checked = !!item.needs_repair;
             }
             refreshCare(true);
+            form.querySelector('.js-wardrobe-care-section').open = false;
 
             form.setAttribute('action', item ? updateUrl : itemModal.getAttribute('data-store-url'));
             form.setAttribute('data-method', item ? 'PUT' : 'POST');
             title.textContent = item ? 'Редактировать вещь' : 'Добавить вещь';
             submitBtn.textContent = item ? 'Сохранить' : 'Добавить';
             toggleRepairNote();
-            toggleStorageNew();
             if (importBtn) {
                 importBtn.style.display = item ? 'none' : ''; // импорт заполняет форму новой вещи
             }
@@ -756,7 +751,11 @@
             if (clothes.color_id && !form.elements['color_id'].value) {
                 setColor(clothes.color_id);
             }
-            ['composition', 'shop_url', 'length', 'temp_min', 'temp_max'].forEach(function (field) {
+            // не form.elements['length'] — см. ниже
+            if (clothes.length && !form.querySelector('[name="length"]').value) {
+                setDirectory('length', clothes.length);
+            }
+            ['composition', 'shop_url', 'temp_min', 'temp_max'].forEach(function (field) {
                 // не form.elements[field]: form.elements.length — число полей формы, а не поле "Длина"
                 const input = form.querySelector('[name="' + field + '"]');
                 // температура 0 — тоже значение

@@ -511,7 +511,8 @@ class ItemController extends Controller
             'color_id' => WardrobeColor::resolveFromForm($data['color_id'] ?? null, $data['color_new'] ?? null, (int)Auth::id(), $data['color_hex'] ?? null),
             // список размеров (parts/size_select): размер из списка или "new" + свой размер
             'size' => (($data['size'] ?? null) === 'new' ? ($data['size_new'] ?? null) : ($data['size'] ?? null)) ?: null,
-            'length' => $data['length'] ?? null,
+            // список длин (parts/list_select): длина из списка или "new" + своя длина
+            'length' => (($data['length'] ?? null) === 'new' ? ($data['length_new'] ?? null) : ($data['length'] ?? null)) ?: null,
             // в порядке списка, а не в порядке отметки
             'seasons' => array_values(array_intersect(array_keys(WardrobeOutfit::SEASONS), $data['seasons'] ?? [])),
             'temp_min' => $data['temp_min'] ?? null,
@@ -587,6 +588,7 @@ class ItemController extends Controller
             'size' => 'nullable|string|max:50',
             'size_new' => 'required_if:size,new|nullable|string|max:50',
             'length' => 'nullable|string|max:50',
+            'length_new' => 'required_if:length,new|nullable|string|max:50',
             'seasons' => 'nullable|array',
             'seasons.*' => [Rule::in(array_keys(WardrobeOutfit::SEASONS))],
             'temp_min' => 'nullable|integer|between:-60,60',
@@ -616,6 +618,7 @@ class ItemController extends Controller
         ], [
             'brand.required_if' => 'Впишите название своего бренда или выберите «Без бренда».',
             'size_new.required_if' => 'Впишите свой размер или выберите размер из списка.',
+            'length_new.required_if' => 'Впишите свою длину или выберите длину из списка.',
             'color_new.required_if' => 'Впишите название своего цвета или выберите цвет из списка.',
             'print_new.required_if' => 'Впишите название своего принта или выберите принт из списка.',
             'material_new.required_if' => 'Впишите название своего материала или выберите материал из списка.',
