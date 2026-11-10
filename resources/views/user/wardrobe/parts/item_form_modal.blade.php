@@ -232,7 +232,8 @@
                             <label>Последняя стирка</label>
                             <div class="b-stock-form-input">
                                 <i class="fas fa-calendar-check"></i>
-                                <input type="date" name="washed_at" max="{{ now()->toDateString() }}">
+                                {{-- max — "сегодня" по часовому поясу пользователя; его же ставит "Сегодня" (wardrobe.js) --}}
+                                <input type="date" name="washed_at" max="{{ \App\Models\User::today()->toDateString() }}">
                                 <button type="button" class="b-wardrobe-form__today js-wardrobe-washed-today">Сегодня</button>
                             </div>
                         </div>

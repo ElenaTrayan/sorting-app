@@ -347,6 +347,12 @@
 
                 <ul class="nav b-sidebar-nav flex-column">
                     <li class="nav-item">
+                        <a href="{{ route('account-settings.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('account-settings.*')) is-active @endif">
+                            @include('layouts.parts.sidebar_icon', ['name' => 'user', 'class' => 'b-sidebar-nav__icon'])
+                            <span>Настройки аккаунта</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="{{ route('ai-settings.index') }}" class="b-sidebar-nav__link @if (request()->routeIs('ai-settings.*')) is-active @endif">
                             @include('layouts.parts.sidebar_icon', ['name' => 'settings', 'class' => 'b-sidebar-nav__icon'])
                             <span>Настройки ИИ</span>

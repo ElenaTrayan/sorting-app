@@ -580,7 +580,8 @@ class WardrobeItem extends Model
         if (!$this->washed_at) {
             return null;
         }
-        $days = $this->washed_at->copy()->startOfDay()->diffInDays(now()->startOfDay(), false);
+        // "сегодня" — по часовому поясу пользователя ("Настройки аккаунта")
+        $days = $this->washed_at->copy()->startOfDay()->diffInDays(User::today(), false);
         if ($days <= 0) {
             return 'сегодня';
         }
@@ -591,7 +592,7 @@ class WardrobeItem extends Model
     // давно не стиралась: не стиралась ни разу (дата не указана) или дольше WASH_OVERDUE_DAYS
     public function isWashOverdue(): bool
     {
-        return !$this->washed_at || $this->washed_at->lt(now()->subDays(self::WASH_OVERDUE_DAYS)->startOfDay());
+        return !$this->washed_at || $this->washed_at->lt(User::today()->subDays(self::WASH_OVERDUE_DAYS));
     }
 
     /**

@@ -54,6 +54,10 @@ Route::middleware(['auth'])->prefix('cabinet')->group(function () {
     // кружки той же вкладки — оттенки из палитр постов пользователя с числом постов
     Route::get('/search-collection-colors', [User\Packages\SearchController::class, 'collectionColors'])->name('search.collection-colors');
 
+    // "Настройки аккаунта" — часовой пояс (по нему "сегодня": User::today)
+    Route::get('/account-settings', [User\AccountSettingsController::class, 'index'])->name('account-settings.index');
+    Route::put('/account-settings', [User\AccountSettingsController::class, 'update'])->name('account-settings.update');
+
     // "Настройки ИИ" — свой ключ OpenAI для подбора хештегов по картинке (HashtagSuggester)
     Route::get('/ai-settings', [User\AiSettingsController::class, 'index'])->name('ai-settings.index');
     Route::put('/ai-settings', [User\AiSettingsController::class, 'update'])->name('ai-settings.update');

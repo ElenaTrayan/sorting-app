@@ -648,7 +648,8 @@ class ItemController extends Controller
             'wear_level' => ['nullable', Rule::in(array_keys(WardrobeItem::WEAR_LEVELS))],
             'needs_repair' => 'nullable|boolean',
             'repair_note' => 'nullable|string|max:2000',
-            'washed_at' => 'nullable|date|before_or_equal:today',
+            // "сегодня" — по часовому поясу пользователя
+            'washed_at' => 'nullable|date|before_or_equal:' . \App\Models\User::today()->toDateString(),
             'wash_group' => ['nullable', Rule::in(array_keys(WardrobeItem::WASH_GROUPS))],
             'special_wash' => 'nullable|boolean',
             'special_wash_types' => 'nullable|array',

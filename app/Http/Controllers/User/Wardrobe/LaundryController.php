@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User\Wardrobe;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Models\WardrobeItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 /**
  * "Мой гардероб" → Стирка: вещи по группам стирки (что стирать вместе), сначала давно не стиранные;
  * отметка "постирала" — у выбранных вещей группы разом; особая стирка (пятна) — отдельным блоком.
- * Только вещи, которые есть (не "нужно купить").
+ * Только вещи, которые есть (не "нужно купить"). "Сегодня" — по часовому поясу пользователя (User::today).
  */
 class LaundryController extends Controller
 {
@@ -65,7 +66,7 @@ class LaundryController extends Controller
 
         $count = WardrobeItem::where('user_id', Auth::id())
             ->whereIn('id', $data['ids'])
-            ->update(['washed_at' => now()->toDateString()]);
+            ->update(['washed_at' => User::today()->toDateString()]);
 
         return response()->json(['success' => true, 'count' => $count]);
     }
@@ -73,7 +74,7 @@ class LaundryController extends Controller
     // "Постирала сегодня" у одной вещи (меню карточки)
     public function markItemWashed(WardrobeItem $wardrobeItem)
     {
-        $wardrobeItem->update(['washed_at' => now()->toDateString()]);
+        $wardrobeItem->update(['washed_at' => User::today()->toDateString()]);
 
         return response()->json(['success' => true]);
     }

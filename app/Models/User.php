@@ -16,6 +16,35 @@ class User extends Authenticatable
     public const ROLE_ADMIN = 'admin';
     public const ROLE_USER = 'user';
 
+    // часовой пояс, пока пользователь не выбрал свой ("Настройки аккаунта"). Europe/Kiev, а не Europe/Kyiv:
+    // нового названия нет в базе поясов PHP 8.1
+    public const DEFAULT_TIMEZONE = 'Europe/Kiev';
+
+    // вверху списка поясов в "Настройках аккаунта": пояс => город
+    public const POPULAR_TIMEZONES = [
+        'Europe/Kiev' => 'Киев',
+        'Europe/Warsaw' => 'Варшава',
+        'Europe/Berlin' => 'Берлин',
+        'Europe/Prague' => 'Прага',
+        'Europe/Rome' => 'Рим',
+        'Europe/Madrid' => 'Мадрид',
+        'Europe/Paris' => 'Париж',
+        'Europe/London' => 'Лондон',
+        'Europe/Lisbon' => 'Лиссабон',
+        'Europe/Bucharest' => 'Бухарест',
+        'Europe/Chisinau' => 'Кишинёв',
+        'Europe/Vilnius' => 'Вильнюс',
+        'Europe/Riga' => 'Рига',
+        'Europe/Tallinn' => 'Таллин',
+        'Europe/Helsinki' => 'Хельсинки',
+        'Europe/Istanbul' => 'Стамбул',
+        'Asia/Tbilisi' => 'Тбилиси',
+        'Asia/Dubai' => 'Дубай',
+        'America/New_York' => 'Нью-Йорк',
+        'America/Toronto' => 'Торонто',
+        'America/Los_Angeles' => 'Лос-Анджелес',
+    ];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -58,6 +87,35 @@ class User extends Authenticatable
     public function isBlocked(): bool
     {
         return $this->blocked_at !== null;
+    }
+
+    // свой часовой пояс или пояс по умолчанию (неизвестное название — тоже по умолчанию)
+    public function timezoneName(): string
+    {
+        $timezone = (string)$this->timezone;
+
+        return in_array($timezone, timezone_identifiers_list(\DateTimeZone::ALL_WITH_BC), true) ? $timezone : self::DEFAULT_TIMEZONE;
+    }
+
+    /**
+     * "Сегодня" у пользователя — полночь его даты, но в поясе приложения (UTC), как даты из БД (касты 'date'):
+     * так их можно сравнивать и считать дни без сдвига на разницу поясов
+     *
+     * @return \Illuminate\Support\Carbon
+     */
+    public function localToday(): \Illuminate\Support\Carbon
+    {
+        return \Illuminate\Support\Carbon::parse(now($this->timezoneName())->toDateString());
+    }
+
+    // "сегодня" вошедшего пользователя (localToday), а без него — сегодня по поясу по умолчанию
+    public static function today(): \Illuminate\Support\Carbon
+    {
+        $user = auth()->user();
+
+        return $user instanceof self
+            ? $user->localToday()
+            : \Illuminate\Support\Carbon::parse(now(self::DEFAULT_TIMEZONE)->toDateString());
     }
 
     public function services()
