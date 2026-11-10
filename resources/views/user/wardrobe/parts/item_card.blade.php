@@ -26,7 +26,7 @@
         <div class="b-wardrobe-card__head">
             <div style="flex:1;min-width:0;">
                 <div class="b-wardrobe-card__name">{{ $item->name }}</div>
-                <div class="b-wardrobe-card__sub">{{ $item->categoryLabel() }}@if ($item->brand_name) · @include('user.wardrobe.parts.brand_label', ['brand' => $item->brand])@endif</div>
+                <div class="b-wardrobe-card__sub">{{ $item->kindLabel() }}@if ($item->brand_name) · @include('user.wardrobe.parts.brand_label', ['brand' => $item->brand])@endif</div>
             </div>
             <div class="b-stock-more">
                 <button type="button" class="b-stock-more__btn"><i class="fas fa-ellipsis-v"></i></button>

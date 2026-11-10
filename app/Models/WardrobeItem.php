@@ -20,20 +20,11 @@ class WardrobeItem extends Model
         self::STATUS_WISHLIST => 'Нужно купить',
     ];
 
-    // категории по умолчанию: рабочий список — в БД (WardrobeCategory, ведёт админ), этот — запасной, пока таблицы нет
-    public const CATEGORIES = [
-        'top' => 'Верх',
-        'bottom' => 'Низ',
-        'dress' => 'Платья и комбинезоны',
-        'outerwear' => 'Верхняя одежда',
-        'shoes' => 'Обувь',
-        'bag' => 'Сумки',
-        'accessory' => 'Аксессуары',
-        'jewelry' => 'Украшения',
-        'underwear' => 'Бельё и домашнее',
-        'sport' => 'Спорт',
-        'other' => 'Другое',
-    ];
+    // категории и типы вещей — WardrobeCategory (список в БД, ведёт админ)
+
+    // разделы "сочетается с" (compatGroup): категории обуви и аксессуаров, остальное — одежда
+    private const SHOE_CATEGORIES = ['sneakers', 'shoes', 'boots', 'summer_shoes'];
+    private const ACCESSORY_CATEGORIES = ['bag', 'hats', 'scarves', 'accessory', 'jewelry'];
 
     // размерные сетки для списка "Размер" в форме вещи (parts/size_select): раздел => размеры. В БД размер —
     // текст, поэтому значения разных сеток не должны совпадать (RU 42 / EU 42 / обувь 42); свой размер можно вписать
@@ -168,6 +159,7 @@ class WardrobeItem extends Model
         'post_id',
         'name',
         'category',
+        'kind',
         'status',
         'image',
         'brand_id',
@@ -218,11 +210,11 @@ class WardrobeItem extends Model
      */
     public static function compatGroup(?string $category): string
     {
-        if ($category === 'shoes') {
+        if (in_array($category, self::SHOE_CATEGORIES, true)) {
             return 'shoes';
         }
 
-        return in_array($category, ['bag', 'accessory', 'jewelry'], true) ? 'accessories' : 'clothes';
+        return in_array($category, self::ACCESSORY_CATEGORIES, true) ? 'accessories' : 'clothes';
     }
 
     /**
@@ -454,6 +446,12 @@ class WardrobeItem extends Model
         return WardrobeCategory::label($this->category);
     }
 
+    // подпись на карточке: тип вещи ("Худи"), а без него — категория
+    public function kindLabel(): string
+    {
+        return $this->kind ?: $this->categoryLabel();
+    }
+
     /**
      * Названия по ключам из JSON-колонки (styles, body_types); неизвестные ключи пропускаем
      *
@@ -478,6 +476,7 @@ class WardrobeItem extends Model
             'name' => $this->name,
             'category' => $this->category,
             'category_label' => $this->categoryLabel(),
+            'kind' => $this->kind,
             'status' => $this->status,
             'image_url' => $this->image_url,
             // все фото по порядку — галерея в форме вещи (wardrobe.js) и просмотр с карточки

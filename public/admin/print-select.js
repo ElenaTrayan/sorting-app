@@ -2,7 +2,8 @@
  * Список принтов одежды с образцами и поиском (wardrobe/parts/print_select.blade.php) — поле "Принт"
  * в форме вещи "Моего гардероба" и в полях пина "Одежда". Подключается самим partial'ом.
  * Варианты отрисованы сервером; здесь — открытие, поиск, выбор и "Свой принт…".
- * Снаружи: window.printSelect.set(root, id) — выставить значение (wardrobe.js при открытии формы вещи).
+ * Снаружи: window.printSelect.set(root, id) — выставить значение (wardrobe.js при открытии формы вещи);
+ * выбор пользователем — событие "print-select:change" на корне списка (detail: id, option).
  */
 (function () {
     'use strict';
@@ -164,6 +165,8 @@
             const typed = search.value.trim();
             set(id);
             close();
+            // выбор пользователем (не set() снаружи) — wardrobe.js по типу вещи ставит категорию
+            root.dispatchEvent(new CustomEvent('print-select:change', {bubbles: true, detail: {id: id, option: option}}));
             if (id === 'new') {
                 // искали принт и не нашли — то, что набрали, скорее всего и есть название своего
                 if (typed && !newInput.value) { newInput.value = typed; }

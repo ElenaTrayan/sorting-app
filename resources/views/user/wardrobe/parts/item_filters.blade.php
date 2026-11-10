@@ -16,8 +16,47 @@
             </div>
 
             <div class="b-filter-panel__body">
+                {{-- категории и типы — только те, что есть у вещей, со счётчиками ($kindCounts: category, kind, total) --}}
+                @php
+                    $categoryTotals = $kindCounts->groupBy('category')->map->sum('total');
+                    $kindsByCategory = $kindCounts->whereNotNull('kind')->groupBy('category');
+                @endphp
+                <div class="b-filter-panel__group">
+                    <div class="b-filter-panel__group-head">Категория</div>
+                    <div class="b-filter-panel__group-body">
+                        <label class="b-filter-panel__option"><input type="radio" name="category" value="" @if (empty($filters['category'])) checked @endif> Все</label>
+                        @foreach (\App\Models\WardrobeCategory::options() as $slug => $label)
+                            @if ($categoryTotals->has($slug) || ($filters['category'] ?? '') === $slug)
+                                <label class="b-filter-panel__option">
+                                    <input type="radio" name="category" value="{{ $slug }}" @if (($filters['category'] ?? '') === $slug) checked @endif>
+                                    {{ $label }} <span class="b-filter-panel__count">{{ $categoryTotals[$slug] ?? 0 }}</span>
+                                </label>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
+
+                @if ($kindsByCategory->isNotEmpty())
+                    <div class="b-filter-panel__group">
+                        <div class="b-filter-panel__group-head">Тип вещи</div>
+                        <div class="b-filter-panel__group-body">
+                            <label class="b-filter-panel__option"><input type="radio" name="kind" value="" @if (empty($filters['kind'])) checked @endif> Все</label>
+                            @foreach (\App\Models\WardrobeCategory::options() as $slug => $label)
+                                @if ($kindsByCategory->has($slug))
+                                    <div class="b-filter-panel__subhead">{{ $label }}</div>
+                                    @foreach ($kindsByCategory[$slug]->sortByDesc('total') as $row)
+                                        <label class="b-filter-panel__option">
+                                            <input type="radio" name="kind" value="{{ $row->kind }}" @if (($filters['kind'] ?? '') === $row->kind) checked @endif>
+                                            {{ $row->kind }} <span class="b-filter-panel__count">{{ $row->total }}</span>
+                                        </label>
+                                    @endforeach
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
                 @foreach ([
-                    'category' => ['Категория', \App\Models\WardrobeCategory::options()],
                     'style' => ['Стиль', WardrobeItem::STYLES],
                     'body_type' => ['Кому подходит', WardrobeItem::BODY_TYPES],
                     'wear_level' => ['Степень изношенности', WardrobeItem::WEAR_LEVELS],

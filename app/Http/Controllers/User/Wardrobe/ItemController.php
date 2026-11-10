@@ -45,6 +45,7 @@ class ItemController extends Controller
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('kind', 'like', "%{$search}%")
                     ->orWhere('composition', 'like', "%{$search}%")
                     ->orWhereHas('color', function ($q) use ($search) {
                         $q->where('name', 'like', "%{$search}%");
@@ -77,7 +78,7 @@ class ItemController extends Controller
         } elseif ($request->filled('storage')) {
             $query->where('storage_id', (int)$request->get('storage'));
         }
-        foreach (['category', 'wear_level'] as $field) {
+        foreach (['category', 'kind', 'wear_level'] as $field) {
             if ($request->filled($field)) {
                 $query->where($field, $request->get($field));
             }
@@ -99,10 +100,21 @@ class ItemController extends Controller
             ->groupBy('status')
             ->pluck('total', 'status');
 
+        // сколько вещей каждой категории и каждого типа (в текущей вкладке статуса) — для фильтра:
+        // "Толстовки (9)", внутри — "Худи (7)"
+        $kindCounts = WardrobeItem::where('user_id', $userId)
+            ->when($activeStatus !== 'all', function ($q) use ($activeStatus) {
+                $q->where('status', $activeStatus);
+            })
+            ->selectRaw('category, kind, COUNT(*) as total')
+            ->groupBy('category', 'kind')
+            ->get();
+
         return view('user.wardrobe.items', [
             'items' => $items,
             'activeStatus' => $activeStatus,
             'statusCounts' => $statusCounts,
+            'kindCounts' => $kindCounts,
             // фильтр — только по брендам, которые есть у вещей пользователя
             'usedBrands' => WardrobeBrand::whereIn('id', WardrobeItem::where('user_id', $userId)->whereNotNull('brand_id')->select('brand_id'))
                 ->orderBy('name')
@@ -119,7 +131,7 @@ class ItemController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name']),
             'storages' => $storages,
-            'filters' => $request->only(['search', 'category', 'brand', 'color', 'print', 'material', 'storage', 'wear_level', 'style', 'body_type', 'needs_repair']),
+            'filters' => $request->only(['search', 'category', 'kind', 'brand', 'color', 'print', 'material', 'storage', 'wear_level', 'style', 'body_type', 'needs_repair']),
             'fromPost' => $this->fromPostImage($request),
             // ?edit_item=ID — сразу открыть форму этой вещи (ссылка "В гардеробе" со страницы поста)
             'editItemId' => (int)$request->get('edit_item') ?: null,
@@ -501,11 +513,14 @@ class ItemController extends Controller
     private function attributesFrom(array $data): array
     {
         $needsRepair = !empty($data['needs_repair']);
+        // список типов (parts/kind_select): тип из списка или "new" + свой тип
+        $kind = trim((string)(($data['kind'] ?? null) === 'new' ? ($data['kind_new'] ?? '') : ($data['kind'] ?? ''))) ?: null;
 
         return [
-            // название необязательно (быстро добавить вещь, заполнить потом) — тогда название категории
-            'name' => trim($data['name'] ?? '') ?: WardrobeCategory::label($data['category']),
+            // название необязательно (быстро добавить вещь, заполнить потом) — тогда тип вещи, а без него категория
+            'name' => trim($data['name'] ?? '') ?: ($kind ?: WardrobeCategory::label($data['category'])),
             'category' => $data['category'],
+            'kind' => $kind,
             'status' => $data['status'],
             'brand_id' => $this->brandIdFrom($data),
             'storage_id' => $this->storageIdFrom($data),
@@ -569,6 +584,8 @@ class ItemController extends Controller
         $data = $request->validate([
             'name' => 'nullable|string|max:255',
             'category' => ['required', Rule::in(array_keys(WardrobeCategory::options()))],
+            'kind' => 'nullable|string|max:50',
+            'kind_new' => 'required_if:kind,new|nullable|string|max:50',
             'status' => ['required', Rule::in(array_keys(WardrobeItem::STATUSES))],
             // галерея формы вещи — см. photosPlan()
             'photos_order' => 'nullable|string|max:5000',
@@ -618,6 +635,7 @@ class ItemController extends Controller
             'note' => 'nullable|string|max:2000',
         ], [
             'brand.required_if' => 'Впишите название своего бренда или выберите «Без бренда».',
+            'kind_new.required_if' => 'Впишите свой тип вещи или выберите тип из списка.',
             'size_new.required_if' => 'Впишите свой размер или выберите размер из списка.',
             'length_new.required_if' => 'Впишите свою длину или выберите длину из списка.',
             'color_new.required_if' => 'Впишите название своего цвета или выберите цвет из списка.',

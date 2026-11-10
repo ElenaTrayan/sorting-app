@@ -93,7 +93,7 @@
                         </span>
                         <span class="b-wardrobe-preview__item-body">
                             <span class="b-wardrobe-preview__item-name">{{ $item->name }}</span>
-                            <span class="b-wardrobe-preview__item-sub">{{ $item->categoryLabel() }}@if ($item->brand_name) · @include('user.wardrobe.parts.brand_label', ['brand' => $item->brand])@endif</span>
+                            <span class="b-wardrobe-preview__item-sub">{{ $item->kindLabel() }}@if ($item->brand_name) · @include('user.wardrobe.parts.brand_label', ['brand' => $item->brand])@endif</span>
                         </span>
                         @if ($item->isWishlist())
                             @if ($item->shop_url)

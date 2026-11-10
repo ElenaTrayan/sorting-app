@@ -68,7 +68,7 @@
 
         <div class="b-post-show__text">
             <h2 class="b-post-show__title">{{ $item->name }}</h2>
-            <div class="b-wardrobe-preview__sub">{{ $item->categoryLabel() }}@if ($item->brand_name) · @include('user.wardrobe.parts.brand_label', ['brand' => $item->brand])@endif</div>
+            <div class="b-wardrobe-preview__sub">{{ $item->kindLabel() }}@if ($item->brand_name) · @include('user.wardrobe.parts.brand_label', ['brand' => $item->brand])@endif</div>
         </div>
 
         @if ($facts)

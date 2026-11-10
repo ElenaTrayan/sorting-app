@@ -77,7 +77,7 @@
                                 @endif
                                 <span class="b-wardrobe-tile__name">{{ $item->name }}</span>
                                 <span class="b-wardrobe-tile__sub">
-                                    {{ $item->categoryLabel() }}
+                                    {{ $item->kindLabel() }}
                                     @if ($item->isWishlist() && $item->price) · {{ number_format($item->price, 0, ',', ' ') }}@endif
                                 </span>
                                 @if ($item->isWishlist() && $item->shop_url)

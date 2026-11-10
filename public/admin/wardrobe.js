@@ -595,6 +595,27 @@
                 window.printSelect.set(el, id);
             }
         }
+        // тип вещи и категория: выбрали тип из списка — категория его; сменили категорию на другую — тип из списка
+        // чужой категории сбрасываем (свой тип, вписанный вручную, оставляем — у него категории нет)
+        const kindRoot = form.querySelector('.js-print-select[data-select="kind"]');
+        function kindOption(value) {
+            return Array.prototype.filter.call(kindRoot.querySelectorAll('.js-print-select-option[data-category]'), function (option) {
+                return option.getAttribute('data-id') === value;
+            })[0];
+        }
+        kindRoot.addEventListener('print-select:change', function (e) {
+            const category = e.detail.option.getAttribute('data-category');
+            if (category && form.elements['category'].querySelector('option[value="' + category + '"]')) {
+                form.elements['category'].value = category;
+            }
+        });
+        form.elements['category'].addEventListener('change', function () {
+            const option = kindOption(form.elements['kind'].value);
+            if (option && option.getAttribute('data-category') !== form.elements['category'].value) {
+                setDirectory('kind', null);
+            }
+        });
+
         function setBrand(id) {
             setDirectory('brand', id);
         }
@@ -643,6 +664,7 @@
             setBrand(item ? item.brand_id : null);
             setColor(item ? item.color_id : null);
             setDirectory('size', item ? item.size : null);
+            setDirectory('kind', item ? item.kind : null);
             setDirectory('length', item ? item.length : null);
             setDirectory('storage', item ? item.storage_id : null);
             setPrint(item ? item.print_id : null);
@@ -738,6 +760,9 @@
         function applyClothesFields(clothes) {
             if (clothes.category && form.elements['category'].querySelector('option[value="' + clothes.category + '"]')) {
                 form.elements['category'].value = clothes.category;
+            }
+            if (clothes.kind && !form.elements['kind'].value) {
+                setDirectory('kind', clothes.kind);
             }
             if (clothes.brand_id && !form.elements['brand_id'].value) {
                 setBrand(clothes.brand_id);

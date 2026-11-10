@@ -64,14 +64,19 @@
                         <div class="b-wardrobe-form__fields">
                             <div class="b-stock-form-field">
                                 <label>Название</label>
-                                {{-- необязательно: без названия вещь называется по категории (ItemController::attributesFrom) --}}
+                                {{-- необязательно: без названия вещь называется по типу или категории (ItemController::attributesFrom) --}}
                                 <div class="b-stock-form-input">
                                     <i class="fas fa-tag"></i>
-                                    <input type="text" name="name" maxlength="255" placeholder="Напр. Бежевый тренч — или по категории">
+                                    <input type="text" name="name" maxlength="255" placeholder="Напр. Бежевый тренч — или по типу вещи">
                                 </div>
                             </div>
 
                             <div class="b-stock-form-row">
+                                <div class="b-stock-form-field">
+                                    <label>Тип вещи</label>
+                                    {{-- типы по категориям; выбор типа ставит категорию (wardrobe.js) --}}
+                                    @include('user.wardrobe.parts.kind_select')
+                                </div>
                                 <div class="b-stock-form-field">
                                     <label>Категория <span class="text-danger">*</span></label>
                                     <div class="b-stock-form-input">
@@ -83,16 +88,17 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="b-stock-form-field">
-                                    <label>Статус</label>
-                                    <div class="b-wardrobe-choice">
-                                        @foreach (WardrobeItem::STATUSES as $slug => $label)
-                                            <label class="b-wardrobe-choice__item">
-                                                <input type="radio" name="status" value="{{ $slug }}" @if ($slug === WardrobeItem::STATUS_OWNED) checked @endif>
-                                                <span>{{ $label }}</span>
-                                            </label>
-                                        @endforeach
-                                    </div>
+                            </div>
+
+                            <div class="b-stock-form-field">
+                                <label>Статус</label>
+                                <div class="b-wardrobe-choice">
+                                    @foreach (WardrobeItem::STATUSES as $slug => $label)
+                                        <label class="b-wardrobe-choice__item">
+                                            <input type="radio" name="status" value="{{ $slug }}" @if ($slug === WardrobeItem::STATUS_OWNED) checked @endif>
+                                            <span>{{ $label }}</span>
+                                        </label>
+                                    @endforeach
                                 </div>
                             </div>
 
