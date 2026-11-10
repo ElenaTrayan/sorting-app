@@ -63,10 +63,11 @@
 
                         <div class="b-wardrobe-form__fields">
                             <div class="b-stock-form-field">
-                                <label>Название <span class="text-danger">*</span></label>
+                                <label>Название</label>
+                                {{-- необязательно: без названия вещь называется по категории (ItemController::attributesFrom) --}}
                                 <div class="b-stock-form-input">
                                     <i class="fas fa-tag"></i>
-                                    <input type="text" name="name" required maxlength="255" placeholder="Напр. Бежевый тренч">
+                                    <input type="text" name="name" maxlength="255" placeholder="Напр. Бежевый тренч — или по категории">
                                 </div>
                             </div>
 

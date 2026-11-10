@@ -503,7 +503,8 @@ class ItemController extends Controller
         $needsRepair = !empty($data['needs_repair']);
 
         return [
-            'name' => $data['name'],
+            // название необязательно (быстро добавить вещь, заполнить потом) — тогда название категории
+            'name' => trim($data['name'] ?? '') ?: WardrobeCategory::label($data['category']),
             'category' => $data['category'],
             'status' => $data['status'],
             'brand_id' => $this->brandIdFrom($data),
@@ -566,7 +567,7 @@ class ItemController extends Controller
     private function validateData(Request $request): array
     {
         $data = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
             'category' => ['required', Rule::in(array_keys(WardrobeCategory::options()))],
             'status' => ['required', Rule::in(array_keys(WardrobeItem::STATUSES))],
             // галерея формы вещи — см. photosPlan()
