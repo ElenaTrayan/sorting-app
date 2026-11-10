@@ -93,6 +93,33 @@ class WardrobeItem extends Model
         ],
     ];
 
+    // группы стирки — что стирать вместе (страница "Стирка"). В БД (wash_group) — ключ; пусто — группа
+    // подбирается сама (suggestWashGroup). Ключи не менять, названия можно
+    public const WASH_GROUPS = [
+        'white' => 'Белое',
+        'black' => 'Чёрное',
+        'grey' => 'Серое',
+        'beige' => 'Бежевое',
+        'muted' => 'Цветное неяркое',
+        'bright' => 'Цветное яркое',
+        'denim' => 'Джинсы и тёмно-синее',
+        'delicate' => 'Деликатное в мешке',
+        'hand' => 'Ручная индивидуальная',
+        'dryclean' => 'Химчистка',
+    ];
+
+    // через сколько дней вещь на странице "Стирка" считается давно не стиранной
+    public const WASH_OVERDUE_DAYS = 30;
+
+    // особая стирка — пятна, которые выводят отдельно; в БД (special_wash_types) — JSON-массив ключей
+    public const SPECIAL_WASH_TYPES = [
+        'armpits' => 'Жёлтые пятна подмышками',
+        'deodorant' => 'Белые следы дезодоранта',
+        'stain' => 'Пятно',
+        'dingy' => 'Белое посерело или пожелтело',
+        'smell' => 'Запах',
+    ];
+
     public const WEAR_LEVELS = [
         'new' => 'Новая',
         'excellent' => 'Отличное состояние',
@@ -179,6 +206,12 @@ class WardrobeItem extends Model
         'wear_level',
         'needs_repair',
         'repair_note',
+        'washed_at',
+        'wash_group',
+        'special_wash',
+        'special_wash_types',
+        'special_wash_note',
+        'special_wash_fixed',
         'styles',
         'body_types',
         'price',
@@ -188,6 +221,10 @@ class WardrobeItem extends Model
 
     protected $casts = [
         'needs_repair' => 'boolean',
+        'washed_at' => 'date',
+        'special_wash' => 'boolean',
+        'special_wash_types' => 'array',
+        'special_wash_fixed' => 'boolean',
         'styles' => 'array',
         'body_types' => 'array',
         'care_options' => 'array',
@@ -452,6 +489,111 @@ class WardrobeItem extends Model
         return $this->kind ?: $this->categoryLabel();
     }
 
+    // группа стирки: выбранная вручную или подобранная (ключ WASH_GROUPS; null — подобрать не из чего)
+    public function washGroup(): ?string
+    {
+        return $this->wash_group ?: $this->suggestWashGroup();
+    }
+
+    /**
+     * Группа стирки по вещи: сначала уход (химчистка, ручная, деликатная), потом тип и категория
+     * (джинсы, бельё), потом цвет — по группе цвета, а цветное — по насыщенности оттенка (яркое / неяркое)
+     *
+     * @return string|null ключ WASH_GROUPS; null — цвет не указан
+     */
+    public function suggestWashGroup(): ?string
+    {
+        $care = $this->care_options ?: [];
+        if (in_array('dryclean', $care, true)) {
+            return 'dryclean';
+        }
+        if (in_array('wash_hand', $care, true)) {
+            return 'hand';
+        }
+        if (in_array('wash_delicate', $care, true) || in_array('wash_bag', $care, true)
+            || in_array($this->category, ['underwear', 'hosiery'], true)) {
+            return 'delicate';
+        }
+        if (mb_stripos((string)$this->kind, 'джинс') !== false || mb_stripos((string)$this->name, 'джинс') !== false) {
+            return 'denim';
+        }
+
+        $color = $this->color;
+        if (!$color) {
+            return self::washGroupFromName((string)$this->name);
+        }
+        $byColorGroup = ['white' => 'white', 'black' => 'black', 'grey' => 'grey', 'beige' => 'beige', 'navy' => 'denim',
+            'brown' => 'muted', 'burgundy' => 'muted', 'multi' => 'bright'];
+        if (isset($byColorGroup[$color->group])) {
+            return $byColorGroup[$color->group];
+        }
+
+        return self::isBrightHex($color->hex) ? 'bright' : 'muted';
+    }
+
+    // цвет не выбран — по цвету в названии ("Рубашка белая" → white); не нашли — null
+    private static function washGroupFromName(string $name): ?string
+    {
+        $words = [
+            'white' => 'бел', 'black' => 'ч[её]рн', 'grey' => 'сер(ый|ая|ое|ые)', 'beige' => 'бежев',
+            'denim' => 'темно-син|тёмно-син', 'bright' => 'красн|малинов|ярко-|оранжев|ж[её]лт|фуксия',
+        ];
+        foreach ($words as $group => $pattern) {
+            if (preg_match('~(?<!\p{L})(' . $pattern . ')~iu', $name)) {
+                return $group;
+            }
+        }
+
+        return null;
+    }
+
+    // яркий оттенок — насыщенный и не слишком тёмный/светлый (HSL); без оттенка — неяркий
+    private static function isBrightHex(?string $hex): bool
+    {
+        $hex = WardrobeColor::normalizeHex($hex);
+        if ($hex === null) {
+            return false;
+        }
+        [$r, $g, $b] = array_map(function ($part) {
+            return hexdec($part) / 255;
+        }, str_split(substr($hex, 1), 2));
+        $max = max($r, $g, $b);
+        $min = min($r, $g, $b);
+        $lightness = ($max + $min) / 2;
+        if ($max === $min) {
+            return false;
+        }
+        $saturation = ($max - $min) / (1 - abs(2 * $lightness - 1));
+
+        return $saturation >= 0.5 && $lightness >= 0.25 && $lightness <= 0.7;
+    }
+
+    // нужна особая стирка, и пятно ещё не исправлено
+    public function needsSpecialWash(): bool
+    {
+        return $this->special_wash && !$this->special_wash_fixed;
+    }
+
+    // "сегодня", "вчера", "5 дн. назад"; null — дата стирки не указана
+    public function washedAgo(): ?string
+    {
+        if (!$this->washed_at) {
+            return null;
+        }
+        $days = $this->washed_at->copy()->startOfDay()->diffInDays(now()->startOfDay(), false);
+        if ($days <= 0) {
+            return 'сегодня';
+        }
+
+        return $days === 1 ? 'вчера' : $days . ' дн. назад';
+    }
+
+    // давно не стиралась: не стиралась ни разу (дата не указана) или дольше WASH_OVERDUE_DAYS
+    public function isWashOverdue(): bool
+    {
+        return !$this->washed_at || $this->washed_at->lt(now()->subDays(self::WASH_OVERDUE_DAYS)->startOfDay());
+    }
+
     /**
      * Названия по ключам из JSON-колонки (styles, body_types); неизвестные ключи пропускаем
      *
@@ -477,6 +619,14 @@ class WardrobeItem extends Model
             'category' => $this->category,
             'category_label' => $this->categoryLabel(),
             'kind' => $this->kind,
+            'washed_at' => $this->washed_at ? $this->washed_at->format('Y-m-d') : null,
+            'wash_group' => $this->wash_group,
+            // подобранная группа — подсказка в форме у "Автоматически"
+            'wash_group_auto' => self::WASH_GROUPS[$this->suggestWashGroup()] ?? null,
+            'special_wash' => $this->special_wash,
+            'special_wash_types' => $this->special_wash_types ?: [],
+            'special_wash_note' => $this->special_wash_note,
+            'special_wash_fixed' => $this->special_wash_fixed,
             'status' => $this->status,
             'image_url' => $this->image_url,
             // все фото по порядку — галерея в форме вещи (wardrobe.js) и просмотр с карточки

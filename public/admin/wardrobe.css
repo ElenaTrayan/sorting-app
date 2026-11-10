@@ -602,6 +602,67 @@ a.b-wardrobe-card__photo:hover {
 .b-wardrobe-care-section[open] .b-wardrobe-care-section__toggle { transform: rotate(45deg); }
 .b-wardrobe-care-section__head:hover .b-wardrobe-care-section__toggle { background: #e0e4ff; }
 
+/* стирка в форме вещи: подсказка подобранной группы, кнопка "Сегодня" у даты */
+.b-wardrobe-form__hint { margin-top: 6px; font-size: 12px; color: #9099b8; }
+.b-wardrobe-form__hint[hidden] { display: none; }
+.b-wardrobe-form__today {
+    flex-shrink: 0;
+    padding: 2px 10px;
+    border: none;
+    border-radius: 999px;
+    background: #eef1ff;
+    color: #4b3bf5;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.b-wardrobe-form__today:hover { background: #e0e4ff; }
+.b-wardrobe-badge--stain { background: #e8f4fd; color: #1c7ed6; }
+
+/* страница "Стирка" (laundry.blade.php): группы стирки с плитками вещей, блок особой стирки */
+.b-laundry-group {
+    margin-bottom: 18px;
+    padding: 18px;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(31, 36, 48, .05);
+}
+.b-laundry-group--special { border: 1px solid #cfe6fb; }
+.b-laundry-group__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.b-laundry-group__title { font-size: 16px; font-weight: 800; color: #1f2430; }
+.b-laundry-group--special .b-laundry-group__title i { color: #1c7ed6; }
+.b-laundry-group__sub { font-size: 13px; color: #9099b8; }
+.b-laundry-group__actions { display: flex; gap: 8px; }
+.b-laundry-overdue { color: #e08a00; font-weight: 700; }
+.b-laundry-tile__photo { border: none; padding: 0; cursor: pointer; }
+.b-laundry-tile__washed { font-size: 12px; color: #9099b8; }
+.b-laundry-tile.is-overdue .b-laundry-tile__washed { color: #e08a00; font-weight: 700; }
+.b-laundry-tile .b-wardrobe-tile__name:hover { color: #4b3bf5; text-decoration: none; }
+.b-laundry-tile__photo .b-wardrobe-badge--stain { position: absolute; top: 6px; left: 6px; }
+.b-laundry-special { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.b-laundry-special__item { display: flex; gap: 12px; padding: 10px; border-radius: 12px; background: #f8f9fc; }
+.b-laundry-special__photo {
+    flex: 0 0 80px;
+    height: 106px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #f4f6f9 center/cover no-repeat;
+    color: #c8cdd3;
+    font-size: 22px;
+}
+.b-laundry-special__body { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.b-laundry-special__name { font-size: 14px; font-weight: 700; color: #1f2430; }
+.b-laundry-special__note { font-size: 13px; color: #565b74; }
+
 /* фильтр вещей: в группе "Тип вещи" типы — под названием своей категории */
 .b-filter-panel__subhead {
     margin: 10px 0 2px;

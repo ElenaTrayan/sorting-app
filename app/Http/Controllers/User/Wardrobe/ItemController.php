@@ -93,7 +93,17 @@ class ItemController extends Controller
             $query->where('needs_repair', true);
         }
 
+        if ($request->boolean('special_wash')) {
+            $query->where('special_wash', true)->where('special_wash_fixed', false);
+        }
+
         $items = $query->orderByDesc('id')->get();
+        // группа стирки у вещи без выбранной подбирается на лету (WardrobeItem::washGroup) — фильтр уже по списку
+        if ($request->filled('wash_group')) {
+            $items = $items->filter(function (WardrobeItem $item) use ($request) {
+                return $item->washGroup() === $request->get('wash_group');
+            })->values();
+        }
 
         $statusCounts = WardrobeItem::where('user_id', $userId)
             ->selectRaw('status, COUNT(*) as total')
@@ -115,6 +125,8 @@ class ItemController extends Controller
             'activeStatus' => $activeStatus,
             'statusCounts' => $statusCounts,
             'kindCounts' => $kindCounts,
+            // вещей с неисправленной особой стиркой — счётчик у пункта фильтра
+            'specialWashCount' => WardrobeItem::where('user_id', $userId)->where('special_wash', true)->where('special_wash_fixed', false)->count(),
             // фильтр — только по брендам, которые есть у вещей пользователя
             'usedBrands' => WardrobeBrand::whereIn('id', WardrobeItem::where('user_id', $userId)->whereNotNull('brand_id')->select('brand_id'))
                 ->orderBy('name')
@@ -131,7 +143,7 @@ class ItemController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name']),
             'storages' => $storages,
-            'filters' => $request->only(['search', 'category', 'kind', 'brand', 'color', 'print', 'material', 'storage', 'wear_level', 'style', 'body_type', 'needs_repair']),
+            'filters' => $request->only(['search', 'category', 'kind', 'brand', 'color', 'print', 'material', 'storage', 'wear_level', 'style', 'body_type', 'needs_repair', 'special_wash', 'wash_group']),
             'fromPost' => $this->fromPostImage($request),
             // ?edit_item=ID — сразу открыть форму этой вещи (ссылка "В гардеробе" со страницы поста)
             'editItemId' => (int)$request->get('edit_item') ?: null,
@@ -513,6 +525,7 @@ class ItemController extends Controller
     private function attributesFrom(array $data): array
     {
         $needsRepair = !empty($data['needs_repair']);
+        $specialWash = !empty($data['special_wash']);
         // список типов (parts/kind_select): тип из списка или "new" + свой тип
         $kind = trim((string)(($data['kind'] ?? null) === 'new' ? ($data['kind_new'] ?? '') : ($data['kind'] ?? ''))) ?: null;
 
@@ -543,6 +556,15 @@ class ItemController extends Controller
             'wear_level' => $data['wear_level'] ?? null,
             'needs_repair' => $needsRepair,
             'repair_note' => $needsRepair ? ($data['repair_note'] ?? null) : null,
+            'washed_at' => $data['washed_at'] ?? null,
+            'wash_group' => $data['wash_group'] ?? null, // пусто — подбирается сама (WardrobeItem::suggestWashGroup)
+            // особая стирка: без отметки — ни пятен, ни заметки, ни "исправлено"
+            'special_wash' => $specialWash,
+            'special_wash_types' => $specialWash
+                ? array_values(array_intersect(array_keys(WardrobeItem::SPECIAL_WASH_TYPES), $data['special_wash_types'] ?? []))
+                : [],
+            'special_wash_note' => $specialWash ? ($data['special_wash_note'] ?? null) : null,
+            'special_wash_fixed' => $specialWash && !empty($data['special_wash_fixed']),
             'styles' => array_values($data['styles'] ?? []),
             'body_types' => array_values($data['body_types'] ?? []),
             'price' => $data['price'] ?? null,
@@ -626,6 +648,13 @@ class ItemController extends Controller
             'wear_level' => ['nullable', Rule::in(array_keys(WardrobeItem::WEAR_LEVELS))],
             'needs_repair' => 'nullable|boolean',
             'repair_note' => 'nullable|string|max:2000',
+            'washed_at' => 'nullable|date|before_or_equal:today',
+            'wash_group' => ['nullable', Rule::in(array_keys(WardrobeItem::WASH_GROUPS))],
+            'special_wash' => 'nullable|boolean',
+            'special_wash_types' => 'nullable|array',
+            'special_wash_types.*' => [Rule::in(array_keys(WardrobeItem::SPECIAL_WASH_TYPES))],
+            'special_wash_note' => 'nullable|string|max:2000',
+            'special_wash_fixed' => 'nullable|boolean',
             'styles' => 'nullable|array',
             'styles.*' => [Rule::in(array_keys(WardrobeItem::STYLES))],
             'body_types' => 'nullable|array',
@@ -641,6 +670,7 @@ class ItemController extends Controller
             'color_new.required_if' => 'Впишите название своего цвета или выберите цвет из списка.',
             'print_new.required_if' => 'Впишите название своего принта или выберите принт из списка.',
             'material_new.required_if' => 'Впишите название своего материала или выберите материал из списка.',
+            'washed_at.before_or_equal' => 'Дата последней стирки не может быть в будущем.',
             'storage_name.required_if' => 'Впишите название нового места хранения или выберите «Не указано».',
             'photos_new.*.mimes' => 'Фото должно быть картинкой: JPG, PNG, GIF или WebP.',
             'photos_new.*.max' => 'Фото слишком большое — не больше 20 МБ.',

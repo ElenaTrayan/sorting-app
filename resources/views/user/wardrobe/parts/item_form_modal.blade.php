@@ -216,6 +216,57 @@
                         </div>
                     </details>
 
+                    {{-- стирка (страница "Стирка"): группа — пусто = подбирается сама по уходу, типу и цвету
+                         (WardrobeItem::suggestWashGroup; подобранная — подсказкой, wardrobe.js); дата последней стирки --}}
+                    <div class="b-stock-form-row">
+                        <div class="b-stock-form-field">
+                            <label>Группа стирки</label>
+                            @include('user.wardrobe.parts.list_select', [
+                                'kind' => 'wash_group', 'name' => 'wash_group', 'newName' => null, 'icon' => 'fa-soap',
+                                'options' => WardrobeItem::WASH_GROUPS,
+                                'texts' => ['empty' => 'Автоматически', 'search' => 'Поиск группы', 'notFound' => 'Такой группы нет'],
+                            ])
+                            <div class="b-wardrobe-form__hint js-wardrobe-wash-auto" hidden></div>
+                        </div>
+                        <div class="b-stock-form-field">
+                            <label>Последняя стирка</label>
+                            <div class="b-stock-form-input">
+                                <i class="fas fa-calendar-check"></i>
+                                <input type="date" name="washed_at" max="{{ now()->toDateString() }}">
+                                <button type="button" class="b-wardrobe-form__today js-wardrobe-washed-today">Сегодня</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- особая стирка — пятна, которые выводят отдельно; "Исправлено" убирает вещь из фильтра и блока
+                         "Особая стирка", а отметки о пятне остаются --}}
+                    <div class="b-stock-form-field">
+                        <input type="hidden" name="special_wash" value="0">
+                        <label class="b-wardrobe-check">
+                            <input type="checkbox" name="special_wash" value="1" class="js-wardrobe-special-wash">
+                            <span>Нужна особая стирка</span>
+                        </label>
+                        <div class="js-wardrobe-special-wash-fields" style="display:none;margin-top:8px;">
+                            <div class="b-wardrobe-choice b-wardrobe-choice--wrap">
+                                @foreach (WardrobeItem::SPECIAL_WASH_TYPES as $slug => $label)
+                                    <label class="b-wardrobe-choice__item">
+                                        <input type="checkbox" name="special_wash_types[]" value="{{ $slug }}">
+                                        <span>{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                            <div class="b-stock-form-input" style="margin-top:8px;">
+                                <i class="fas fa-tint"></i>
+                                <textarea name="special_wash_note" rows="2" maxlength="2000" placeholder="От чего пятно, что уже пробовали"></textarea>
+                            </div>
+                            <input type="hidden" name="special_wash_fixed" value="0">
+                            <label class="b-wardrobe-check" style="margin-top:8px;">
+                                <input type="checkbox" name="special_wash_fixed" value="1">
+                                <span>Исправлено</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <div class="b-stock-form-field">
                         <input type="hidden" name="needs_repair" value="0">
                         <label class="b-wardrobe-check">

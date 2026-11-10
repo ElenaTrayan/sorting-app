@@ -16,6 +16,7 @@
         <span class="b-wardrobe-card__badges">
             @if ($item->isWishlist())<span class="b-wardrobe-badge b-wardrobe-badge--wishlist"><i class="fas fa-shopping-bag"></i> Купить</span>@endif
             @if ($item->needs_repair)<span class="b-wardrobe-badge b-wardrobe-badge--repair" title="{{ $item->repair_note }}"><i class="fas fa-tools"></i> Ремонт</span>@endif
+            @if ($item->needsSpecialWash())<span class="b-wardrobe-badge b-wardrobe-badge--stain" title="{{ $item->special_wash_note }}"><i class="fas fa-tint"></i> Пятно</span>@endif
         </span>
         @if ($photoUrls->count() > 1)
             <span class="b-wardrobe-card__photos" title="Фото вещи: {{ $photoUrls->count() }}"><i class="far fa-images"></i> {{ $photoUrls->count() }}</span>
@@ -38,6 +39,12 @@
                             <a href="{{ $item->shop_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Открыть магазин</a>
                         @endif
                     @endif
+                    @if (!$item->isWishlist())
+                        <button type="button" data-stock-post-url="{{ route('wardrobe.items.washed', $item) }}" data-success-message="Отмечено: постирано сегодня"><i class="fas fa-soap"></i> Постирала сегодня</button>
+                        @if ($item->needsSpecialWash())
+                            <button type="button" data-stock-post-url="{{ route('wardrobe.items.special-wash-fixed', $item) }}" data-success-message="Отмечено: пятно исправлено"><i class="fas fa-check-circle"></i> Пятно исправлено</button>
+                        @endif
+                    @endif
                     @if ($item->post_id && auth()->user()->hasService('posts'))
                         <a href="{{ route('posts.show', $item->post_id) }}"><i class="far fa-image"></i> Открыть пост</a>
                     @endif
@@ -52,6 +59,7 @@
             @if ($item->material_name)<span><i class="fas fa-layer-group"></i> {{ $item->material_name }}</span>@endif
             @if ($item->storage)<span><i class="fas fa-box-open"></i> {{ $item->storage->name }}</span>@endif
             @if ($item->isWishlist() && $item->price)<span><i class="fas fa-tag"></i> {{ number_format($item->price, 0, ',', ' ') }}</span>@endif
+            @if (!$item->isWishlist() && $item->washed_at)<span title="Последняя стирка: {{ $item->washed_at->format('d.m.Y') }}"><i class="fas fa-soap"></i> {{ $item->washedAgo() }}</span>@endif
             @if (!$item->isWishlist() && $item->wear_level)<span><i class="fas fa-heartbeat"></i> {{ \App\Models\WardrobeItem::WEAR_LEVELS[$item->wear_level] ?? '' }}</span>@endif
         </div>
 

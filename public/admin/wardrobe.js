@@ -587,6 +587,18 @@
         }
         repairCheckbox.addEventListener('change', toggleRepairNote);
 
+        // стирка: "Нужна особая стирка" раскрывает пятна, заметку и "Исправлено"; "Сегодня" — дата стирки
+        const specialWashCheckbox = form.querySelector('.js-wardrobe-special-wash');
+        const specialWashFields = form.querySelector('.js-wardrobe-special-wash-fields');
+        const washAutoHint = form.querySelector('.js-wardrobe-wash-auto');
+        function toggleSpecialWash() {
+            specialWashFields.style.display = specialWashCheckbox.checked ? '' : 'none';
+        }
+        specialWashCheckbox.addEventListener('change', toggleSpecialWash);
+        form.querySelector('.js-wardrobe-washed-today').addEventListener('click', function () {
+            form.elements['washed_at'].value = form.elements['washed_at'].getAttribute('max');
+        });
+
         // бренд, принт и материал — списки с образцами (parts/directory_select.blade.php, print-select.js);
         // размер, длина и место хранения — такие же списки без образцов (parts/size_select, parts/list_select)
         function setDirectory(kind, id) {
@@ -665,6 +677,10 @@
             setColor(item ? item.color_id : null);
             setDirectory('size', item ? item.size : null);
             setDirectory('kind', item ? item.kind : null);
+            setDirectory('wash_group', item ? item.wash_group : null);
+            // подобранная группа — у новой вещи её ещё не из чего подобрать (подберётся при сохранении)
+            washAutoHint.textContent = item && item.wash_group_auto ? 'Автоматически сейчас: ' + item.wash_group_auto : '';
+            washAutoHint.hidden = !washAutoHint.textContent;
             setDirectory('length', item ? item.length : null);
             setDirectory('storage', item ? item.storage_id : null);
             setPrint(item ? item.print_id : null);
@@ -672,7 +688,7 @@
 
             if (item) {
                 ['name', 'category', 'composition', 'temp_min', 'temp_max', 'care', 'wear_level',
-                    'repair_note', 'price', 'shop_url', 'note'].forEach(function (field) {
+                    'repair_note', 'washed_at', 'special_wash_note', 'price', 'shop_url', 'note'].forEach(function (field) {
                     // не form.elements[field]: form.elements.length — число полей формы, а не поле "Длина"
                     form.querySelector('[name="' + field + '"]').value = item[field] === null || item[field] === undefined ? '' : item[field];
                 });
@@ -683,6 +699,9 @@
                 setChecked('occasions[]', item.occasions || []);
                 setChecked('care_options[]', item.care_options || []);
                 repairCheckbox.checked = !!item.needs_repair;
+                specialWashCheckbox.checked = !!item.special_wash;
+                setChecked('special_wash_types[]', item.special_wash_types || []);
+                form.querySelector('input[type="checkbox"][name="special_wash_fixed"]').checked = !!item.special_wash_fixed;
             }
             refreshCare(true);
             form.querySelector('.js-wardrobe-care-section').open = false;
@@ -692,6 +711,7 @@
             title.textContent = item ? 'Редактировать вещь' : 'Добавить вещь';
             submitBtn.textContent = item ? 'Сохранить' : 'Добавить';
             toggleRepairNote();
+            toggleSpecialWash();
             if (importBtn) {
                 importBtn.style.display = item ? 'none' : ''; // импорт заполняет форму новой вещи
             }
@@ -1165,5 +1185,51 @@
 
         renderSelected();
     }
+
+    // ---------- страница "Стирка" (laundry.blade.php): выбрать вещи группы и отметить "Постирала" ----------
+    document.querySelectorAll('.js-laundry-group').forEach(function (group) {
+        const washedBtn = group.querySelector('.js-laundry-washed');
+        const countLabel = group.querySelector('.js-laundry-selected-count');
+        const tiles = Array.prototype.slice.call(group.querySelectorAll('.js-laundry-tile'));
+
+        function selectedIds() {
+            return tiles.filter(function (tile) {
+                return tile.parentNode.classList.contains('is-selected');
+            }).map(function (tile) {
+                return parseInt(tile.getAttribute('data-id'), 10);
+            });
+        }
+        function refresh() {
+            const count = selectedIds().length;
+            washedBtn.disabled = count === 0;
+            countLabel.textContent = count ? '(' + count + ')' : '';
+        }
+
+        tiles.forEach(function (tile) {
+            tile.addEventListener('click', function () {
+                tile.parentNode.classList.toggle('is-selected');
+                refresh();
+            });
+        });
+        // "Выбрать все" — а если все уже выбраны, снять выбор
+        group.querySelector('.js-laundry-select-all').addEventListener('click', function () {
+            const all = selectedIds().length === tiles.length;
+            tiles.forEach(function (tile) {
+                tile.parentNode.classList.toggle('is-selected', !all);
+            });
+            refresh();
+        });
+        washedBtn.addEventListener('click', function () {
+            washedBtn.disabled = true;
+            stockAjax(washedBtn.getAttribute('data-url'), 'POST', {ids: selectedIds()})
+                .then(function () {
+                    window.location.reload();
+                })
+                .catch(function (err) {
+                    refresh();
+                    stockError(err);
+                });
+        });
+    });
 
 })();

@@ -28,6 +28,8 @@
         'Где лежит' => optional($item->storage)->name,
         'Цена' => $item->price ? number_format($item->price, 0, ',', ' ') : null,
         'Уход' => $item->careText(),
+        'Группа стирки' => $item->isWishlist() ? null : (WardrobeItem::WASH_GROUPS[$item->washGroup()] ?? null),
+        'Последняя стирка' => $item->washed_at ? $item->washed_at->format('d.m.Y') . ' (' . $item->washedAgo() . ')' : null,
     ]);
 @endphp
 <div class="b-post-preview b-wardrobe-preview @if ($photos->isEmpty()) b-post-preview--text-only @endif">
@@ -63,6 +65,9 @@
             </span>
             @if ($item->needs_repair)
                 <span class="b-wardrobe-badge b-wardrobe-badge--repair"><i class="fas fa-tools"></i> Нужен ремонт</span>
+            @endif
+            @if ($item->needsSpecialWash())
+                <span class="b-wardrobe-badge b-wardrobe-badge--stain"><i class="fas fa-tint"></i> Особая стирка</span>
             @endif
         </div>
 
@@ -113,6 +118,13 @@
 
         @if ($item->needs_repair && $item->repair_note)
             <p class="b-wardrobe-preview__note"><b>Ремонт:</b> {{ $item->repair_note }}</p>
+        @endif
+        @if ($item->special_wash)
+            @php $stains = implode(', ', WardrobeItem::labelsFor($item->special_wash_types, WardrobeItem::SPECIAL_WASH_TYPES)); @endphp
+            <p class="b-wardrobe-preview__note">
+                <b>Особая стирка{{ $item->special_wash_fixed ? ' (исправлено)' : '' }}:</b>
+                {{ implode('. ', array_filter([$stains, $item->special_wash_note])) ?: 'да' }}
+            </p>
         @endif
         @if ($item->note)
             <p class="b-wardrobe-preview__note">{{ $item->note }}</p>

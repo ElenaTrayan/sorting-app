@@ -149,6 +149,29 @@
                 </div>
 
                 <div class="b-filter-panel__group">
+                    <div class="b-filter-panel__group-head">Особая стирка</div>
+                    <div class="b-filter-panel__group-body">
+                        <label class="b-filter-panel__option">
+                            <input type="checkbox" name="special_wash" value="1" @if (!empty($filters['special_wash'])) checked @endif>
+                            Только вещи с неисправленными пятнами <span class="b-filter-panel__count">{{ $specialWashCount }}</span>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- группа стирки — выбранная у вещи или подобранная сама (WardrobeItem::washGroup) --}}
+                <div class="b-filter-panel__group">
+                    <div class="b-filter-panel__group-head">Группа стирки</div>
+                    <div class="b-filter-panel__group-body">
+                        <label class="b-filter-panel__option"><input type="radio" name="wash_group" value="" @if (empty($filters['wash_group'])) checked @endif> Все</label>
+                        @foreach (WardrobeItem::WASH_GROUPS as $slug => $label)
+                            <label class="b-filter-panel__option">
+                                <input type="radio" name="wash_group" value="{{ $slug }}" @if (($filters['wash_group'] ?? '') === $slug) checked @endif> {{ $label }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="b-filter-panel__group">
                     <div class="b-filter-panel__group-head">Ремонт</div>
                     <div class="b-filter-panel__group-body">
                         <label class="b-filter-panel__option">

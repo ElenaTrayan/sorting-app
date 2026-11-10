@@ -268,6 +268,11 @@ Route::post('/posts/{post}/video/position', [User\PostController::class, 'setVid
         Route::put('/items/{wardrobeItem}', [User\Wardrobe\ItemController::class, 'update'])->name('items.update');
         Route::delete('/items/{wardrobeItem}', [User\Wardrobe\ItemController::class, 'destroy'])->name('items.destroy');
         Route::post('/items/{wardrobeItem}/bought', [User\Wardrobe\ItemController::class, 'markBought'])->name('items.bought');
+        // стирка: страница по группам стирки, "постирала" (одну вещь или выбранные разом), пятно исправлено
+        Route::get('/laundry', [User\Wardrobe\LaundryController::class, 'index'])->name('laundry.index');
+        Route::post('/laundry/washed', [User\Wardrobe\LaundryController::class, 'markWashed'])->name('laundry.washed');
+        Route::post('/items/{wardrobeItem}/washed', [User\Wardrobe\LaundryController::class, 'markItemWashed'])->name('items.washed');
+        Route::post('/items/{wardrobeItem}/special-wash-fixed', [User\Wardrobe\LaundryController::class, 'markSpecialWashFixed'])->name('items.special-wash-fixed');
         // превью вещи для галереи (клик по фото карточки — Fancybox, как "Все посты")
         Route::get('/items/{wardrobeItem}/preview', [User\Wardrobe\ItemController::class, 'preview'])->name('items.preview');
         // картинки постов пользователя для окна "Выбрать из постов" (?search=...&page=2)

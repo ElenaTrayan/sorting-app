@@ -6,10 +6,10 @@
 
     @param string $kind что за список (data-select — по нему значение ставит wardrobe.js)
     @param string $name имя скрытого поля со значением
-    @param string $newName имя поля "своё значение"
+    @param string|null $newName имя поля "своё значение"; null — списка без "Своё…" (только значения из списка)
     @param string $icon иконка Font Awesome слева
     @param array $options значение => название
-    @param array $texts подписи: empty, search, notFound, new, newPlaceholder
+    @param array $texts подписи: empty, search, notFound, new, newPlaceholder (последние две — только с $newName)
     @param bool $free значение-текст не из списка показывать как "своё" (длина хранится текстом, место — id)
     @param int $maxlength длина поля "своё значение"
 --}}
@@ -42,12 +42,19 @@
 
             <div class="b-print-select__empty js-print-select-empty" hidden>{{ $texts['notFound'] }}</div>
 
-            <button type="button" class="b-print-select__option b-print-select__option--new js-print-select-option" data-id="new" data-name="{{ \Illuminate\Support\Str::replaceLast('…', '', $texts['new']) }}">
-                <span><i class="fas fa-plus"></i> {{ $texts['new'] }}</span>
-            </button>
+            @if (!empty($newName))
+                <button type="button" class="b-print-select__option b-print-select__option--new js-print-select-option" data-id="new" data-name="{{ \Illuminate\Support\Str::replaceLast('…', '', $texts['new']) }}">
+                    <span><i class="fas fa-plus"></i> {{ $texts['new'] }}</span>
+                </button>
+            @endif
         </div>
     </div>
 
-    <input type="text" name="{{ $newName }}" class="b-print-select__new js-print-select-new" maxlength="{{ $maxlength }}"
-           placeholder="{{ $texts['newPlaceholder'] }}" autocomplete="off" hidden>
+    @if (!empty($newName))
+        <input type="text" name="{{ $newName }}" class="b-print-select__new js-print-select-new" maxlength="{{ $maxlength }}"
+               placeholder="{{ $texts['newPlaceholder'] }}" autocomplete="off" hidden>
+    @else
+        {{-- без "Своё…" (группа стирки): поле без имени — print-select.js оно нужно, на сервер не уходит --}}
+        <input type="text" class="js-print-select-new" hidden disabled>
+    @endif
 </div>
