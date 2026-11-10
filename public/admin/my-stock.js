@@ -31,7 +31,12 @@
                 options.body = JSON.stringify(data);
             }
         }
-        return fetch(url, options).then(function (response) {
+        return fetch(url, options).catch(function () {
+            // ответа нет совсем ("Failed to fetch"): пропала связь, сервер оборвал запрос или браузер
+            // не смог прочитать прикреплённый файл
+            throw new Error('Не удалось отправить: связь с сервером прервалась. Проверьте интернет и попробуйте ещё раз. '
+                + 'Если прикрепляли файлы — добавьте их заново.');
+        }).then(function (response) {
             return response.json().catch(function () { return {}; }).then(function (json) {
                 if (!response.ok) {
                     let message = (json && json.message) || 'Не удалось выполнить действие';

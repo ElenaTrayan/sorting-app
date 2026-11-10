@@ -266,6 +266,24 @@
             return true;
         }
 
+        // Файл с диска — только ссылка: браузер читает его при отправке формы, и если к тому времени файл
+        // изменили, переместили или он из облачной папки и не скачан, отправка обрывается ("Failed to fetch") —
+        // вещь не сохраняется. Поэтому сразу копируем его в память; не прочитался — убираем и говорим сразу
+        function keepInMemory(photo) {
+            const file = photo.file;
+            file.arrayBuffer().then(function (buffer) {
+                photo.file = new File([buffer], file.name, {type: file.type, lastModified: file.lastModified});
+                sync();
+            }).catch(function () {
+                const index = photos.indexOf(photo);
+                if (index !== -1) {
+                    remove(index);
+                }
+                stockError(new Error('Не удалось прочитать фото «' + file.name + '». Если оно в облачной папке — '
+                    + 'сначала скачайте его на компьютер, потом добавьте снова.'));
+            });
+        }
+
         // файлы с кнопки "Загрузить фото" или перетащенные на экран (initItemDrop); не картинки пропускаем
         function addFiles(files) {
             let skipped = 0;
@@ -275,7 +293,9 @@
                     return;
                 }
                 if (hasRoom()) {
-                    photos.push({kind: 'new', file: file, url: URL.createObjectURL(file)});
+                    const photo = {kind: 'new', file: file, url: URL.createObjectURL(file)};
+                    photos.push(photo);
+                    keepInMemory(photo);
                 }
             });
             if (skipped) {
