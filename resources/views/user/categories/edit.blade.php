@@ -82,7 +82,7 @@
                         </div>
                         <!-- /.card-body -->
                         <div class="card-footer">
-                            <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                            <button type="submit" class="btn btn-primary" data-hotkey="save">Сохранить изменения</button>
                         </div>
                     </form>
                 </div><!-- /.card -->

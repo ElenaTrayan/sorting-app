@@ -293,7 +293,7 @@
                         <span class="b-pin-create__footer-hint">Заполните хотя бы название или контент</span>
                         <div class="b-pin-create__footer-actions">
                             <a href="{{ route('posts.index') }}" class="b-pin-btn b-pin-btn--ghost">Отмена</a>
-                            <button id="submit-creation-form" type="submit" class="b-pin-btn b-pin-btn--primary"><span>✓</span> Сохранить пин</button>
+                            <button id="submit-creation-form" type="submit" data-hotkey="save" class="b-pin-btn b-pin-btn--primary"><span>✓</span> Сохранить пин</button>
                         </div>
                     </div>
                 </div>

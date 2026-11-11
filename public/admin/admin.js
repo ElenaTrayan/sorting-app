@@ -782,6 +782,59 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              document.dispatchEvent(new CustomEvent('page-files-drop', {detail: {files: files}}));
          }
 
+         // Ctrl+V: картинка или видео из буфера (скриншот, "Копировать изображение" в браузере, файл из проводника) —
+         // туда же, куда и брошенный файл. Обычный текст вставляется как всегда. В поле текста (TinyMCE) картинка
+         // тоже уходит в картинки поста, а не в текст
+         function clipboardFiles(clipboardData) {
+             if (!clipboardData) {
+                 return [];
+             }
+             let files = Array.from(clipboardData.files || []);
+             if (!files.length) {
+                 Array.from(clipboardData.items || []).forEach(function (item) {
+                     let file = item.kind === 'file' ? item.getAsFile() : null;
+                     if (file) {
+                         files.push(file);
+                     }
+                 });
+             }
+             return files.filter(function (file) {
+                 return /^(image|video)\//.test(file.type) || isVideoFile(file);
+             }).map(function (file, index) {
+                 // у скриншота из буфера имя всегда "image.png" — делаем разные, чтобы не путались в списке
+                 if (/^image\.(png|jpe?g|gif|webp)$/i.test(file.name)) {
+                     let extension = file.name.split('.').pop();
+                     return new File([file], 'pasted-' + Date.now() + (index ? '-' + index : '') + '.' + extension, {type: file.type});
+                 }
+                 return file;
+             });
+         }
+
+         function onPagePaste(e) {
+             let files = clipboardFiles(e.clipboardData);
+             if (!files.length || pageDropBlocked()) {
+                 return;
+             }
+             e.preventDefault();
+             dispatchPageFiles(files);
+             toastr.info(files.length > 1 ? 'Загружаю файлы из буфера: ' + files.length : 'Загружаю картинку из буфера');
+         }
+
+         document.addEventListener('paste', onPagePaste);
+         if (window.tinymce) {
+             try {
+                 let bindEditorPaste = function (editor) {
+                     editor.on('paste', onPagePaste);
+                 };
+                 (tinymce.get() || []).forEach(bindEditorPaste);
+                 tinymce.on('AddEditor', function (e) {
+                     bindEditorPaste(e.editor);
+                 });
+             } catch (err) {
+                 // в поле текста картинка из буфера вставится в сам текст, как раньше
+             }
+         }
+
          // картинка из другой вкладки, браузер отдал только ссылку: скачиваем её сами. Получится, только если
          // сайт картинки разрешает (CORS) — иначе просим сохранить картинку на компьютер и бросить файлом
          function fetchDroppedImage(url) {

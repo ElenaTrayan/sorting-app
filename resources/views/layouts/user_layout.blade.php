@@ -488,6 +488,14 @@
 <script src="/admin/plugins/imagesloaded/imagesloaded.pkgd.min.js"></script>
 
 <script src="/admin/admin.js?v={{ filemtime(public_path('admin/admin.js')) }}"></script>
+{{-- горячие клавиши: Ctrl+S / Ctrl+Enter — сохранить, Alt+N — новый пост, ? — список (hotkeys.js) --}}
+<script>
+    window.cabinetHotkeys = {
+        newPost: @json(route('posts.create')),
+        newHashtag: @json(route('hashtags.create')),
+    };
+</script>
+<script src="/admin/hotkeys.js?v={{ filemtime(public_path('admin/hotkeys.js')) }}"></script>
 @stack('footer-scripts')
 
 </body>

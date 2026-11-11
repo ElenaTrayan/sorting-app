@@ -244,7 +244,7 @@
                 <div class="b-pin-create__footer">
                     <span class="b-pin-create__footer-hint">Порядок и состав группы сохраняются сразу — кнопка сохраняет {{ $isText ? 'название, категорию, хештеги и тексты' : 'название, категорию, текст, дату и хештеги' }}</span>
                     <div class="b-pin-create__footer-actions">
-                        <button type="button" class="b-pin-btn b-pin-btn--primary js-post-group-save"><span>✓</span> Сохранить</button>
+                        <button type="button" class="b-pin-btn b-pin-btn--primary js-post-group-save" data-hotkey="save"><span>✓</span> Сохранить</button>
                     </div>
                 </div>
                 @endif

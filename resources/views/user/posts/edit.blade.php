@@ -306,7 +306,7 @@
                         <span class="b-pin-create__footer-hint">Изображения, видео и палитра уже сохранены — кнопка сохраняет остальные поля</span>
                         <div class="b-pin-create__footer-actions">
                             <a href="{{ route('posts.index') }}" class="b-pin-btn">Отменить</a>
-                            <button id="submit-edit-form" type="submit" class="b-pin-btn b-pin-btn--primary"><span>✓</span> Сохранить изменения</button>
+                            <button id="submit-edit-form" type="submit" data-hotkey="save" class="b-pin-btn b-pin-btn--primary"><span>✓</span> Сохранить изменения</button>
                         </div>
                     </div>
                 </div>
