@@ -594,7 +594,7 @@ class WishlistController extends Controller
      */
     private function findChromeExecutable(): ?string
     {
-        $envPath = env('CHROME_EXECUTABLE_PATH');
+        $envPath = config('wishlist.chrome_executable_path');
         if ($envPath && file_exists($envPath)) {
             return $envPath;
         }

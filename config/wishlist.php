@@ -45,4 +45,9 @@ return [
         ['slug' => 'really_want', 'title' => 'Очень хочу'],
         ['slug' => 'want', 'title' => 'Хочу'],
     ],
+
+    // путь к Chrome/Chromium для разбора страниц магазинов headless-браузером (WishlistController::findChromeExecutable);
+    // не задан — ищем в стандартных местах установки. Через config, а не env() в коде: после config:cache env() вне
+    // config/ возвращает null
+    'chrome_executable_path' => env('CHROME_EXECUTABLE_PATH'),
 ];
