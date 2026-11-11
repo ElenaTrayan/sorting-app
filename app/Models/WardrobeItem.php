@@ -144,6 +144,47 @@ class WardrobeItem extends Model
         'home' => 'Домашний',
     ];
 
+    // страны производства для списка в форме вещи (parts/list_select); в БД — текст, свою страну можно вписать
+    public const COUNTRIES = ['Австралия', 'Бангладеш', 'Беларусь', 'Болгария', 'Бразилия', 'Великобритания', 'Венгрия',
+        'Вьетнам', 'Германия', 'Греция', 'Грузия', 'Египет', 'Израиль', 'Индия', 'Индонезия', 'Иордания', 'Испания',
+        'Италия', 'Казахстан', 'Камбоджа', 'Канада', 'Китай', 'Кыргызстан', 'Латвия', 'Литва', 'Малайзия', 'Марокко',
+        'Мексика', 'Молдова', 'Мьянма', 'Нидерланды', 'Пакистан', 'Перу', 'Польша', 'Португалия', 'Россия', 'Румыния',
+        'Северная Македония', 'Сербия', 'Словакия', 'США', 'Таиланд', 'Тайвань', 'Тунис', 'Турция', 'Узбекистан', 'Украина',
+        'Филиппины', 'Франция', 'Чехия', 'Швеция', 'Шри-Ланка', 'Эфиопия', 'Южная Корея', 'Япония'];
+
+    // откуда вещь появилась — список в форме вещи (parts/list_select); в БД — текст, своё можно вписать
+    public const ORIGINS = ['Купила в магазине', 'Купила онлайн', 'Купила в секонд-хенде', 'Купила в стоке',
+        'Отдала сестра', 'Подарили', 'Сшила в ателье', 'Сшила сама'];
+
+    // фасон — список в форме вещи (parts/list_select); в БД — текст, свой фасон можно вписать
+    public const FITS = ['В обтяжку', 'Облегающее', 'Приталенное', 'Прямое', 'Свободное', 'Оверсайз', 'А-силуэт',
+        'Трапеция', 'Расклёшенное', 'Кокон', 'С завышенной талией', 'С заниженной талией'];
+
+    // особенности носки — пункты для отметки по разделам; в БД (features) — JSON-массив ключей, ключи не менять
+    public const FEATURES = [
+        'Что заметно' => [
+            'sweat' => 'Видны пятна пота подмышками',
+            'see_through' => 'Просвечивает',
+            'bra_visible' => 'Видно бельё (швы, бретели)',
+            'wrinkles' => 'Быстро мнётся',
+            'static' => 'Электризуется',
+            'pilling' => 'Скатывается (катышки)',
+            'stains_dye' => 'Красит кожу или другие вещи',
+            'stretches' => 'Растягивается при носке',
+            'itchy' => 'Колется',
+        ],
+        'Под какое бельё' => [
+            'bra_strapless' => 'Под бюстгальтер без бретелей',
+            'bra_silicone' => 'Под силиконовый бюстгальтер или накладки',
+            'bra_plunge' => 'Под бюстгальтер с глубоким вырезом',
+            'bra_open_back' => 'Под бюстгальтер с низкой спинкой',
+            'bra_nude' => 'Под телесное бельё',
+            'seamless' => 'Под бесшовное бельё',
+            'slip' => 'Нужна комбинация или нижняя юбка',
+            'shapewear' => 'Под корректирующее бельё',
+        ],
+    ];
+
     // подсказки поля "Длина" (и у вещей, и у пинов "Одежда"); в БД — текст, своё значение можно вписать
     public const LENGTHS = ['Мини', 'Выше колена', 'До колена', 'Миди', 'Макси', 'В пол', 'Укороченная', 'До талии',
         'До бедра', 'Удлинённая', '7/8', 'Полная длина'];
@@ -194,6 +235,11 @@ class WardrobeItem extends Model
         'color_id',
         'size',
         'length',
+        'fit',
+        'features',
+        'features_note',
+        'country',
+        'origin',
         'seasons',
         'temp_min',
         'temp_max',
@@ -228,6 +274,7 @@ class WardrobeItem extends Model
         'styles' => 'array',
         'body_types' => 'array',
         'care_options' => 'array',
+        'features' => 'array',
         'price' => 'float',
         'seasons' => 'array',
         'occasions' => 'array',
@@ -387,6 +434,23 @@ class WardrobeItem extends Model
     public static function careOptions(): array
     {
         return array_merge(...array_values(self::CARE_OPTIONS));
+    }
+
+    // все особенности носки одним списком: ключ => название
+    public static function featureOptions(): array
+    {
+        return array_merge(...array_values(self::FEATURES));
+    }
+
+    // особенности носки для превью: отмеченные пункты и своё
+    public function featureLabels(): array
+    {
+        $labels = self::labelsFor($this->features, self::featureOptions());
+        if (trim((string)$this->features_note) !== '') {
+            $labels[] = trim($this->features_note);
+        }
+
+        return $labels;
     }
 
     /**
@@ -643,6 +707,11 @@ class WardrobeItem extends Model
             'color' => $this->color_name,
             'size' => $this->size,
             'length' => $this->length,
+            'country' => $this->country,
+            'origin' => $this->origin,
+            'fit' => $this->fit,
+            'features' => $this->features ?: [],
+            'features_note' => $this->features_note,
             'seasons' => $this->seasons ?: [],
             'temp_min' => $this->temp_min,
             'temp_max' => $this->temp_max,

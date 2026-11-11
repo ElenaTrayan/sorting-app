@@ -128,13 +128,24 @@
                                 </div>
                             </div>
 
+                            <div class="b-stock-form-field">
+                                <label>Состав</label>
+                                <div class="b-stock-form-input">
+                                    <i class="fas fa-percent"></i>
+                                    <input type="text" name="composition" maxlength="255" placeholder="Напр. хлопок 95%, эластан 5%" autocomplete="off">
+                                </div>
+                            </div>
+
                             <div class="b-stock-form-row">
                                 <div class="b-stock-form-field">
-                                    <label>Состав</label>
-                                    <div class="b-stock-form-input">
-                                        <i class="fas fa-percent"></i>
-                                        <input type="text" name="composition" maxlength="255" placeholder="Напр. хлопок 95%, эластан 5%" autocomplete="off">
-                                    </div>
+                                    <label>Фасон</label>
+                                    {{-- WardrobeItem::FITS и "Свой фасон…"; хранится текстом, значение ставит wardrobe.js --}}
+                                    @include('user.wardrobe.parts.list_select', [
+                                        'kind' => 'fit', 'name' => 'fit', 'newName' => 'fit_new', 'icon' => 'fa-child',
+                                        'options' => array_combine(WardrobeItem::FITS, WardrobeItem::FITS), 'free' => true, 'maxlength' => 50,
+                                        'texts' => ['empty' => 'Не указан', 'search' => 'Поиск фасона', 'notFound' => 'Такого фасона в списке нет',
+                                            'new' => 'Свой фасон…', 'newPlaceholder' => 'Свой фасон, напр. с баской'],
+                                    ])
                                 </div>
                                 <div class="b-stock-form-field">
                                     <label>Длина</label>
@@ -153,6 +164,29 @@
                                     <label>Бренд</label>
                                     {{-- общие бренды и свои, с логотипами — такой же список, как у принтов и материалов --}}
                                     @include('user.wardrobe.parts.brand_select', ['idName' => 'brand_id', 'newName' => 'brand'])
+                                </div>
+                                <div class="b-stock-form-field">
+                                    <label>Страна производства</label>
+                                    {{-- WardrobeItem::COUNTRIES и "Своя страна…"; хранится текстом, значение ставит wardrobe.js --}}
+                                    @include('user.wardrobe.parts.list_select', [
+                                        'kind' => 'country', 'name' => 'country', 'newName' => 'country_new', 'icon' => 'fa-globe-europe',
+                                        'options' => array_combine(WardrobeItem::COUNTRIES, WardrobeItem::COUNTRIES), 'free' => true, 'maxlength' => 60,
+                                        'texts' => ['empty' => 'Не указана', 'search' => 'Поиск страны', 'notFound' => 'Такой страны в списке нет',
+                                            'new' => 'Своя страна…', 'newPlaceholder' => 'Название страны'],
+                                    ])
+                                </div>
+                            </div>
+
+                            <div class="b-stock-form-row">
+                                <div class="b-stock-form-field">
+                                    <label>Откуда вещь</label>
+                                    {{-- WardrobeItem::ORIGINS и "Своё…" (напр. "Отдала мама"); хранится текстом --}}
+                                    @include('user.wardrobe.parts.list_select', [
+                                        'kind' => 'origin', 'name' => 'origin', 'newName' => 'origin_new', 'icon' => 'fa-shopping-bag',
+                                        'options' => array_combine(WardrobeItem::ORIGINS, WardrobeItem::ORIGINS), 'free' => true, 'maxlength' => 100,
+                                        'texts' => ['empty' => 'Не указано', 'search' => 'Поиск', 'notFound' => 'Такого варианта нет',
+                                            'new' => 'Своё…', 'newPlaceholder' => 'Напр. отдала мама, выиграла в конкурсе'],
+                                    ])
                                 </div>
                                 <div class="b-stock-form-field">
                                     <label>Степень изношенности</label>
@@ -213,6 +247,38 @@
                         <div class="b-stock-form-input" style="margin-top:8px;">
                             <i class="fas fa-pen"></i>
                             <input type="text" name="care" maxlength="2000" placeholder="Другое по уходу — если нужного пункта нет" autocomplete="off">
+                        </div>
+                    </details>
+
+                    {{-- особенности носки (WardrobeItem::FEATURES) — как "Особенности ухода": блок свёрнут, в заголовке —
+                         сколько отмечено (wardrobe.js, refreshFeatures) --}}
+                    <details class="b-stock-form-field b-wardrobe-care-section js-wardrobe-features-section">
+                        <summary class="b-wardrobe-care-section__head">
+                            <span>Особенности</span>
+                            <span class="b-wardrobe-care__count js-wardrobe-features-total" hidden></span>
+                            <i class="fas fa-plus b-wardrobe-care-section__toggle"></i>
+                        </summary>
+                        <div class="b-wardrobe-care js-wardrobe-features">
+                            @foreach (WardrobeItem::FEATURES as $groupLabel => $options)
+                                <details class="b-wardrobe-care__group" open>
+                                    <summary class="b-wardrobe-care__title">
+                                        <i class="fas fa-chevron-right b-wardrobe-care__chevron"></i>
+                                        <span>{{ $groupLabel }}</span>
+                                    </summary>
+                                    <div class="b-wardrobe-choice b-wardrobe-choice--wrap">
+                                        @foreach ($options as $slug => $label)
+                                            <label class="b-wardrobe-choice__item">
+                                                <input type="checkbox" name="features[]" value="{{ $slug }}">
+                                                <span>{{ $label }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </details>
+                            @endforeach
+                        </div>
+                        <div class="b-stock-form-input" style="margin-top:8px;">
+                            <i class="fas fa-pen"></i>
+                            <input type="text" name="features_note" maxlength="2000" placeholder="Другое — напр. нужна булавка на вырез" autocomplete="off">
                         </div>
                     </details>
 

@@ -120,6 +120,76 @@
                     </div>
                 @endif
 
+                @if ($usedCountries->isNotEmpty())
+                    <div class="b-filter-panel__group">
+                        <div class="b-filter-panel__group-head">Страна производства</div>
+                        <div class="b-filter-panel__group-body">
+                            <label class="b-filter-panel__option"><input type="radio" name="country" value="" @if (empty($filters['country'])) checked @endif> Все</label>
+                            <label class="b-filter-panel__option"><input type="radio" name="country" value="none" @if (($filters['country'] ?? '') === 'none') checked @endif> Не указана</label>
+                            @foreach ($usedCountries as $country => $total)
+                                <label class="b-filter-panel__option">
+                                    <input type="radio" name="country" value="{{ $country }}" @if (($filters['country'] ?? '') === $country) checked @endif>
+                                    {{ $country }} <span class="b-filter-panel__count">{{ $total }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                @if ($usedFits->isNotEmpty())
+                    <div class="b-filter-panel__group">
+                        <div class="b-filter-panel__group-head">Фасон</div>
+                        <div class="b-filter-panel__group-body">
+                            <label class="b-filter-panel__option"><input type="radio" name="fit" value="" @if (empty($filters['fit'])) checked @endif> Все</label>
+                            <label class="b-filter-panel__option"><input type="radio" name="fit" value="none" @if (($filters['fit'] ?? '') === 'none') checked @endif> Не указан</label>
+                            @foreach ($usedFits as $fit => $total)
+                                <label class="b-filter-panel__option">
+                                    <input type="radio" name="fit" value="{{ $fit }}" @if (($filters['fit'] ?? '') === $fit) checked @endif>
+                                    {{ $fit }} <span class="b-filter-panel__count">{{ $total }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                {{-- особенности носки — только отмеченные у вещей пользователя, по разделам --}}
+                @if ($usedFeatures->isNotEmpty())
+                    <div class="b-filter-panel__group">
+                        <div class="b-filter-panel__group-head">Особенности</div>
+                        <div class="b-filter-panel__group-body">
+                            <label class="b-filter-panel__option"><input type="radio" name="feature" value="" @if (empty($filters['feature'])) checked @endif> Все</label>
+                            @foreach (WardrobeItem::FEATURES as $groupLabel => $options)
+                                @php $usedInGroup = array_intersect_key($options, $usedFeatures->all()); @endphp
+                                @if ($usedInGroup)
+                                    <div class="b-filter-panel__subhead">{{ $groupLabel }}</div>
+                                    @foreach ($usedInGroup as $slug => $label)
+                                        <label class="b-filter-panel__option">
+                                            <input type="radio" name="feature" value="{{ $slug }}" @if (($filters['feature'] ?? '') === $slug) checked @endif>
+                                            {{ $label }} <span class="b-filter-panel__count">{{ $usedFeatures[$slug] }}</span>
+                                        </label>
+                                    @endforeach
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                @if ($usedOrigins->isNotEmpty())
+                    <div class="b-filter-panel__group">
+                        <div class="b-filter-panel__group-head">Откуда вещь</div>
+                        <div class="b-filter-panel__group-body">
+                            <label class="b-filter-panel__option"><input type="radio" name="origin" value="" @if (empty($filters['origin'])) checked @endif> Все</label>
+                            <label class="b-filter-panel__option"><input type="radio" name="origin" value="none" @if (($filters['origin'] ?? '') === 'none') checked @endif> Не указано</label>
+                            @foreach ($usedOrigins as $origin => $total)
+                                <label class="b-filter-panel__option">
+                                    <input type="radio" name="origin" value="{{ $origin }}" @if (($filters['origin'] ?? '') === $origin) checked @endif>
+                                    {{ $origin }} <span class="b-filter-panel__count">{{ $total }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
                 @if ($usedMaterials->isNotEmpty())
                     <div class="b-filter-panel__group">
                         <div class="b-filter-panel__group-head">Материал</div>

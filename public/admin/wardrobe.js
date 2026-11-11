@@ -682,6 +682,15 @@
             refreshCare(false);
         });
 
+        // особенности носки: сколько отмечено — в заголовке свёрнутого блока
+        const featuresTotal = form.querySelector('.js-wardrobe-features-total');
+        function refreshFeatures() {
+            const total = form.querySelectorAll('.js-wardrobe-features input:checked').length;
+            featuresTotal.textContent = total;
+            featuresTotal.hidden = total === 0;
+        }
+        form.querySelector('.js-wardrobe-features').addEventListener('change', refreshFeatures);
+
         function setChecked(name, values) {
             form.querySelectorAll('input[name="' + name + '"]').forEach(function (input) {
                 input.checked = values.indexOf(input.value) !== -1;
@@ -702,13 +711,16 @@
             washAutoHint.textContent = item && item.wash_group_auto ? 'Автоматически сейчас: ' + item.wash_group_auto : '';
             washAutoHint.hidden = !washAutoHint.textContent;
             setDirectory('length', item ? item.length : null);
+            setDirectory('country', item ? item.country : null);
+            setDirectory('origin', item ? item.origin : null);
+            setDirectory('fit', item ? item.fit : null);
             setDirectory('storage', item ? item.storage_id : null);
             setPrint(item ? item.print_id : null);
             setMaterial(item ? item.material_id : null);
 
             if (item) {
                 ['name', 'category', 'composition', 'temp_min', 'temp_max', 'care', 'wear_level',
-                    'repair_note', 'washed_at', 'special_wash_note', 'price', 'shop_url', 'note'].forEach(function (field) {
+                    'repair_note', 'washed_at', 'special_wash_note', 'features_note', 'price', 'shop_url', 'note'].forEach(function (field) {
                     // не form.elements[field]: form.elements.length — число полей формы, а не поле "Длина"
                     form.querySelector('[name="' + field + '"]').value = item[field] === null || item[field] === undefined ? '' : item[field];
                 });
@@ -718,6 +730,7 @@
                 setChecked('seasons[]', item.seasons || []);
                 setChecked('occasions[]', item.occasions || []);
                 setChecked('care_options[]', item.care_options || []);
+                setChecked('features[]', item.features || []);
                 repairCheckbox.checked = !!item.needs_repair;
                 specialWashCheckbox.checked = !!item.special_wash;
                 setChecked('special_wash_types[]', item.special_wash_types || []);
@@ -725,6 +738,8 @@
             }
             refreshCare(true);
             form.querySelector('.js-wardrobe-care-section').open = false;
+            refreshFeatures();
+            form.querySelector('.js-wardrobe-features-section').open = false;
 
             form.setAttribute('action', item ? updateUrl : itemModal.getAttribute('data-store-url'));
             form.setAttribute('data-method', item ? 'PUT' : 'POST');

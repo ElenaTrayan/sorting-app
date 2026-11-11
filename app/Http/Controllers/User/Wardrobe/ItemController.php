@@ -46,6 +46,7 @@ class ItemController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('kind', 'like', "%{$search}%")
+                    ->orWhere('country', 'like', "%{$search}%")
                     ->orWhere('composition', 'like', "%{$search}%")
                     ->orWhereHas('color', function ($q) use ($search) {
                         $q->where('name', 'like', "%{$search}%");
@@ -77,6 +78,17 @@ class ItemController extends Controller
             $query->whereNull('storage_id');
         } elseif ($request->filled('storage')) {
             $query->where('storage_id', (int)$request->get('storage'));
+        }
+        // особенность носки — ключ в JSON-массиве features
+        if ($request->filled('feature')) {
+            $query->where('features', 'like', '%"' . $request->get('feature') . '"%');
+        }
+        foreach (['country', 'origin', 'fit'] as $field) {
+            if ($request->get($field) === 'none') {
+                $query->whereNull($field);
+            } elseif ($request->filled($field)) {
+                $query->where($field, $request->get($field));
+            }
         }
         foreach (['category', 'kind', 'wear_level'] as $field) {
             if ($request->filled($field)) {
@@ -139,11 +151,30 @@ class ItemController extends Controller
             'usedPrints' => WardrobePrint::whereIn('id', WardrobeItem::where('user_id', $userId)->whereNotNull('print_id')->select('print_id'))
                 ->orderBy('name')
                 ->get(['id', 'name']),
+            // страны производства вещей пользователя: страна => сколько вещей
+            'usedCountries' => WardrobeItem::where('user_id', $userId)->whereNotNull('country')
+                ->selectRaw('country, COUNT(*) as total')->groupBy('country')->orderBy('country')
+                ->pluck('total', 'country'),
+            // то же для фасона
+            'usedFits' => WardrobeItem::where('user_id', $userId)->whereNotNull('fit')
+                ->selectRaw('fit, COUNT(*) as total')->groupBy('fit')->orderByDesc('total')
+                ->pluck('total', 'fit'),
+            // особенности носки (JSON-массивы, pluck отдаёт уже по касту): ключ => сколько вещей
+            'usedFeatures' => WardrobeItem::where('user_id', $userId)->whereNotNull('features')->pluck('features')
+                ->flatMap(function ($features) {
+                    return $features ?: [];
+                })
+                ->countBy()
+                ->sortDesc(),
+            // то же для "откуда вещь"
+            'usedOrigins' => WardrobeItem::where('user_id', $userId)->whereNotNull('origin')
+                ->selectRaw('origin, COUNT(*) as total')->groupBy('origin')->orderByDesc('total')
+                ->pluck('total', 'origin'),
             'usedMaterials' => WardrobeMaterial::whereIn('id', WardrobeItem::where('user_id', $userId)->whereNotNull('material_id')->select('material_id'))
                 ->orderBy('name')
                 ->get(['id', 'name']),
             'storages' => $storages,
-            'filters' => $request->only(['search', 'category', 'kind', 'brand', 'color', 'print', 'material', 'storage', 'wear_level', 'style', 'body_type', 'needs_repair', 'special_wash', 'wash_group']),
+            'filters' => $request->only(['search', 'category', 'kind', 'brand', 'color', 'print', 'material', 'storage', 'wear_level', 'style', 'body_type', 'needs_repair', 'special_wash', 'wash_group', 'country', 'origin', 'fit', 'feature']),
             'fromPost' => $this->fromPostImage($request),
             // ?edit_item=ID — сразу открыть форму этой вещи (ссылка "В гардеробе" со страницы поста)
             'editItemId' => (int)$request->get('edit_item') ?: null,
@@ -542,6 +573,15 @@ class ItemController extends Controller
             'size' => (($data['size'] ?? null) === 'new' ? ($data['size_new'] ?? null) : ($data['size'] ?? null)) ?: null,
             // список длин (parts/list_select): длина из списка или "new" + своя длина
             'length' => (($data['length'] ?? null) === 'new' ? ($data['length_new'] ?? null) : ($data['length'] ?? null)) ?: null,
+            // список стран (parts/list_select): страна из списка или "new" + своя страна
+            'country' => trim((string)(($data['country'] ?? null) === 'new' ? ($data['country_new'] ?? '') : ($data['country'] ?? ''))) ?: null,
+            // фасон — так же: из списка или "new" + свой
+            'fit' => trim((string)(($data['fit'] ?? null) === 'new' ? ($data['fit_new'] ?? '') : ($data['fit'] ?? ''))) ?: null,
+            // особенности носки — в порядке списка
+            'features' => array_values(array_intersect(array_keys(WardrobeItem::featureOptions()), $data['features'] ?? [])),
+            'features_note' => $data['features_note'] ?? null,
+            // откуда вещь — так же: из списка или "new" + своё
+            'origin' => trim((string)(($data['origin'] ?? null) === 'new' ? ($data['origin_new'] ?? '') : ($data['origin'] ?? ''))) ?: null,
             // в порядке списка, а не в порядке отметки
             'seasons' => array_values(array_intersect(array_keys(WardrobeOutfit::SEASONS), $data['seasons'] ?? [])),
             'temp_min' => $data['temp_min'] ?? null,
@@ -629,6 +669,15 @@ class ItemController extends Controller
             'size_new' => 'required_if:size,new|nullable|string|max:50',
             'length' => 'nullable|string|max:50',
             'length_new' => 'required_if:length,new|nullable|string|max:50',
+            'country' => 'nullable|string|max:60',
+            'country_new' => 'required_if:country,new|nullable|string|max:60',
+            'fit' => 'nullable|string|max:50',
+            'fit_new' => 'required_if:fit,new|nullable|string|max:50',
+            'features' => 'nullable|array',
+            'features.*' => [Rule::in(array_keys(WardrobeItem::featureOptions()))],
+            'features_note' => 'nullable|string|max:2000',
+            'origin' => 'nullable|string|max:100',
+            'origin_new' => 'required_if:origin,new|nullable|string|max:100',
             'seasons' => 'nullable|array',
             'seasons.*' => [Rule::in(array_keys(WardrobeOutfit::SEASONS))],
             'temp_min' => 'nullable|integer|between:-60,60',
@@ -665,6 +714,9 @@ class ItemController extends Controller
             'note' => 'nullable|string|max:2000',
         ], [
             'brand.required_if' => 'Впишите название своего бренда или выберите «Без бренда».',
+            'country_new.required_if' => 'Впишите страну производства или выберите страну из списка.',
+            'fit_new.required_if' => 'Впишите свой фасон или выберите фасон из списка.',
+            'origin_new.required_if' => 'Впишите, откуда вещь, или выберите вариант из списка.',
             'kind_new.required_if' => 'Впишите свой тип вещи или выберите тип из списка.',
             'size_new.required_if' => 'Впишите свой размер или выберите размер из списка.',
             'length_new.required_if' => 'Впишите свою длину или выберите длину из списка.',
