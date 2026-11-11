@@ -177,7 +177,7 @@
                                     <div class="b-post-show__prose">{!! $post->content !!}</div>
                                 @endif
                             </div>
-                        @elseif (!$post->film && !$post->clothes)
+                        @elseif (!$post->film && !$post->clothes && !$post->product)
                             <div class="b-post-show__empty-text">
                                 <div class="b-post-show__empty-text-icon"><i class="fas fa-align-left"></i></div>
                                 <div>
@@ -196,6 +196,11 @@
                         @if ($post->clothes)
                             <div class="b-post-show__divider"></div>
                             @include('user.posts.parts.clothes_card', ['clothes' => $post->clothes])
+                        @endif
+
+                        @if ($post->product)
+                            <div class="b-post-show__divider"></div>
+                            @include('user.posts.parts.product_card', ['product' => $post->product, 'post' => $post])
                         @endif
 
                         @if (!empty($post->palette))
@@ -298,6 +303,13 @@
     </div><!-- /.container-fluid -->
 </section>
 <!-- /.content -->
+
+@if ($post->product)
+    @include('user.posts.parts.product_send_modals', ['post' => $post])
+    @push('footer-scripts')
+        <script src="/admin/post-product.js?v={{ filemtime(public_path('admin/post-product.js')) }}"></script>
+    @endpush
+@endif
 
 {{-- в @push('footer-scripts'), а не просто <script> тут же в контенте — @yield('content')
      в layout рендерится ДО <script src="fancybox.umd.js"> внизу body (см.

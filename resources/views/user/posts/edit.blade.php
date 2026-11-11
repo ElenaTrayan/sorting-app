@@ -100,6 +100,13 @@
                                     <span class="b-pin-type__desc">Можно добавить в гардероб</span>
                                 </span>
                             </button>
+                            <button type="button" class="b-pin-type {{ $postType === 'product' ? 'is-active' : '' }}" data-type="product">
+                                <span class="b-pin-type__icon">📦</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Товар</span>
+                                    <span class="b-pin-type__desc">Цена, отзывы, сроки</span>
+                                </span>
+                            </button>
                             <button type="button" class="b-pin-type {{ $postType === 'news' ? 'is-active' : '' }}" data-type="news">
                                 <span class="b-pin-type__icon">📰</span>
                                 <span class="b-pin-type__body">
@@ -302,6 +309,15 @@
                         @include('user.posts.parts.clothes_fields', ['clothes' => $post->clothes])
                     </section>
 
+                    {{-- данные товара (post_products) — видны только у типа "Товар"; у других типов сервер их не сохраняет --}}
+                    <section class="b-pin-card js-post-product-section" @if ($postType !== 'product') hidden @endif>
+                        <div class="b-pin-card__head">
+                            <h2>Товар</h2>
+                            <span class="b-pin-card__hint">В вишлист, список покупок и на склад — кнопками на странице поста</span>
+                        </div>
+                        @include('user.posts.parts.product_fields', ['product' => $post->product])
+                    </section>
+
                     <div class="b-pin-create__footer">
                         <span class="b-pin-create__footer-hint">Изображения, видео и палитра уже сохранены — кнопка сохраняет остальные поля</span>
                         <div class="b-pin-create__footer-actions">
@@ -384,6 +400,7 @@
     <script src="/admin/palette-editor.js?v={{ filemtime(public_path('admin/palette-editor.js')) }}"></script>
     <script src="/admin/event-date.js?v={{ filemtime(public_path('admin/event-date.js')) }}"></script>
     <script src="/admin/post-edit.js?v={{ filemtime(public_path('admin/post-edit.js')) }}"></script>
+    <script src="/admin/post-product.js?v={{ filemtime(public_path('admin/post-product.js')) }}"></script>
     <script>
         // просмотр изображений поста в полном размере (в том числе добавленных динамически) —
         // Fancybox подключается в самом низу layout'а, поэтому инициализация идёт через

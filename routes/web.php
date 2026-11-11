@@ -107,6 +107,13 @@ Route::post('/posts/{post}/video/position', [User\PostController::class, 'setVid
         Route::get('/posts/{post}/film-materials/candidates', [User\PostController::class, 'filmMaterialCandidates'])->name('posts.film-materials.candidates');
         Route::post('/posts/{post}/film-materials', [User\PostController::class, 'attachFilmMaterials'])->name('posts.film-materials.attach');
         Route::delete('/posts/{post}/film-materials/{materialId}', [User\PostController::class, 'detachFilmMaterial'])->name('posts.film-materials.detach');
+        // пин "Товар" (post_products): "Заполнить по ссылке" на форме и кнопки на странице поста (post-product.js)
+        Route::post('/posts/product/link-preview', [User\PostProductController::class, 'linkPreview'])->name('posts.product.link-preview');
+        Route::get('/posts/product/image', [User\PostProductController::class, 'imageProxy'])->name('posts.product.image');
+        Route::get('/posts/{post}/product/options', [User\PostProductController::class, 'options'])->name('posts.product.options');
+        Route::post('/posts/{post}/product/to-wishlist', [User\PostProductController::class, 'toWishlist'])->name('posts.product.to-wishlist');
+        Route::post('/posts/{post}/product/to-shopping-list', [User\PostProductController::class, 'toShoppingList'])->name('posts.product.to-shopping-list');
+        Route::post('/posts/{post}/product/to-stock', [User\PostProductController::class, 'toStock'])->name('posts.product.to-stock');
         // группа постов ("Группировать посты" при создании — см. PostController::store()/createPost());
         // действия сразу с несколькими постами — режим "Выбрать" на "Все посты" (/admin/posts-bulk.js)
         Route::post('/posts/bulk/hashtags', [User\PostController::class, 'bulkAddHashtags'])->name('posts.bulk.hashtags');

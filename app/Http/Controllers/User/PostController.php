@@ -15,6 +15,7 @@ use App\Http\Controllers\User\Packages\UploadImageController;
 use App\Models\Hashtag;
 use App\Models\Post;
 use App\Models\PostClothes;
+use App\Models\PostProduct;
 use App\Models\PostFilm;
 use App\Models\PostsCategory;
 use App\Models\UserAiSetting;
@@ -714,6 +715,7 @@ class PostController extends Controller
             },
             'film',
             'clothes.brand',
+            'product',
             // фильм, к которому прикреплён этот пост (кадр/промо/видео) — чип "Фильм" на странице и в превью
             'filmPost' => function($q) {
                 $q->select(['id', 'title']);
@@ -1963,6 +1965,7 @@ class PostController extends Controller
                 },
                 'film',
                 'clothes.brand',
+                'product',
             ])->first();
 
         $categories = PostsCategory::where('user_id', auth()->id())->orderBy('title', 'DESC')->get();
@@ -2106,6 +2109,15 @@ class PostController extends Controller
                 }
             } elseif ($post->clothes) {
                 PostClothes::saveForPost($post, null);
+            }
+
+            // поля товара — так же (скрытый product-fields — блок был на форме)
+            if ($post->type === Post::TYPE_PRODUCT) {
+                if ($request->has('product-fields')) {
+                    PostProduct::saveForPost($post, PostProduct::attributesFromRequest($request));
+                }
+            } elseif ($post->product) {
+                PostProduct::saveForPost($post, null);
             }
 
             if (!empty($addHashtags)) {
@@ -2755,6 +2767,11 @@ class PostController extends Controller
             // данные вещи — только для типа "Одежда"
             if ($request->input('pin_type') === Post::TYPE_CLOTHES) {
                 PostClothes::saveForPost($new_post, PostClothes::attributesFromRequest($request, (int)$userId));
+            }
+
+            // данные товара — только для типа "Товар"
+            if ($request->input('pin_type') === Post::TYPE_PRODUCT) {
+                PostProduct::saveForPost($new_post, PostProduct::attributesFromRequest($request));
             }
 
             $createdId = $new_post->id;
@@ -3498,6 +3515,16 @@ class PostController extends Controller
                 if ($clothesAttributes !== null) {
                     PostClothes::saveForPost($post, $clothesAttributes);
                     $post->type = Post::TYPE_CLOTHES;
+                    $post->save();
+                }
+            }
+
+            // и для "Товара"
+            if ($request->input('pin_type') === Post::TYPE_PRODUCT && !$post->product) {
+                $productAttributes = PostProduct::attributesFromRequest($request);
+                if ($productAttributes !== null) {
+                    PostProduct::saveForPost($post, $productAttributes);
+                    $post->type = Post::TYPE_PRODUCT;
                     $post->save();
                 }
             }

@@ -604,6 +604,88 @@
     flex: 1;
     min-width: 0;
 }
+/* ===== Пин "Товар" (parts/product_fields.blade.php) ===== */
+/* подзаголовки групп полей: "Что за товар", "Покупка", "Сроки", "Моё мнение", "Отзывы людей" */
+.b-pin-product__group {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px solid #efedf5;
+    font-size: 13px;
+    font-weight: 800;
+    color: #1c1b25;
+}
+.b-pin-field__hint {
+    font-size: 11.5px;
+    color: #8a8899;
+}
+/* ссылка + "Заполнить по ссылке" в одну строку, на узком экране кнопка уходит вниз */
+.b-pin-product__url-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.b-pin-product__url-row .b-pin-input {
+    flex: 1;
+    min-width: 220px;
+}
+.b-pin-product__url-row .b-pin-btn.is-loading {
+    opacity: .6;
+    pointer-events: none;
+}
+/* цена и валюта */
+.b-pin-product__price {
+    display: flex;
+    gap: 8px;
+}
+.b-pin-product__price input {
+    flex: 1;
+    min-width: 0;
+}
+.b-pin-create .b-pin-product__price select.b-pin-input {
+    width: 84px;
+    flex: 0 0 84px;
+}
+/* звёзды "Моя оценка": инпуты идут 5→1 и строка развёрнута (row-reverse), поэтому ~ подсвечивает
+   выбранную и все звёзды левее неё, а при наведении — ту, что под курсором, и левее */
+.b-pin-stars {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 2px;
+}
+.b-pin-stars input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.b-pin-field .b-pin-stars label {
+    font-size: 22px;
+    color: #dcd9e6;
+    cursor: pointer;
+    transition: color .1s;
+}
+.b-pin-stars input:checked ~ label:not(.b-pin-stars__reset),
+.b-pin-stars label:not(.b-pin-stars__reset):hover,
+.b-pin-stars label:not(.b-pin-stars__reset):hover ~ label:not(.b-pin-stars__reset) {
+    color: #f5b301;
+}
+.b-pin-stars input:focus-visible + label {
+    outline: 2px solid #ded3ff;
+    border-radius: 4px;
+}
+/* "без оценки" стоит в разметке последним — с row-reverse он оказывается справа */
+.b-pin-field .b-pin-stars .b-pin-stars__reset {
+    order: -1;
+    margin-left: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #8a8899;
+}
+.b-pin-stars input:checked + .b-pin-stars__reset {
+    color: #5735d6;
+}
 .b-pin-chips--grouped {
     flex-direction: column;
     gap: 12px;

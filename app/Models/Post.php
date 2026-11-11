@@ -38,10 +38,13 @@ class Post extends Model
     public const TYPE_CLOTHES = 'clothes';
     // новость — своих полей нет, главное у неё — дата (event_date, она есть у пина любого типа)
     public const TYPE_NEWS = 'news';
+    // товар (не одежда): цена, магазин, статус, сроки, моё мнение и отзывы — post_products (PostProduct);
+    // первый шаг к сервису "Инвентаризация вещей"
+    public const TYPE_PRODUCT = 'product';
 
     public const CONTENT_TYPES = [self::TYPE_TEXT_PICTURE, self::TYPE_PICTURE, self::TYPE_TEXT];
     // выбираются вручную — по содержимому не пересчитываются
-    public const MANUAL_TYPES = [self::TYPE_FILM, self::TYPE_RECIPE, self::TYPE_CLOTHES, self::TYPE_NEWS];
+    public const MANUAL_TYPES = [self::TYPE_FILM, self::TYPE_RECIPE, self::TYPE_CLOTHES, self::TYPE_PRODUCT, self::TYPE_NEWS];
 
     public const TYPE_LABELS = [
         self::TYPE_TEXT_PICTURE => 'Текст + Изображение',
@@ -50,6 +53,7 @@ class Post extends Model
         self::TYPE_FILM => 'Фильм / Сериал',
         self::TYPE_RECIPE => 'Рецепт',
         self::TYPE_CLOTHES => 'Одежда',
+        self::TYPE_PRODUCT => 'Товар',
         self::TYPE_NEWS => 'Новость',
     ];
 
@@ -850,6 +854,16 @@ class Post extends Model
     public function clothes()
     {
         return $this->hasOne(PostClothes::class, 'post_id');
+    }
+
+    /**
+     * Данные товара у пина типа "Товар" (цена, магазин, статус, сроки, мнение, отзывы)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function product()
+    {
+        return $this->hasOne(PostProduct::class, 'post_id');
     }
 
     /**

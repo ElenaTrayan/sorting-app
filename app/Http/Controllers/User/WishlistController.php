@@ -215,6 +215,14 @@ class WishlistController extends Controller
             'description' => $meta['description'],
             'image_url' => $meta['image'],
             'price' => $meta['price'],
+            // остальное — для пина "Товар" (PostProductController::linkPreview), вишлисты их не читают
+            'currency' => $meta['currency'] ?? null,
+            'brand' => $meta['brand'] ?? null,
+            'manufacturer' => $meta['manufacturer'] ?? null,
+            'country' => $meta['country'] ?? null,
+            'article' => $meta['article'] ?? null,
+            'rating' => $meta['rating'] ?? null,
+            'rating_count' => $meta['rating_count'] ?? null,
         ]);
     }
 
@@ -728,6 +736,14 @@ class WishlistController extends Controller
             'image' => $image,
             'image_candidates' => $imageCandidates,
             'price' => $price ?: null,
+            // только из JSON-LD (parseJsonLdProductExtras) — для пина "Товар"
+            'currency' => $jsonLd['currency'] ?? null,
+            'brand' => $jsonLd['brand'] ?? null,
+            'manufacturer' => $jsonLd['manufacturer'] ?? null,
+            'country' => $jsonLd['country'] ?? null,
+            'article' => $jsonLd['article'] ?? null,
+            'rating' => $jsonLd['rating'] ?? null,
+            'rating_count' => $jsonLd['rating_count'] ?? null,
         ];
     }
 
@@ -1029,10 +1045,15 @@ class WishlistController extends Controller
                         $offerPrice = $offer['price'] ?? $offer['lowPrice'] ?? null;
                         if ($offerPrice !== null && $offerPrice !== '') {
                             $result['price'] = (string) $offerPrice;
+                            $result['currency'] = is_string($offer['priceCurrency'] ?? null) ? strtoupper($offer['priceCurrency']) : null;
                             break;
                         }
                     }
                 }
+
+                // для пина "Товар" (PostProductController::linkPreview): бренд, производитель, страна, артикул
+                // и оценка покупателей — вишлистам не нужны, но и не мешают
+                $result += $this->parseJsonLdProductExtras($candidate);
 
                 // нашли Product с данными — этого достаточно, не проверяем остальные <script>
                 if ($result['title'] || $result['price']) {
@@ -1042,6 +1063,52 @@ class WishlistController extends Controller
         }
 
         return $result;
+    }
+
+    /**
+     * Доп. поля schema.org Product: brand / manufacturer (строка или {"name": ...}), countryOfOrigin,
+     * sku / gtin*, aggregateRating (ratingValue по шкале bestRating → из 5, reviewCount / ratingCount)
+     *
+     * @return array{brand: ?string, manufacturer: ?string, country: ?string, article: ?string, rating: ?float, rating_count: ?int}
+     */
+    private function parseJsonLdProductExtras(array $product): array
+    {
+        $name = function ($value): ?string {
+            if (is_array($value)) {
+                $value = array_is_list($value) ? ($value[0] ?? null) : $value;
+                $value = is_array($value) ? ($value['name'] ?? null) : $value;
+            }
+
+            return is_string($value) && trim($value) !== '' ? mb_substr(trim($value), 0, 150) : null;
+        };
+
+        $article = null;
+        foreach (['sku', 'gtin13', 'gtin', 'gtin12', 'gtin8', 'mpn'] as $key) {
+            if (isset($product[$key]) && (is_string($product[$key]) || is_int($product[$key])) && trim((string)$product[$key]) !== '') {
+                $article = mb_substr(trim((string)$product[$key]), 0, 100);
+                break;
+            }
+        }
+
+        $rating = null;
+        $ratingCount = null;
+        $aggregate = $product['aggregateRating'] ?? null;
+        if (is_array($aggregate) && is_numeric($aggregate['ratingValue'] ?? null)) {
+            $best = is_numeric($aggregate['bestRating'] ?? null) && (float)$aggregate['bestRating'] > 0 ? (float)$aggregate['bestRating'] : 5.0;
+            $rating = round((float)$aggregate['ratingValue'] / $best * 5, 1);
+            $rating = $rating >= 0 && $rating <= 5 ? $rating : null;
+            $count = $aggregate['reviewCount'] ?? $aggregate['ratingCount'] ?? null;
+            $ratingCount = is_numeric($count) ? (int)$count : null;
+        }
+
+        return [
+            'brand' => $name($product['brand'] ?? null),
+            'manufacturer' => $name($product['manufacturer'] ?? null),
+            'country' => $name($product['countryOfOrigin'] ?? null),
+            'article' => $article,
+            'rating' => $rating,
+            'rating_count' => $ratingCount,
+        ];
     }
 
     /**
@@ -1257,7 +1324,8 @@ class WishlistController extends Controller
      * @param \Illuminate\Http\UploadedFile $file
      * @return array{image: array{name: string, extension: string, path: string}, image_large: array{name: string, extension: string, path: string}|null}
      */
-    private function storeUploadedImage($file): array
+    // public: им же сохраняет картинку желания кнопка "В вишлист" у пина "Товар" (PostProductController)
+    public function storeUploadedImage($file): array
     {
         // AVIF сразу конвертируем в WebP (см. AvifImage)
         $file = AvifImage::normalize($file);

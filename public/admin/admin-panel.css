@@ -1911,6 +1911,106 @@ text-align: center;
     background: #f3f4f9;
     color: #3d4056;
 }
+/* ===== Карточка пина "Товар" (posts/parts/product_card.blade.php) — основа от карточки фильма ===== */
+.b-post-film-card__badge.b-post-product-card__price {
+    background: #1f2430;
+    color: #fff;
+    font-weight: 800;
+}
+.b-post-product-card__status--want { background: #fdeef3; color: #b8325e; }
+.b-post-product-card__status--bought { background: #eaf1fe; color: #2f5fc4; }
+.b-post-product-card__status--using { background: #e9f7ef; color: #1d7a45; }
+.b-post-product-card__status--finished { background: #f3f1ea; color: #7a6a3d; }
+.b-post-product-card__status--disliked { background: #fdecec; color: #c43c3c; }
+.b-post-product-card__status--gone { background: #f1f0f5; color: #6c6a7a; }
+.b-post-product-card__expiry {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    background: #f3f4f9;
+    color: #3d4056;
+}
+.b-post-product-card__expiry--soon { background: #fff4d6; color: #8a5a00; }
+.b-post-product-card__expiry--expired { background: #fdecec; color: #c43c3c; }
+.b-post-product-card__block {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #efeff4;
+}
+.b-post-product-card__block-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 800;
+    color: #1f2430;
+}
+.b-post-product-card__stars {
+    color: #f5b301;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+.b-post-product-card__rating {
+    font-weight: 800;
+}
+.b-post-product-card__muted {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #8a8fa3;
+}
+.b-post-product-card__text {
+    font-size: 14px;
+    line-height: 1.55;
+    color: #3d4056;
+}
+.b-post-product-card__pros-cons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+.b-post-product-card__pros,
+.b-post-product-card__cons {
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+.b-post-product-card__pros { background: #eef8f2; color: #245c3c; }
+.b-post-product-card__cons { background: #fdf0f0; color: #7c2f2f; }
+.b-post-product-card__pros strong,
+.b-post-product-card__cons strong {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.b-post-product-card__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 700;
+}
+.b-post-product-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+.b-post-product-card__actions .b-post-show__btn {
+    display: inline-flex;
+    margin-top: 0;
+}
 /* логотип бренда одежды рядом с названием (wardrobe/parts/brand_label.blade.php): карточка и превью вещи,
    карточка пина "Одежда", админка брендов. Высота — от размера текста, ширина — по пропорциям логотипа. */
 .b-brand-logo {

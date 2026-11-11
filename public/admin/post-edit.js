@@ -54,6 +54,10 @@
             section: document.querySelector('.js-post-clothes-section'),
             confirm: 'Данные вещи (бренд, тип, цвет, материал и т.д.) будут удалены при сохранении поста. Продолжить?',
         },
+        product: {
+            section: document.querySelector('.js-post-product-section'),
+            confirm: 'Данные товара (цена, магазин, сроки, мнение, отзывы) будут удалены при сохранении поста. Продолжить?',
+        },
     };
 
     function selectType(type) {
@@ -99,7 +103,7 @@
             typeLabel.textContent = result.type_label;
         }
         // у выбранных вручную (фильм, рецепт, одежда) тип по содержимому не считается
-        if (autoDesc && ['film', 'recipe', 'clothes'].indexOf(result.type) === -1) {
+        if (autoDesc && ['film', 'recipe', 'clothes', 'product', 'news'].indexOf(result.type) === -1) {
             autoDesc.textContent = 'По содержимому — сейчас «' + result.type_label + '»';
         }
         typeInput.setAttribute('data-initial', typeInput.value);

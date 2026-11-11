@@ -6,6 +6,7 @@ use App\Http\Controllers\User\Packages\UploadImageController;
 use App\Models\Post;
 use App\Models\PostClothes;
 use App\Models\PostFilm;
+use App\Models\PostProduct;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,7 +22,7 @@ class PostTrash
     public const KEEP_DAYS = 30;
 
     /**
-     * Удаляет пост навсегда: файлы картинок и видео, данные фильма/вещи, хештеги, хеши картинок, саму запись
+     * Удаляет пост навсегда: файлы картинок и видео, данные фильма/вещи/товара, хештеги, хеши картинок, саму запись
      *
      * @param Post $post пост из корзины
      * @return void
@@ -45,6 +46,8 @@ class PostTrash
 
         PostFilm::where('post_id', $postId)->delete();
         PostClothes::where('post_id', $postId)->delete();
+        // записи в вишлисте, списке покупок и на складе, созданные из поста, остаются — они уже свои
+        PostProduct::where('post_id', $postId)->delete();
         // иначе поиск дубликатов находил бы картинки несуществующего поста
         DB::table('image_hashes')->where('post_id', $postId)->delete();
     }

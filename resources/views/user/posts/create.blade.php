@@ -128,6 +128,14 @@
                                     <span class="b-pin-type__desc">Одежда, обувь, аксессуары</span>
                                 </span>
                             </button>
+                            {{-- пин "Товар": цена, магазин, сроки, мнение, отзывы; со страницы поста — в вишлист, список покупок, на склад --}}
+                            <button type="button" class="b-pin-type" data-type="product">
+                                <span class="b-pin-type__icon">📦</span>
+                                <span class="b-pin-type__body">
+                                    <span class="b-pin-type__label">Товар</span>
+                                    <span class="b-pin-type__desc">Цена, отзывы, сроки</span>
+                                </span>
+                            </button>
                             {{-- своих полей у новости нет — главное у неё дата (поле "Дата" ниже, оно есть у любого пина) --}}
                             <button type="button" class="b-pin-type" data-type="news">
                                 <span class="b-pin-type__icon">📰</span>
@@ -266,6 +274,12 @@
                                 {{-- поля сохраняются в post_clothes (только у типа "Одежда") и показываются карточкой
                                      на странице поста (parts/clothes_card.blade.php); "В гардероб" переносит их в вещь --}}
                                 @include('user.posts.parts.clothes_fields')
+                            </div>
+
+                            <div id="tab-product" style="display: none;">
+                                {{-- поля сохраняются в post_products (только у типа "Товар") и показываются карточкой
+                                     на странице поста (parts/product_card.blade.php) --}}
+                                @include('user.posts.parts.product_fields')
                             </div>
                         </div>
 
@@ -442,4 +456,5 @@
     <script src="/admin/film-fields.js?v={{ filemtime(public_path('admin/film-fields.js')) }}"></script>
     <script src="/admin/event-date.js?v={{ filemtime(public_path('admin/event-date.js')) }}"></script>
     <script src="/admin/pin-create.js?v={{ filemtime(public_path('admin/pin-create.js')) }}"></script>
+    <script src="/admin/post-product.js?v={{ filemtime(public_path('admin/post-product.js')) }}"></script>
 @endpush

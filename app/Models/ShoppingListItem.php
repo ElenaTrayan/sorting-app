@@ -15,6 +15,7 @@ class ShoppingListItem extends Model
         'low_stock' => 'Заканчивается в запасах',
         'reserve' => 'Резерв ЧС',
         'promotion' => 'Из акции',
+        'post' => 'Из поста «Товар»',
     ];
 
     protected $fillable = [
