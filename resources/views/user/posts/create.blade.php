@@ -279,7 +279,7 @@
                             <div id="tab-product" style="display: none;">
                                 {{-- поля сохраняются в post_products (только у типа "Товар") и показываются карточкой
                                      на странице поста (parts/product_card.blade.php) --}}
-                                @include('user.posts.parts.product_fields')
+                                @include('user.posts.parts.product_fields', ['fillFromTop' => true])
                             </div>
                         </div>
 

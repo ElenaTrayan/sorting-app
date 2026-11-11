@@ -49,8 +49,9 @@
         if (previewTypeEl) {
             previewTypeEl.textContent = TYPE_LABELS[type] || '';
         }
+        // фильм и товар — всегда один пост (admin.js creationIsSinglePost)
         if (countSection) {
-            countSection.hidden = type === 'film';
+            countSection.hidden = type === 'film' || type === 'product';
         }
         if (eventDateField) {
             eventDateField.hidden = type === 'film';

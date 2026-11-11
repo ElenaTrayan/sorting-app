@@ -77,7 +77,13 @@
                     urlInput.value = url;
                 }
 
+                // на форме создания эту кнопку нажимает "Спарсить информацию" вверху формы (admin.js) — показываем
+                // загрузку и на ней, своя кнопка там скрыта
+                const topParseButton = document.getElementById('get-parsed-post-info');
                 fillButton.classList.add('is-loading');
+                if (topParseButton) {
+                    topParseButton.classList.add('is-loading');
+                }
                 $.ajax({
                     type: 'post',
                     url: fields.getAttribute('data-preview-action'),
@@ -124,6 +130,9 @@
                     },
                     complete: function () {
                         fillButton.classList.remove('is-loading');
+                        if (topParseButton) {
+                            topParseButton.classList.remove('is-loading');
+                        }
                     }
                 });
             });

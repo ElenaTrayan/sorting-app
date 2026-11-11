@@ -188,14 +188,42 @@ class WishlistController extends Controller
             ? $this->parseOpenGraphMeta($html, $contentType)
             : ['title' => null, 'description' => null, 'image' => null, 'image_candidates' => [], 'price' => null];
 
-        if (empty($meta['title']) && empty($meta['image']) && empty($meta['price'])) {
+        // Temu на обычный запрос отдаёт антибот-проверку, а данные товара (цена, фото, рейтинг) кладёт только
+        // в window.rawData уже отрисованной страницы — для него без браузера не обойтись, см. parseTemuRawData
+        $isTemu = $this->isTemuUrl($url);
+        $temu = $isTemu && $html ? $this->parseTemuRawData($html) : null;
+
+        if ((empty($meta['title']) && empty($meta['image']) && empty($meta['price'])) || ($isTemu && !$temu)) {
             $renderedHtml = $this->fetchHtmlViaHeadlessBrowser($url);
             if ($renderedHtml) {
                 $renderedMeta = $this->parseOpenGraphMeta($renderedHtml, 'text/html; charset=UTF-8');
                 if (!empty($renderedMeta['title']) || !empty($renderedMeta['image']) || !empty($renderedMeta['price'])) {
                     $meta = $renderedMeta;
                 }
+                if ($isTemu) {
+                    $temu = $this->parseTemuRawData($renderedHtml);
+                }
             }
+        }
+
+        if ($temu) {
+            // название из rawData — без хвоста " - Temu Ukraine" из <title>
+            foreach (['title', 'price', 'currency', 'rating', 'rating_count'] as $key) {
+                if ($temu[$key] !== null) {
+                    $meta[$key] = $temu[$key];
+                }
+            }
+            if ($temu['image']) {
+                $meta['image'] = $temu['image'];
+                $meta['image_candidates'] = [];
+            }
+        }
+
+        // AliExpress цену в HTML не отдаёт (подгружает скриптом), но в ссылке, скопированной с сайта,
+        // она обычно уже есть — в параметре pdp_npi, см. parseAliExpressUrlPrice
+        if (empty($meta['price']) && ($urlPrice = $this->parseAliExpressUrlPrice($url))) {
+            $meta['price'] = $urlPrice['price'];
+            $meta['currency'] = $urlPrice['currency'];
         }
 
         if (empty($meta['title']) && empty($meta['image']) && empty($meta['price'])) {
@@ -224,6 +252,123 @@ class WishlistController extends Controller
             'rating' => $meta['rating'] ?? null,
             'rating_count' => $meta['rating_count'] ?? null,
         ]);
+    }
+
+    private function isTemuUrl(string $url): bool
+    {
+        return (bool)preg_match('~(^|\.)temu\.com$~', strtolower((string)parse_url($url, PHP_URL_HOST)));
+    }
+
+    /**
+     * Данные товара Temu из window.rawData отрисованной страницы (og-тегов и JSON-LD у Temu нет):
+     * store.goods — название и фото, store.sku — варианты с ценой в минимальных единицах (7280 = 72.80 ₴,
+     * сколько знаков — store.moduleMap.priceModule.data.priceFormat.decimals), store.review.reviewData —
+     * оценка и число отзывов о товаре. У товара с вариантами берём самую низкую цену — её Temu и показывает.
+     * Структура внутренняя, Temu может её поменять — тогда просто вернётся null и останется обычный разбор.
+     *
+     * @return array{title: ?string, image: ?string, price: ?string, currency: ?string, rating: ?float, rating_count: ?int}|null
+     */
+    private function parseTemuRawData(string $html): ?array
+    {
+        if (!preg_match('~window\.rawData\s*=\s*\{~', $html, $match, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        // сам JSON-объект: до парной закрывающей скобки, не считая скобок внутри строк
+        $start = $match[0][1] + strlen($match[0][0]) - 1;
+        $depth = 0;
+        $inString = false;
+        $escaped = false;
+        $end = null;
+        for ($i = $start, $length = strlen($html); $i < $length; $i++) {
+            $char = $html[$i];
+            if ($inString) {
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($char === '\\') {
+                    $escaped = true;
+                } elseif ($char === '"') {
+                    $inString = false;
+                }
+            } elseif ($char === '"') {
+                $inString = true;
+            } elseif ($char === '{') {
+                $depth++;
+            } elseif ($char === '}' && --$depth === 0) {
+                $end = $i;
+                break;
+            }
+        }
+        if ($end === null) {
+            return null;
+        }
+
+        $store = json_decode(substr($html, $start, $end - $start + 1), true)['store'] ?? null;
+        if (!is_array($store) || !is_array($store['goods'] ?? null)) {
+            return null;
+        }
+
+        $goods = $store['goods'];
+        $priceFormat = $store['moduleMap']['priceModule']['data']['priceFormat'] ?? [];
+        $decimals = is_numeric($priceFormat['decimals'] ?? null) ? (int)$priceFormat['decimals'] : 2;
+
+        $minPrice = null;
+        foreach ((array)($store['sku'] ?? []) as $sku) {
+            $salePrice = $sku['salePrice'] ?? null;
+            if (is_numeric($salePrice) && $salePrice > 0 && ($minPrice === null || $salePrice < $minPrice)) {
+                $minPrice = $salePrice;
+            }
+        }
+
+        $currency = $priceFormat['currencyCode'] ?? $store['localInfo']['currency'] ?? null;
+        $reviewData = $store['review']['reviewData'] ?? [];
+        $title = is_string($goods['goodsName'] ?? null) ? trim($goods['goodsName']) : '';
+        $image = $goods['hdThumbUrl'] ?? $goods['thumbUrl'] ?? null;
+
+        return [
+            'title' => $title !== '' ? $title : null,
+            'image' => is_string($image) && preg_match('~^https?://~i', $image) ? $image : null,
+            'price' => $minPrice !== null ? number_format($minPrice / (10 ** $decimals), $decimals, '.', '') : null,
+            'currency' => is_string($currency) && preg_match('/^[A-Z]{3}$/', $currency) ? $currency : null,
+            'rating' => is_numeric($reviewData['goodsScore'] ?? null) ? (float)$reviewData['goodsScore'] : null,
+            'rating_count' => is_numeric($reviewData['reviewNum'] ?? null) ? (int)$reviewData['reviewNum'] : null,
+        ];
+    }
+
+    /**
+     * Цена товара AliExpress из самой ссылки: в ссылках с сайта (из каталога, рекомендаций, поиска) есть
+     * параметр pdp_npi вида "6@dis!UAH!212.48!137.40!!!28.33!18.32!@...": валюта, обычная цена, цена со
+     * скидкой, дальше то же в долларах. Берём цену со скидкой (её и видно на странице), без скидки — обычную.
+     * Короткие ссылки "поделиться" из приложения (a.aliexpress.com/...) этого параметра не содержат.
+     *
+     * @return array{price: string, currency: string}|null
+     */
+    private function parseAliExpressUrlPrice(string $url): ?array
+    {
+        $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+        if (!preg_match('~(^|\.)aliexpress\.(com|ru|us)$~', $host)) {
+            return null;
+        }
+
+        parse_str((string)parse_url($url, PHP_URL_QUERY), $query);
+        $npi = $query['pdp_npi'] ?? null;
+        if (!is_string($npi)) {
+            return null;
+        }
+
+        $parts = explode('!', $npi);
+        $currency = strtoupper(trim($parts[1] ?? ''));
+        if (!preg_match('/^[A-Z]{3}$/', $currency)) {
+            return null;
+        }
+
+        foreach ([$parts[3] ?? '', $parts[2] ?? ''] as $candidate) {
+            if (preg_match('/^\d+(\.\d+)?$/', $candidate) && (float)$candidate > 0) {
+                return ['price' => $candidate, 'currency' => $currency];
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -38,11 +38,15 @@
         <div class="b-pin-product__url-row">
             <input type="text" class="b-pin-input js-product-shop-url" name="product-shop-url" id="product-shop-url" maxlength="1000"
                    placeholder="https://…" value="{{ $product->shop_url ?? '' }}">
-            <button type="button" class="b-pin-btn b-pin-btn--ghost js-product-fill-from-url">
+            {{-- на форме создания кнопка скрыта ($fillFromTop): там ссылку разбирает общий блок "Спарсить информацию"
+                 вверху формы — admin.js нажимает эту кнопку за него. На редактировании такого блока нет --}}
+            <button type="button" class="b-pin-btn b-pin-btn--ghost js-product-fill-from-url" @if (!empty($fillFromTop)) hidden @endif>
                 <span>✦</span> Заполнить по ссылке
             </button>
         </div>
-        <span class="b-pin-field__hint">Подставит название, цену, бренд, оценку покупателей и картинку — только в пустые поля</span>
+        @if (empty($fillFromTop))
+            <span class="b-pin-field__hint">Подставит название, цену, бренд, оценку покупателей и картинку — только в пустые поля</span>
+        @endif
     </div>
 
     <div class="b-pin-product__group">Что за товар</div>

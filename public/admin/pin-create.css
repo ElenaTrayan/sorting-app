@@ -633,6 +633,10 @@
     opacity: .6;
     pointer-events: none;
 }
+/* на форме создания "Заполнить по ссылке" скрыта — её нажимает "Спарсить информацию" (parts/product_fields.blade.php) */
+.b-pin-product__url-row .b-pin-btn[hidden] {
+    display: none;
+}
 /* цена и валюта */
 .b-pin-product__price {
     display: flex;

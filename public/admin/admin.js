@@ -1269,9 +1269,14 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          return $('#pin-type').val() === 'film';
      }
 
-     // "Количество" на форме создания. У фильма блок скрыт (pin-create.js): все картинки — в один пост-фильм
+     // фильм и товар — всегда один пост со всеми картинками, блока "Количество" у них нет (pin-create.js)
+     function creationIsSinglePost() {
+         return creationIsFilm() || $('#pin-type').val() === 'product';
+     }
+
+     // "Количество" на форме создания. У фильма и товара блок скрыт (pin-create.js): все картинки — в один пост
      function creationNumberOfPosts() {
-         return creationIsFilm() ? 'one-post' : $('input[name="numberOfPosts"]:checked').val();
+         return creationIsSinglePost() ? 'one-post' : $('input[name="numberOfPosts"]:checked').val();
      }
 
      // Дата на превью картинок формы создания: "Несколько постов" без группировки, без даты, введённой
@@ -2352,8 +2357,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
 
          var numberOfPosts = creationNumberOfPosts();
-         // фильм не группируется, и блока "Количество" у него нет
-         var groupPosts = !creationIsFilm() && document.getElementById("group-posts").checked;
+         // фильм и товар не группируются, и блока "Количество" у них нет
+         var groupPosts = !creationIsSinglePost() && document.getElementById("group-posts").checked;
 
          //get the action-url of the form
          var actionurl = $('#creationform').attr('action');
@@ -6035,6 +6040,25 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          //значение input-а
          var linkForParsing = $('#link-for-parsing').val();
          console.log('=========' + linkForParsing + '==========');
+
+         // у пина "Товар" ссылку разбирает разбор блока товара (post-product.js → PostProductController::linkPreview):
+         // общий парсер не знает цену, валюту, бренд… Ссылка идёт в поле "Ссылка на товар", своя кнопка блока товара
+         // на форме создания скрыта (parts/product_fields.blade.php, $fillFromTop) — нажимаем её отсюда
+         var $productFillButton = $('.js-product-fields .js-product-fill-from-url');
+         if ($('#pin-type').val() === 'product' && $productFillButton.length) {
+             if ($productFillButton.hasClass('is-loading')) {
+                 return;
+             }
+             var productLink = $.trim(linkForParsing || '');
+             if (productLink === '') {
+                 toastr.warning('Вставьте ссылку на товар');
+                 $('#link-for-parsing').focus();
+                 return;
+             }
+             $('.js-product-fields .js-product-shop-url').val(productLink);
+             $productFillButton[0].click();
+             return;
+         }
 
          //url для запроса
          let actionurl = $('#get-parsed-post-info').data('action')
