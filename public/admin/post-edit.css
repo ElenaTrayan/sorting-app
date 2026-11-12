@@ -50,6 +50,17 @@
     /* клик — просмотр в Fancybox (data-fancybox="post-images"), как на форме создания */
     cursor: zoom-in;
 }
+/* перетаскивание карточек — порядок фото в посте (admin.js, PostController::reorderImages) */
+.b-post-edit .b-post-images__item.ui-sortable-helper {
+    box-shadow: 0 10px 28px rgba(23, 20, 50, .18);
+    cursor: grabbing;
+}
+.b-post-edit .b-post-images__placeholder {
+    visibility: visible !important;
+    border: 2px dashed #b9adff;
+    background: #f6f5ff;
+    box-shadow: none;
+}
 /* повернуть/отразить картинку — ряд кнопок между превью и именем файла */
 .b-post-edit .b-post-images__transform {
     display: flex;

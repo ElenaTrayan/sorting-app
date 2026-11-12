@@ -3791,6 +3791,97 @@ class PostController extends Controller
     }
 
     /**
+     * Порядок картинок поста (перетаскивание на странице редактирования). Порядок — это порядок ключей
+     * в original_image/medium_image/small_image: первая картинка — обложка поста, дальше карусель.
+     * medium/small переставляем вслед за оригиналами — их имя = базовое имя оригинала + "_ширина_высота"
+     * (см. saveImageForPost()/resizeImage()), см. derivedImageOwner().
+     *
+     * @param Request $request names[] — имена оригиналов (ключи original_image) в новом порядке, все до одного
+     * @param Post $post
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function reorderImages(Request $request, Post $post)
+    {
+        $request->validate([
+            'names' => 'required|array|min:1',
+            'names.*' => 'string',
+        ]);
+
+        $originalImages = UploadImageController::normalizeImages($post->original_image);
+        $names = array_values(array_unique($request->input('names')));
+
+        // список должен совпадать с картинками поста — иначе страница устарела (картинку добавили/удалили в другой вкладке)
+        $current = array_keys($originalImages);
+        $sortedNames = $names;
+        sort($current);
+        sort($sortedNames);
+        if ($current !== $sortedNames) {
+            return response()->json(['status' => false, 'message' => 'Список картинок изменился — обновите страницу']);
+        }
+
+        $reorderedOriginal = [];
+        foreach ($names as $name) {
+            $reorderedOriginal[$name] = $originalImages[$name];
+        }
+        $post->original_image = json_encode($reorderedOriginal);
+        $post->medium_image = json_encode($this->reorderDerivedImages(UploadImageController::normalizeImages($post->medium_image), $names));
+        $post->small_image = json_encode($this->reorderDerivedImages(UploadImageController::normalizeImages($post->small_image), $names));
+        $post->save();
+
+        return response()->json(['status' => true]);
+    }
+
+    /**
+     * medium_image/small_image — в порядке оригиналов $originalNames. Копии, чей оригинал не нашёлся, остаются в конце
+     * как были.
+     */
+    private function reorderDerivedImages(array $images, array $originalNames): array
+    {
+        $buckets = array_fill_keys($originalNames, []);
+        $orphans = [];
+        foreach ($images as $key => $image) {
+            $owner = $this->derivedImageOwner((string)$key, $originalNames);
+            if ($owner === null) {
+                $orphans[$key] = $image;
+            } else {
+                $buckets[$owner][$key] = $image;
+            }
+        }
+
+        $result = [];
+        foreach ($buckets as $bucket) {
+            $result += $bucket;
+        }
+
+        return $result + $orphans;
+    }
+
+    /**
+     * Чья это копия: имя копии = базовое имя оригинала + "_ширина_высота.расширение". Если точного совпадения нет
+     * (старые посты) — оригинал с самым длинным базовым именем, входящим в имя копии, как в renameDerivedImages()
+     */
+    private function derivedImageOwner(string $derivedName, array $originalNames): ?string
+    {
+        $best = null;
+        $bestLength = 0;
+        foreach ($originalNames as $name) {
+            $base = pathinfo($name, PATHINFO_FILENAME);
+            if ($base === '') {
+                continue;
+            }
+            if (preg_match('~^' . preg_quote($base, '~') . '_\d+_\d+\.[a-z0-9]+$~i', $derivedName)) {
+                return $name;
+            }
+            if (stripos($derivedName, $base) !== false && strlen($base) > $bestLength) {
+                $best = $name;
+                $bestLength = strlen($base);
+            }
+        }
+
+        return $best;
+    }
+
+    /**
      * Переименовать изображение поста (по текущему имени файла) — вместе со всеми его
      * размерами (original/medium/small).
      *
@@ -3826,8 +3917,8 @@ class PostController extends Controller
                 $post->category_id
             );
 
-            unset($originalImages[$oldName]);
-            $originalImages[$renamedOriginal['name']] = $renamedOriginal;
+            // на том же месте: порядок ключей — порядок картинок в посте (reorderImages)
+            $originalImages = $this->replaceImageKey($originalImages, $oldName, $renamedOriginal['name'], $renamedOriginal);
             $post->original_image = json_encode($originalImages);
 
             // medium/small хранятся отдельными файлами, чьё имя содержит базовое имя
@@ -4203,11 +4294,27 @@ class PostController extends Controller
             }
 
             $renamed = $this->moveRenamedImage($uploadController, $image, $newTitle, $userId, $categoryId, false);
-            unset($images[$key]);
-            $images[$renamed['name']] = $renamed;
+            $images = $this->replaceImageKey($images, (string)$key, $renamed['name'], $renamed);
         }
 
         return $images;
+    }
+
+    /**
+     * Заменяет картинку $oldKey на $newKey => $value на том же месте списка (порядок ключей — порядок картинок в посте)
+     */
+    private function replaceImageKey(array $images, string $oldKey, string $newKey, $value): array
+    {
+        $result = [];
+        foreach ($images as $key => $image) {
+            if ((string)$key === $oldKey) {
+                $result[$newKey] = $value;
+            } elseif ((string)$key !== $newKey) {
+                $result[$key] = $image;
+            }
+        }
+
+        return $result;
     }
 
     /**

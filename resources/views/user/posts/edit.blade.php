@@ -158,13 +158,14 @@
                     <section class="b-pin-card">
                         <div class="b-pin-card__head">
                             <h2>Изображения</h2>
-                            <span class="b-pin-card__hint">Изменения сохраняются сразу</span>
+                            <span class="b-pin-card__hint">Порядок — перетаскиванием, первое фото — обложка. Изменения сохраняются сразу</span>
                         </div>
 
                         <div class="b-post-images" id="post-images"
                              data-post-id="{{ $post->id }}"
                              data-add-action="{{ route('posts.images.add', $post->id) }}"
                              data-rename-action="{{ route('posts.images.rename', $post->id) }}"
+                             data-reorder-action="{{ route('posts.images.reorder', $post->id) }}"
                              data-transform-action="{{ route('posts.images.transform', $post->id) }}"
                              data-crop-action="{{ route('posts.images.crop', $post->id) }}"
                              data-restore-action="{{ route('posts.images.restore', $post->id) }}"

@@ -98,6 +98,8 @@ Route::post('/posts/{post}/video/position', [User\PostController::class, 'setVid
         Route::post('/posts/{post}/merge-duplicate', [User\PostController::class, 'mergeDuplicate'])->name('posts.merge-duplicate');
         Route::post('/posts/{post}/suggest-hashtags', [User\PostController::class, 'suggestHashtagsForPost'])->name('posts.suggest-hashtags-for-post');
         Route::post('/posts/{post}/images/rename', [User\PostController::class, 'renameImage'])->name('posts.images.rename');
+        // порядок картинок поста — перетаскивание на странице редактирования (admin.js)
+        Route::post('/posts/{post}/images/reorder', [User\PostController::class, 'reorderImages'])->name('posts.images.reorder');
         // повернуть/отразить картинку поста вместе с её medium/small (кнопки на карточке картинки, страница редактирования)
         Route::post('/posts/{post}/images/transform', [User\PostController::class, 'transformImage'])->name('posts.images.transform');
         Route::post('/posts/{post}/images/crop', [User\PostController::class, 'cropImage'])->name('posts.images.crop');

@@ -7034,6 +7034,77 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              errorBox.textContent = '';
          }
 
+         // Порядок картинок — перетаскиванием карточек, сохраняется сразу (PostController::reorderImages).
+         // Первая картинка — обложка поста
+         const reorderUrl = panel.getAttribute('data-reorder-action');
+         let imagesDragged = false;
+
+         function currentImageNames() {
+             return Array.prototype.map.call(list.querySelectorAll('.b-post-images__item'), function (item) {
+                 return item.getAttribute('data-name');
+             });
+         }
+
+         if (reorderUrl && $.fn.sortable) {
+             let orderBeforeDrag = [];
+             $(list).sortable({
+                 items: '.b-post-images__item',
+                 cancel: 'input, button, .b-post-images__transform, .b-post-images__controls',
+                 tolerance: 'pointer',
+                 placeholder: 'b-post-images__item b-post-images__placeholder',
+                 forcePlaceholderSize: true,
+                 start: function () {
+                     imagesDragged = true;
+                     orderBeforeDrag = currentImageNames();
+                 },
+                 stop: function () {
+                     // отпускание мыши после перетаскивания не должно открыть просмотр (Fancybox, см. ниже)
+                     setTimeout(function () {
+                         imagesDragged = false;
+                     }, 0);
+                 },
+                 update: function () {
+                     const names = currentImageNames();
+                     clearError();
+                     $.ajax({
+                         url: reorderUrl,
+                         type: 'post',
+                         headers: {'X-CSRF-TOKEN': csrfToken()},
+                         data: {names: names},
+                         success: function (response) {
+                             if (response && response.status) {
+                                 toastr.success('Порядок фото сохранён');
+                                 return;
+                             }
+                             restoreOrder();
+                             showError((response && response.message) || 'Не удалось сохранить порядок фото');
+                         },
+                         error: function () {
+                             restoreOrder();
+                             showError('Не удалось сохранить порядок фото');
+                         }
+                     });
+                 }
+             });
+
+             // не сохранилось — возвращаем карточки как было, чтобы на экране не было порядка, которого нет в посте
+             function restoreOrder() {
+                 orderBeforeDrag.forEach(function (name) {
+                     const item = list.querySelector('.b-post-images__item[data-name="' + CSS.escape(name) + '"]');
+                     if (item) {
+                         list.appendChild(item);
+                     }
+                 });
+             }
+
+             list.addEventListener('click', function (event) {
+                 if (imagesDragged) {
+                     event.preventDefault();
+                     event.stopImmediatePropagation();
+                 }
+             }, true);
+         }
+
          // onDone — загрузка этого файла закончена любым исходом (для этого файла окно дубликата закрыто)
          function uploadImage(file, onSuccess, onDone) {
              let formData = new FormData();
