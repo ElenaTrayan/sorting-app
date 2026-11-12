@@ -46,6 +46,11 @@ class Post extends Model
     // выбираются вручную — по содержимому не пересчитываются
     public const MANUAL_TYPES = [self::TYPE_FILM, self::TYPE_RECIPE, self::TYPE_CLOTHES, self::TYPE_PRODUCT, self::TYPE_NEWS];
 
+    // хештег, который пост получает автоматически, когда становится этого типа (attachTypeHashtag)
+    public const TYPE_HASHTAGS = [
+        self::TYPE_PRODUCT => 'товары',
+    ];
+
     public const TYPE_LABELS = [
         self::TYPE_TEXT_PICTURE => 'Текст + Изображение',
         self::TYPE_PICTURE => 'Изображение',
@@ -864,6 +869,32 @@ class Post extends Model
     public function product()
     {
         return $this->hasOne(PostProduct::class, 'post_id');
+    }
+
+    /**
+     * Хештег типа поста (TYPE_HASHTAGS, у "Товара" — "товары"): свой хештег пользователя с таким названием (без
+     * учёта регистра), нет такого — создаём. Вызывается, когда пост становится этого типа (создание, смена типа
+     * при редактировании, объединение) — не при каждом сохранении: убранный руками хештег назад не возвращаем.
+     */
+    public function attachTypeHashtag(): void
+    {
+        $title = self::TYPE_HASHTAGS[$this->type] ?? null;
+        if ($title === null || !$this->exists) {
+            return;
+        }
+
+        $hashtag = Hashtag::where('user_id', $this->user_id)->where('title', $title)->get()
+            ->first(function (Hashtag $hashtag) use ($title) {
+                return mb_strtolower(trim($hashtag->title)) === mb_strtolower($title);
+            });
+        if (!$hashtag) {
+            $hashtag = new Hashtag();
+            $hashtag->title = $title;
+            $hashtag->user_id = $this->user_id;
+            $hashtag->save();
+        }
+
+        $this->hashtags()->syncWithoutDetaching([$hashtag->id]);
     }
 
     /**

@@ -2069,6 +2069,8 @@ class PostController extends Controller
 
         // переключатель типа на форме: фильм/рецепт — как выбрали, "auto" — тип по содержимому
         // (сбрасываем, модель определит его при сохранении, см. Post::booted)
+        // тип до правки: стал "Товаром" только сейчас — добавим хештег типа (attachTypeHashtag ниже)
+        $typeBeforeUpdate = $post->type;
         if ($request->has('post_type')) {
             $post->type = in_array($request->input('post_type'), Post::MANUAL_TYPES, true)
                 ? $request->input('post_type')
@@ -2125,6 +2127,12 @@ class PostController extends Controller
             }
             if (!empty($deleteHashtags)) {
                 $this->removeHashtagsFromPost($post->id, $deleteHashtags);
+            }
+
+            // пост только что стал "Товаром" — хештег "товары". Уже был товаром — не трогаем: если хештег убрали
+            // руками, значит, так и надо
+            if ($post->type !== $typeBeforeUpdate) {
+                $post->attachTypeHashtag();
             }
 
             // "Сохранить изменения" на странице редактирования: уходим на список постов,
@@ -2773,6 +2781,9 @@ class PostController extends Controller
             if ($request->input('pin_type') === Post::TYPE_PRODUCT) {
                 PostProduct::saveForPost($new_post, PostProduct::attributesFromRequest($request));
             }
+
+            // хештег типа ("товары" у "Товара") — после хештегов с формы выше, чтобы не задвоить
+            $new_post->attachTypeHashtag();
 
             $createdId = $new_post->id;
 
@@ -3526,6 +3537,7 @@ class PostController extends Controller
                     PostProduct::saveForPost($post, $productAttributes);
                     $post->type = Post::TYPE_PRODUCT;
                     $post->save();
+                    $post->attachTypeHashtag();
                 }
             }
 
