@@ -91,6 +91,10 @@
                     data: {url: url},
                     success: function (response) {
                         if (!response || !response.status) {
+                            // страницу разобрать не удалось, но магазин известен по адресу ссылки — его всё равно ставим
+                            if (response && fillIfEmpty('#product-store', response.store)) {
+                                toastr.info('Магазин: ' + response.store);
+                            }
                             toastr.warning((response && response.message) || 'Не удалось найти данные о товаре');
                             return;
                         }
@@ -103,6 +107,8 @@
                                 currency.value = response.currency;
                             }
                         }
+                        // магазин — по адресу ссылки (config/shops.php, PostProductController::storeFromUrl)
+                        if (fillIfEmpty('#product-store', response.store)) filled.push('магазин');
                         if (fillIfEmpty('#product-brand', response.brand)) filled.push('бренд');
                         if (fillIfEmpty('#product-manufacturer', response.manufacturer)) filled.push('производитель');
                         if (fillIfEmpty('#product-country', response.country)) filled.push('страна');

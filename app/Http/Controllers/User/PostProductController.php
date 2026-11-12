@@ -52,7 +52,94 @@ class PostProductController extends Controller
      */
     public function linkPreview(Request $request)
     {
-        return app(WishlistController::class)->linkPreview($request);
+        $response = app(WishlistController::class)->linkPreview($request);
+
+        // магазин — по адресу ссылки (config/shops.php), даже если страницу разобрать не удалось
+        $store = $this->storeFromUrl((string)$request->input('url'));
+        if ($store !== null && $response instanceof JsonResponse) {
+            $response->setData(['store' => $store] + (array)$response->getData(true));
+        }
+
+        return $response;
+    }
+
+    /**
+     * Название магазина по адресу товара: сначала свои магазины пользователя ("Запасы") с таким сайтом, потом
+     * таблица config/shops.php. Если у пользователя магазин уже записан (в "Запасах" или в своих товарах) одним
+     * из вариантов названия (aliases) — его написание, иначе название из таблицы. Незнакомый сайт — null.
+     */
+    private function storeFromUrl(string $url): ?string
+    {
+        $host = $this->normalizedHost($url);
+        if ($host === null) {
+            return null;
+        }
+
+        $userId = Auth::id();
+        $userStores = Store::where('user_id', $userId)->get(['name', 'website']);
+
+        foreach ($userStores as $store) {
+            $storeHost = $store->website ? $this->normalizedHost($store->website) : null;
+            if ($storeHost !== null && ($host === $storeHost || Str::endsWith($host, '.' . $storeHost))) {
+                return $store->name;
+            }
+        }
+
+        foreach ((array)config('shops.by_domain', []) as $shop) {
+            if (!$this->hostMatchesAny($host, (array)($shop['domains'] ?? []))) {
+                continue;
+            }
+
+            $aliases = array_map(function ($alias) {
+                return mb_strtolower(trim($alias));
+            }, array_merge([(string)$shop['name']], (array)($shop['aliases'] ?? [])));
+
+            $knownNames = $userStores->pluck('name')->merge(
+                PostProduct::whereHas('post', function ($q) use ($userId) {
+                    $q->where('user_id', $userId);
+                })->whereNotNull('store')->distinct()->pluck('store')
+            );
+            foreach ($knownNames as $name) {
+                if (in_array(mb_strtolower(trim((string)$name)), $aliases, true)) {
+                    return $name;
+                }
+            }
+
+            return $shop['name'];
+        }
+
+        return null;
+    }
+
+    // "https://www.Temu.com/ua/..." -> "temu.com"; без схемы тоже ("temu.com/...") — так пишут в поле "Сайт" магазина
+    private function normalizedHost(string $url): ?string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return null;
+        }
+        if (!preg_match('~^[a-z][a-z0-9+.-]*://~i', $url)) {
+            $url = 'https://' . $url;
+        }
+        $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+
+        return $host !== '' ? preg_replace('~^www\.~', '', $host) : null;
+    }
+
+    // домен из config/shops.php: "temu.com" — сам домен и его поддомены, "amazon.*" — с любой зоной (amazon.co.uk)
+    private function hostMatchesAny(string $host, array $domains): bool
+    {
+        foreach ($domains as $domain) {
+            $domain = strtolower(trim($domain));
+            $pattern = Str::endsWith($domain, '.*')
+                ? '~(^|\.)' . preg_quote(substr($domain, 0, -2), '~') . '\.[a-z]{2,}(\.[a-z]{2,})?$~'
+                : '~(^|\.)' . preg_quote($domain, '~') . '$~';
+            if (preg_match($pattern, $host)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
