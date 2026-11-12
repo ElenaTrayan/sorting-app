@@ -2745,6 +2745,16 @@ text-align: center;
     gap: 14px;
     overflow-y: auto;
 }
+/* товар в превью: цена/бренд/магазин и "В магазин" (parts/post_preview.blade.php) */
+.b-post-preview__product {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+.b-post-preview__product .b-post-film-card__badges {
+    margin: 0;
+}
 .b-post-preview__actions {
     margin-top: auto;
     padding-top: 10px;

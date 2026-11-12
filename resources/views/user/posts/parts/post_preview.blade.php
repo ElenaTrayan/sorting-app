@@ -8,7 +8,8 @@
 @php
     $hasMedia = (bool) ($post->video_url || count($galleryImages) > 0);
     // карточка фильма тоже "текст" — без неё пин с одной картинкой и данными фильма показал бы только картинку
-    $hasText = (bool) ($post->title || $post->content || $post->film);
+    // и карточка товара: цена, бренд, магазин, ссылка
+    $hasText = (bool) ($post->title || $post->content || $post->film || $post->product);
 @endphp
 <div class="b-post-preview @if ($hasMedia && !$hasText) b-post-preview--media-only @endif @if (!$hasMedia) b-post-preview--text-only @endif">
     @if ($hasMedia)
@@ -59,7 +60,7 @@
                     <div class="b-post-show__prose">{!! $post->content !!}</div>
                 @endif
             </div>
-        @elseif (!$post->film)
+        @elseif (!$post->film && !$post->product)
             <div class="b-post-show__empty-text">
                 <div class="b-post-show__empty-text-icon"><i class="fas fa-align-left"></i></div>
                 <div class="b-post-show__empty-text-title">Пост без описания</div>
@@ -68,6 +69,35 @@
 
         @if ($post->film)
             @include('user.posts.parts.film_card', ['film' => $post->film, 'compact' => true])
+        @endif
+
+        {{-- товар — коротко: цена, бренд, магазин, статус и ссылка в магазин; всё остальное (мнение, отзывы, сроки,
+             кнопки "В вишлист"…) — на странице поста, parts/product_card.blade.php --}}
+        @if ($product = $post->product)
+            @php
+                $productBadges = array_filter([
+                    $product->brand ? ['icon' => 'fa-tag', 'text' => $product->brand] : null,
+                    $product->store ? ['icon' => 'fa-store', 'text' => $product->store] : null,
+                    $product->statusLabel() ? ['icon' => \App\Models\PostProduct::STATUS_ICONS[$product->status] ?? 'fa-tag', 'text' => $product->statusLabel()] : null,
+                ]);
+            @endphp
+            <div class="b-post-preview__product">
+                @if ($product->priceLabel() || $productBadges)
+                    <div class="b-post-film-card__badges">
+                        @if ($product->priceLabel())
+                            <span class="b-post-film-card__badge b-post-product-card__price">{{ $product->priceLabel() }}</span>
+                        @endif
+                        @foreach ($productBadges as $badge)
+                            <span class="b-post-film-card__badge"><i class="fas {{ $badge['icon'] }}"></i> {{ $badge['text'] }}</span>
+                        @endforeach
+                    </div>
+                @endif
+                @if ($product->shop_url)
+                    <a href="{{ $product->shop_url }}" class="b-post-show__btn b-post-clothes-card__shop" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-shopping-bag"></i> В магазин
+                    </a>
+                @endif
+            </div>
         @endif
 
         @if ($post->hashtags->isNotEmpty() || $post->category || $post->filmPost)
