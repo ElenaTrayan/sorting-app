@@ -3637,9 +3637,12 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      //     }
      // });
 
+     // Enter не отправляет формы, но в многострочных полях он должен переносить строку
      $(document).keypress(function (e) {
          if (e.which === 13) {
-             //alert("Pressed");
+             if (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                 return;
+             }
 
              e.preventDefault();
              e.stopPropagation();
