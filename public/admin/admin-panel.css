@@ -3336,6 +3336,33 @@ margin: 0 0 20px 0;
 .b-card__content__text p{
     font-size: 15px;
 }
+/* длинный текст на карточке ленты — свёрнут до ~8 строк с затуханием, целиком — по "Читать полностью"
+   (parts/post_items.blade.php) */
+.b-card__content__body--clamped {
+    max-height: 180px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
+    mask-image: linear-gradient(to bottom, #000 65%, transparent);
+}
+.b-card__content__body--clamped > :last-child {
+    margin-bottom: 0;
+}
+.b-card__read-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #7367f0;
+}
+.b-card__read-more:hover {
+    color: #5a4ee0;
+    text-decoration: none;
+}
+.b-card__read-more i {
+    font-size: 11px;
+}
 
 .b-card__footer {
     margin: 5px 15px 0;

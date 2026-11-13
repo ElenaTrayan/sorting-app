@@ -124,12 +124,26 @@
             @endif
 
             @if (!empty($post->title) || !empty($post->content))
+                @php
+                    // длинный текст на карточке сворачиваем (.b-card__content__body--clamped — несколько строк с
+                    // затуханием), целиком он — на странице поста: "Читать полностью". Порог по длине текста без
+                    // разметки — с запасом выше того, что помещается в свёрнутый блок, чтобы не обрезать почти
+                    // влезающий текст
+                    $isLongContent = !empty($post->content)
+                        && mb_strlen(trim(html_entity_decode(strip_tags($post->content)))) > 300;
+                    $fullPostUrl = $isStack ? $groupUrl : route('posts.show', $post->id);
+                @endphp
                 <div class="b-card__content__text">
                     @if (!empty($post->title))
                         <a {!! $cardLink !!} class="title">{{ $post->title }}</a>
                     @endif
                     @if (!empty($post->content))
-                        {!! $post->content !!}
+                        @if ($isLongContent)
+                            <div class="b-card__content__body b-card__content__body--clamped">{!! $post->content !!}</div>
+                            <a href="{{ $fullPostUrl }}" class="b-card__read-more">Читать полностью <i class="fas fa-arrow-right"></i></a>
+                        @else
+                            {!! $post->content !!}
+                        @endif
                     @endif
                 </div>
             @endif
