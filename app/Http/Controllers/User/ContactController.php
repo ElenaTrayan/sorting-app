@@ -623,12 +623,7 @@ class ContactController extends Controller
      */
     private function freePostAlias(string $alias): string
     {
-        $candidate = $alias;
-        for ($i = 2; Post::withTrashed()->where('alias', $candidate)->exists(); $i++) {
-            $candidate = $alias . '-' . $i;
-        }
-
-        return $candidate;
+        return Post::uniqueAlias($alias);
     }
 
     /**

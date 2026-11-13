@@ -239,7 +239,7 @@
                         <div class="b-pin-fields">
                             <div class="b-pin-field b-pin-field--wide">
                                 <label for="title">Название пина</label>
-                                <input type="text" class="b-pin-input" name="title" id="title" placeholder="Введите название пина…" required>
+                                <input type="text" class="b-pin-input" name="title" id="title" maxlength="255" placeholder="Введите название пина…" required>
                             </div>
                             <div class="b-pin-field b-pin-field--wide">
                                 <label for="alias">Alias пина</label>

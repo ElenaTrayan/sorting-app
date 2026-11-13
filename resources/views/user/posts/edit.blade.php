@@ -124,7 +124,7 @@
                         <div class="b-pin-fields">
                             <div class="b-pin-field b-pin-field--wide">
                                 <label for="title">Название поста</label>
-                                <input type="text" class="b-pin-input" name="title" id="title" value="{{ $post->title }}" placeholder="Введите название поста…">
+                                <input type="text" class="b-pin-input" name="title" id="title" maxlength="255" value="{{ $post->title }}" placeholder="Введите название поста…">
                             </div>
                             <div class="b-pin-field">
                                 <label for="alias">Alias поста</label>

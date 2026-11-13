@@ -141,6 +141,14 @@ class Post extends Model
         // удаление/переименование на странице редактирования, парсеры): все эти места сохраняют пост через save().
         // Поправленную вручную палитру не трогаем, пока обложка та же (добавили/удалили другие картинки);
         // сменилась обложка — ручные цвета относятся к другой картинке, считаем заново
+        // posts.title — varchar(255): длинное название (разбор страницы магазина подставляет его как есть, maxlength поля
+        // на программно заполненное значение не действует) обрезаем, а не роняем сохранение "Data too long"
+        static::saving(function (Post $post) {
+            if (is_string($post->title) && mb_strlen($post->title) > 255) {
+                $post->title = rtrim(mb_substr($post->title, 0, 254)) . '…';
+            }
+        });
+
         static::saving(function (Post $post) {
             if (!$post->isDirty(['original_image', 'medium_image', 'small_image'])) {
                 return;
@@ -869,6 +877,32 @@ class Post extends Model
     public function product()
     {
         return $this->hasOne(PostProduct::class, 'post_id');
+    }
+
+    // posts.alias — varchar(255); база укорачивается до ALIAS_BASE_MAX, чтобы с суффиксом "-2", "-3"… влезло
+    public const ALIAS_BASE_MAX = 200;
+
+    /**
+     * Свободный alias: сам $alias или "$alias-2", "$alias-3"... Колонка posts.alias уникальна по всей таблице (не по
+     * пользователю), поэтому проверяем без user_id; withTrashed — alias поста из корзины тоже занят, пост могут
+     * вернуть. Длинный alias (из длинного названия товара) укорачиваем по границе слова — иначе insert падает с
+     * "Data too long for column 'alias'"
+     */
+    public static function uniqueAlias(string $alias): string
+    {
+        if (mb_strlen($alias) > self::ALIAS_BASE_MAX) {
+            $cut = mb_substr($alias, 0, self::ALIAS_BASE_MAX);
+            $lastHyphen = mb_strrpos($cut, '-');
+            // режем по последнему дефису, если он не слишком близко к началу (одно очень длинное "слово")
+            $alias = rtrim($lastHyphen !== false && $lastHyphen > self::ALIAS_BASE_MAX / 2 ? mb_substr($cut, 0, $lastHyphen) : $cut, '-_');
+        }
+
+        $candidate = $alias;
+        for ($i = 2; static::withTrashed()->where('alias', $candidate)->exists(); $i++) {
+            $candidate = $alias . '-' . $i;
+        }
+
+        return $candidate;
     }
 
     /**

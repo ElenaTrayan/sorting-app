@@ -4341,13 +4341,8 @@ class PostController extends Controller
     {
         $alias = $alias !== '' ? $alias : (string)auth()->id() . '_' . time();
 
-        $candidate = $alias;
-        // withTrashed: alias поста из корзины тоже занят — колонка уникальна, а пост могут вернуть
-        for ($i = 2; Post::withTrashed()->where('alias', $candidate)->exists(); $i++) {
-            $candidate = $alias . '-' . $i;
-        }
-
-        return $candidate;
+        // свободный и не длиннее колонки — Post::uniqueAlias
+        return Post::uniqueAlias($alias);
     }
 
     /**
