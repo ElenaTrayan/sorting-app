@@ -92,10 +92,38 @@
                         @endforeach
                     </div>
                 @endif
-                @if ($product->shop_url)
-                    <a href="{{ $product->shop_url }}" class="b-post-show__btn b-post-clothes-card__shop" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-shopping-bag"></i> В магазин
-                    </a>
+                @php $canWishlist = auth()->user()->hasService('wishlists'); @endphp
+                @if ($product->shop_url || $canWishlist)
+                    <div class="b-post-preview__product-actions">
+                        @if ($product->shop_url)
+                            <a href="{{ $product->shop_url }}" class="b-post-show__btn b-post-clothes-card__shop" target="_blank" rel="noopener noreferrer">
+                                <i class="fas fa-shopping-bag"></i> В магазин
+                            </a>
+                        @endif
+                        {{-- "В вишлист" — тот же запрос, что у кнопки на странице поста (PostProductController::toWishlist);
+                             выбор вишлиста — прямо здесь, а не в модалке поверх Fancybox (posts-wishlist.js) --}}
+                        @if ($canWishlist)
+                            @if ($product->wishlistItem)
+                                <a href="{{ route('wishlists.show', $product->wishlistItem->wishlist_id) }}" class="b-post-show__btn b-post-show__btn--done">
+                                    <i class="fas fa-check"></i> В вишлисте
+                                </a>
+                            @else
+                                <button type="button" class="b-post-show__btn js-preview-to-wishlist"
+                                        data-action="{{ route('posts.product.to-wishlist', $post->id) }}"
+                                        data-wishlists-action="{{ route('posts.bulk.wishlists') }}">
+                                    <i class="fas fa-gift"></i> В вишлист
+                                </button>
+                            @endif
+                        @endif
+                    </div>
+                    @if ($canWishlist && !$product->wishlistItem)
+                        <div class="b-post-preview__wishlist js-preview-wishlist" hidden>
+                            <select class="form-control form-control-sm js-preview-wishlist-select" aria-label="Вишлист"></select>
+                            <input type="text" class="form-control form-control-sm js-preview-wishlist-new" maxlength="255" value="Мои желания"
+                                   aria-label="Название нового вишлиста" hidden>
+                            <button type="button" class="b-post-show__btn js-preview-wishlist-save">Добавить</button>
+                        </div>
+                    @endif
                 @endif
             </div>
         @endif

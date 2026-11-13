@@ -203,37 +203,117 @@ class PostProductController extends Controller
     {
         abort_unless(Auth::user()->hasService('wishlists'), 403);
         $product = $this->productOf($post);
-        $request->validate(['wishlist_id' => 'nullable|integer', 'wishlist_title' => 'nullable|string|max:255']);
+        $wishlist = $this->wishlistFromRequest($request);
 
-        // выбран вишлист — он (только свой); вишлистов нет — заводим новый с введённым названием
-        if ($request->filled('wishlist_id')) {
-            $wishlist = Wishlist::where('user_id', Auth::id())->findOrFail($request->wishlist_id);
-        } else {
-            $wishlist = Wishlist::create([
-                'user_id' => Auth::id(),
-                'title' => trim((string)$request->wishlist_title) ?: 'Мои желания',
-            ]);
-        }
-
-        $imageVariants = $this->postImageForWishlist($post);
-        $item = WishlistItem::create([
-            'wishlist_id' => $wishlist->id,
-            'title' => Str::limit($this->productTitle($post, $product), 255, ''),
-            'description' => $product->my_opinion ? Str::limit($product->my_opinion, 2000, '') : null,
-            'url' => $product->shop_url,
-            'price' => $product->price,
-            'category' => $product->category ? Str::limit($product->category, 100, '') : null,
-            'image' => $imageVariants ? json_encode($imageVariants['image']) : null,
-            'image_large' => $imageVariants && $imageVariants['image_large'] ? json_encode($imageVariants['image_large']) : null,
-        ]);
-
-        $product->update(['wishlist_item_id' => $item->id]);
+        $this->createWishlistItem($post, $product, $wishlist);
 
         return response()->json([
             'status' => true,
             'message' => 'Добавлено в вишлист «' . $wishlist->title . '»',
             'url' => route('wishlists.show', $wishlist->id),
         ]);
+    }
+
+    /**
+     * Вишлисты пользователя (не архивные) — для выбора "в какой" там, где поста-товара под рукой нет:
+     * режим выбора на "Все посты" и быстрый просмотр поста (posts-wishlist.js)
+     */
+    public function wishlists(): JsonResponse
+    {
+        abort_unless(Auth::user()->hasService('wishlists'), 403);
+
+        return response()->json([
+            'status' => true,
+            'wishlists' => Wishlist::where('user_id', Auth::id())->where('is_archived', false)->orderBy('created_at')->get(['id', 'title']),
+        ]);
+    }
+
+    /**
+     * "В вишлист" в режиме выбора на "Все посты": каждый отмеченный пост — отдельное желание. У поста-товара —
+     * его цена, ссылка, категория и мнение (как у кнопки на странице поста), у остальных — название, текст и
+     * первая картинка. Отмеченная стопка группы — одно желание, по её первому посту. Товары, которые уже есть
+     * в этом вишлисте, второй раз не добавляются
+     */
+    public function bulkToWishlist(Request $request): JsonResponse
+    {
+        abort_unless(Auth::user()->hasService('wishlists'), 403);
+        $request->validate([
+            'ids' => 'required|array|max:500',
+            'ids.*' => 'integer',
+        ]);
+        $wishlist = $this->wishlistFromRequest($request);
+
+        $posts = Post::where('user_id', Auth::id())->whereIn('id', $request->ids)->with('product.wishlistItem')->get();
+        $added = 0;
+        $skipped = 0;
+        foreach ($posts as $post) {
+            $product = $post->product;
+            if ($product && $product->wishlistItem && (int)$product->wishlistItem->wishlist_id === (int)$wishlist->id) {
+                $skipped++;
+                continue;
+            }
+            $this->createWishlistItem($post, $product, $wishlist);
+            $added++;
+        }
+
+        $message = 'В вишлист «' . $wishlist->title . '»: ' . $added . ' ' . PostProduct::plural($added, 'желание', 'желания', 'желаний');
+        if ($skipped) {
+            $message .= ', уже были там: ' . $skipped;
+        }
+
+        return response()->json([
+            'status' => true,
+            'added' => $added,
+            'skipped' => $skipped,
+            'message' => $message,
+            'url' => route('wishlists.show', $wishlist->id),
+        ]);
+    }
+
+    // выбран вишлист — он (только свой); вишлистов нет — заводим новый с введённым названием
+    private function wishlistFromRequest(Request $request): Wishlist
+    {
+        $request->validate(['wishlist_id' => 'nullable|integer', 'wishlist_title' => 'nullable|string|max:255']);
+
+        if ($request->filled('wishlist_id')) {
+            return Wishlist::where('user_id', Auth::id())->findOrFail($request->wishlist_id);
+        }
+
+        return Wishlist::create([
+            'user_id' => Auth::id(),
+            'title' => trim((string)$request->wishlist_title) ?: 'Мои желания',
+        ]);
+    }
+
+    // запись вишлиста из поста; у поста-товара запоминаем её в post_products — кнопка покажет "В вишлисте"
+    private function createWishlistItem(Post $post, ?PostProduct $product, Wishlist $wishlist): WishlistItem
+    {
+        $imageVariants = $this->postImageForWishlist($post);
+
+        if ($product) {
+            $title = $this->productTitle($post, $product);
+            $description = $product->my_opinion;
+        } else {
+            $title = trim((string)$post->title) ?: 'Пост #' . $post->id;
+            $description = trim(html_entity_decode(strip_tags((string)$post->content), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        }
+
+        $item = WishlistItem::create([
+            'wishlist_id' => $wishlist->id,
+            'title' => Str::limit($title, 255, ''),
+            'description' => $description ? Str::limit($description, 2000, '') : null,
+            'url' => $product ? $product->shop_url : null,
+            'price' => $product ? $product->price : null,
+            'category' => $product && $product->category ? Str::limit($product->category, 100, '') : null,
+            'image' => $imageVariants ? json_encode($imageVariants['image']) : null,
+            'image_large' => $imageVariants && $imageVariants['image_large'] ? json_encode($imageVariants['image_large']) : null,
+        ]);
+
+        if ($product) {
+            $product->update(['wishlist_item_id' => $item->id]);
+        }
+
+        return $item;
     }
 
     public function toShoppingList(Post $post): JsonResponse

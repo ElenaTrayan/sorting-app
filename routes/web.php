@@ -124,6 +124,10 @@ Route::post('/posts/{post}/video/position', [User\PostController::class, 'setVid
         Route::post('/posts/bulk/delete', [User\PostController::class, 'bulkDelete'])->name('posts.bulk.delete');
         // отметка "Использовано": панель выбора, пункт меню карточки, кнопка на странице группы
         Route::post('/posts/bulk/used', [User\PostController::class, 'bulkSetUsed'])->name('posts.bulk.used');
+        // "В вишлист": режим выбора и быстрый просмотр поста на "Все посты" (posts-bulk.js, posts-wishlist.js)
+        Route::post('/posts/bulk/wishlist', [User\PostProductController::class, 'bulkToWishlist'])->name('posts.bulk.wishlist');
+        // два сегмента — не /posts/{post} из Route::resource выше
+        Route::get('/posts/bulk/wishlists', [User\PostProductController::class, 'wishlists'])->name('posts.bulk.wishlists');
         // группы отдельной таблицей не заводим, group_id = id одного из постов группы. Страница группы —
         // и просмотр, и редактирование её постов (user/posts/group.blade.php, /admin/post-group.js)
         Route::get('/posts/groups/{groupId}', [User\PostController::class, 'showGroup'])->name('posts.groups.show');

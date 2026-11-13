@@ -207,7 +207,9 @@
                      data-group-action="{{ route('posts.bulk.group') }}"
                      data-category-action="{{ route('posts.bulk.category') }}"
                      data-delete-action="{{ route('posts.bulk.delete') }}"
-                     data-used-action="{{ route('posts.bulk.used') }}" hidden>
+                     data-used-action="{{ route('posts.bulk.used') }}"
+                     data-wishlist-action="{{ route('posts.bulk.wishlist') }}"
+                     data-wishlists-action="{{ route('posts.bulk.wishlists') }}" hidden>
                     <span class="b-posts-select-bar__count js-posts-select-count">Выбрано: 0</span>
                     <button type="button" class="b-posts-select-bar__btn js-posts-select-all">Выбрать все показанные</button>
                     {{-- догружает оставшиеся страницы ленты (или поиска) и отмечает всё — posts-bulk.js --}}
@@ -225,6 +227,12 @@
                     <button type="button" class="b-posts-select-bar__btn js-posts-select-action js-posts-select-used" disabled>
                         <i class="fas fa-check-double"></i> <span>Использовано</span>
                     </button>
+                    @if (auth()->user()->hasService('wishlists'))
+                        {{-- каждый отмеченный пост — желание в выбранном вишлисте (PostProductController::bulkToWishlist) --}}
+                        <button type="button" class="b-posts-select-bar__btn js-posts-select-action js-posts-select-wishlist" disabled>
+                            <i class="fas fa-gift"></i> В вишлист
+                        </button>
+                    @endif
                     <button type="button" class="b-posts-select-bar__btn b-posts-select-bar__btn--danger js-posts-select-action js-posts-select-delete" disabled>
                         <i class="fas fa-trash-alt"></i> Удалить
                     </button>
@@ -265,6 +273,35 @@
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-primary js-posts-bulk-group-confirm">Сгруппировать</button>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- "В вишлист" в режиме выбора (PostProductController::bulkToWishlist); список вишлистов
+                     подгружается при открытии (posts-bulk.js) --}}
+                <div class="modal fade" id="modal-posts-bulk-wishlist" tabindex="-1" role="dialog" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title js-posts-bulk-wishlist-title"></h5>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group mb-0 js-posts-bulk-wishlist-select-group">
+                                    <label for="posts-bulk-wishlist">Вишлист</label>
+                                    <select class="form-control" id="posts-bulk-wishlist"></select>
+                                </div>
+                                <div class="form-group mb-0 js-posts-bulk-wishlist-new-group" hidden>
+                                    <label for="posts-bulk-wishlist-new">Вишлистов пока нет — создать новый</label>
+                                    <input type="text" class="form-control" id="posts-bulk-wishlist-new" maxlength="255" value="Мои желания">
+                                </div>
+                                <p class="text-muted small mt-2 mb-0">Каждый пост станет отдельным желанием: название, первая картинка и текст;
+                                    у товаров — ещё цена, ссылка и категория. Отмеченная группа — одно желание по её первому посту.
+                                    Товары, которые уже есть в этом вишлисте, второй раз не добавятся.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-primary js-posts-bulk-wishlist-confirm">Добавить</button>
                                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
                             </div>
                         </div>
@@ -447,6 +484,7 @@
      чтобы не навешивать его повторно при каждой AJAX-подгрузке страницы --}}
 @push('footer-scripts')
 <script src="/admin/posts-bulk.js?v={{ filemtime(public_path('admin/posts-bulk.js')) }}"></script>
+<script src="/admin/posts-wishlist.js?v={{ filemtime(public_path('admin/posts-wishlist.js')) }}"></script>
 <script>
     Fancybox.bind('[data-fancybox="posts-gallery"]', {
         type: 'ajax',

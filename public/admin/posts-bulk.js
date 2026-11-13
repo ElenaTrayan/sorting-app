@@ -357,6 +357,57 @@
             });
     });
 
+    // ===== в вишлист: каждый отмеченный пост — отдельное желание (PostProductController::bulkToWishlist) =====
+
+    var $wishlistModal = $('#modal-posts-bulk-wishlist');
+
+    $bar.on('click', '.js-posts-select-wishlist', function () {
+        var $button = $(this).prop('disabled', true);
+        // список каждый раз свежий: вишлист могли завести в соседней вкладке
+        $.getJSON(bar.dataset.wishlistsAction)
+            .done(function (response) {
+                var wishlists = response.wishlists || [];
+                var $select = $wishlistModal.find('#posts-bulk-wishlist').empty();
+                wishlists.forEach(function (wishlist) {
+                    $select.append($('<option>', {value: wishlist.id, text: wishlist.title}));
+                });
+                $wishlistModal.find('.js-posts-bulk-wishlist-select-group').prop('hidden', wishlists.length === 0);
+                $wishlistModal.find('.js-posts-bulk-wishlist-new-group').prop('hidden', wishlists.length > 0);
+                $wishlistModal.find('.js-posts-bulk-wishlist-title').text('В вишлист: ' + countLabel());
+                $wishlistModal.modal('show');
+            })
+            .fail(function (xhr) {
+                toastr.error(failMessage(xhr, 'Не удалось загрузить вишлисты'));
+            })
+            .always(function () {
+                $button.prop('disabled', selectedIds().length === 0);
+            });
+    });
+
+    $wishlistModal.on('click', '.js-posts-bulk-wishlist-confirm', function () {
+        var $button = $(this).prop('disabled', true);
+        var data = {ids: selectedIds()};
+        if ($wishlistModal.find('.js-posts-bulk-wishlist-select-group').prop('hidden')) {
+            data.wishlist_title = $wishlistModal.find('#posts-bulk-wishlist-new').val();
+        } else {
+            data.wishlist_id = $wishlistModal.find('#posts-bulk-wishlist').val();
+        }
+
+        $.ajax({url: bar.dataset.wishlistAction, type: 'POST', headers: csrfHeaders, data: data})
+            .done(function (response) {
+                // ссылка в уведомлении — сразу в вишлист
+                toastr.success($('<a>').attr('href', response.url).text(response.message + ' — открыть').prop('outerHTML'));
+                $wishlistModal.modal('hide');
+                setSelecting(false);
+            })
+            .fail(function (xhr) {
+                toastr.error(failMessage(xhr, 'Не удалось добавить в вишлист'));
+            })
+            .always(function () {
+                $button.prop('disabled', false);
+            });
+    });
+
     // ===== отметка "Использовано": панель выбора и пункт меню карточки =====
 
     function isUsed($item) {
