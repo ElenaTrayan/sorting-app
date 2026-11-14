@@ -45,7 +45,7 @@
             </button>
         </div>
         @if (empty($fillFromTop))
-            <span class="b-pin-field__hint">Подставит название, цену, бренд, оценку покупателей и картинку — только в пустые поля</span>
+            <span class="b-pin-field__hint">Подставит название, цену, бренд, характеристики, описание, оценку покупателей и картинку — только в пустые поля</span>
         @endif
     </div>
 
@@ -86,9 +86,19 @@
         </datalist>
     </div>
     <div class="b-pin-field">
+        <label for="product-brand-country">Страна бренда</label>
+        <input type="text" class="b-pin-input" name="product-brand-country" id="product-brand-country" maxlength="100" list="product-country-suggestions"
+               placeholder="Где зарегистрирован бренд" value="{{ $product->brand_country ?? '' }}" autocomplete="off">
+    </div>
+    <div class="b-pin-field">
         <label for="product-variant">Вариант</label>
         <input type="text" class="b-pin-input" name="product-variant" id="product-variant" maxlength="150"
                placeholder="Цвет, объём, размер: 50 мл, 128 ГБ" value="{{ $product->variant ?? '' }}">
+    </div>
+    <div class="b-pin-field">
+        <label for="product-weight">Вес</label>
+        <input type="text" class="b-pin-input" name="product-weight" id="product-weight" maxlength="50"
+               placeholder="520 г, 1.2 кг" value="{{ $product->weight ?? '' }}">
     </div>
     <div class="b-pin-field">
         <label for="product-article">Артикул / штрихкод</label>
@@ -150,10 +160,20 @@
         <input type="date" class="b-pin-input" name="product-expires-at" id="product-expires-at" value="{{ $dateValue($product->expires_at ?? null) }}">
     </div>
     <div class="b-pin-field">
+        <label for="product-shelf-life">Срок хранения</label>
+        <input type="text" class="b-pin-input" name="product-shelf-life" id="product-shelf-life" maxlength="100"
+               placeholder="24 месяца, 210 дней" value="{{ $product->shelf_life ?? '' }}">
+    </div>
+    <div class="b-pin-field">
         <label for="product-warranty-months">Гарантия, месяцев</label>
         <input type="number" class="b-pin-input" name="product-warranty-months" id="product-warranty-months" min="1" max="600"
                placeholder="12" value="{{ $product->warranty_months ?? '' }}">
         <span class="b-pin-field__hint">С датой покупки на странице поста будет видно, до какого числа</span>
+    </div>
+    <div class="b-pin-field b-pin-field--wide">
+        <label for="product-storage-conditions">Условия хранения</label>
+        <textarea class="b-pin-input b-pin-textarea" name="product-storage-conditions" id="product-storage-conditions" rows="3" maxlength="5000"
+                  placeholder="Температура, влажность, после вскрытия…">{{ $product->storage_conditions ?? '' }}</textarea>
     </div>
 
     <div class="b-pin-product__group">Моё мнение</div>

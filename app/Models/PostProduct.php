@@ -8,7 +8,8 @@ use Illuminate\Http\Request;
 
 /**
  * Данные товара для пина типа "Товар" (1:1 с posts, как PostFilm / PostClothes): что за товар, где и почём,
- * статус, сроки (годности, гарантии), моё мнение и сводка отзывов людей. Первый шаг к сервису
+ * статус, сроки (годности, хранения, гарантии), характеристики со страницы магазина (вес, условия хранения,
+ * страна бренда — App\Parsers\ProductSpecsParser), моё мнение и сводка отзывов людей. Первый шаг к сервису
  * "Инвентаризация вещей" — поля потом переносятся в вещь, как пин "Одежда" в "Мой гардероб".
  * Кнопки на странице поста отправляют товар в вишлист, список покупок и на склад
  * (User\PostProductController) — id созданных записей хранятся здесь, чтобы показать "уже добавлено".
@@ -65,7 +66,9 @@ class PostProduct extends Model
         'brand',
         'manufacturer',
         'country',
+        'brand_country',
         'variant',
+        'weight',
         'article',
         'status',
         'price',
@@ -75,6 +78,8 @@ class PostProduct extends Model
         'promo',
         'purchased_at',
         'expires_at',
+        'shelf_life',
+        'storage_conditions',
         'warranty_months',
         'my_rating',
         'my_opinion',
@@ -260,7 +265,9 @@ class PostProduct extends Model
             'brand' => $text('product-brand', 150),
             'manufacturer' => $text('product-manufacturer', 150),
             'country' => $text('product-country', 100),
+            'brand_country' => $text('product-brand-country', 100),
             'variant' => $text('product-variant', 150),
+            'weight' => $text('product-weight', 50),
             'article' => $text('product-article', 100),
             'status' => array_key_exists((string)$status, self::STATUSES) ? $status : null,
             'price' => $number('product-price', 9999999999),
@@ -269,6 +276,8 @@ class PostProduct extends Model
             'promo' => $text('product-promo', 255),
             'purchased_at' => $date('product-purchased-at'),
             'expires_at' => $date('product-expires-at'),
+            'shelf_life' => $text('product-shelf-life', 100),
+            'storage_conditions' => $longText('product-storage-conditions'),
             'warranty_months' => $integer('product-warranty-months', 1, 600),
             'my_rating' => $integer('product-my-rating', 1, 5),
             'my_opinion' => $longText('product-my-opinion'),

@@ -16,7 +16,9 @@
         'Категория' => $product->category,
         'Производитель' => $product->manufacturer,
         'Страна производства' => $product->country,
+        'Страна бренда' => $product->brand_country,
         'Вариант' => $product->variant,
+        'Вес' => $product->weight,
         'Артикул' => $product->article,
         'Магазин' => $product->store,
         'Дата покупки' => $product->purchased_at ? $product->purchased_at->format('d.m.Y') : null,
@@ -24,6 +26,8 @@
         'Гарантия' => $product->warrantyLabel()
             ? $product->warrantyLabel() . ($warrantyUntil ? ' — до ' . $warrantyUntil->format('d.m.Y') . ($warrantyUntil->isPast() ? ' (закончилась)' : '') : '')
             : null,
+        'Срок хранения' => $product->shelf_life,
+        'Условия хранения' => $product->storage_conditions,
     ]);
 
     $stars = function (?float $rating) {
@@ -71,7 +75,8 @@
         <dl class="b-post-film-card__facts">
             @foreach ($facts as $label => $value)
                 <dt>{{ $label }}</dt>
-                <dd>{{ $value }}</dd>
+                {{-- условия хранения многострочные — переносы строк сохраняем --}}
+                <dd>{!! nl2br(e($value)) !!}</dd>
             @endforeach
         </dl>
     @endif

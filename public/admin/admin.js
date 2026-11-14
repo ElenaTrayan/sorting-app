@@ -6036,6 +6036,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
          editor.fire('change');
      }
+     // и для пина "Товар": "Опис" со страницы магазина — тоже в текст поста (post-product.js)
+     window.addParsedDescriptionToEditor = addParsedDescriptionToEditor;
 
      $(document).on('click', '#get-parsed-post-info', function(event) {
          console.log('=========' + 'TTT' + '==========');

@@ -6,6 +6,7 @@ use App\Components\AvifImage;
 use App\Http\Controllers\Controller;
 use App\Models\Wishlist;
 use App\Models\WishlistItem;
+use App\Parsers\ProductSpecsParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -194,7 +195,9 @@ class WishlistController extends Controller
         $temu = $isTemu && $html ? $this->parseTemuRawData($html) : null;
 
         if ((empty($meta['title']) && empty($meta['image']) && empty($meta['price'])) || ($isTemu && !$temu)) {
-            $renderedHtml = $this->fetchHtmlViaHeadlessBrowser($url);
+            // пину "Товар" нужны ещё характеристики и описание (PostProductController::linkPreview ставит флаг) —
+            // на rozetka они дорисовываются позже цены, браузер их дождётся
+            $renderedHtml = $this->fetchHtmlViaHeadlessBrowser($url, (bool)$request->attributes->get('product_specs'));
             if ($renderedHtml) {
                 $renderedMeta = $this->parseOpenGraphMeta($renderedHtml, 'text/html; charset=UTF-8');
                 if (!empty($renderedMeta['title']) || !empty($renderedMeta['image']) || !empty($renderedMeta['price'])) {
@@ -251,6 +254,11 @@ class WishlistController extends Controller
             'article' => $meta['article'] ?? null,
             'rating' => $meta['rating'] ?? null,
             'rating_count' => $meta['rating_count'] ?? null,
+            'shelf_life' => $meta['shelf_life'] ?? null,
+            'weight' => $meta['weight'] ?? null,
+            'storage_conditions' => $meta['storage_conditions'] ?? null,
+            'brand_country' => $meta['brand_country'] ?? null,
+            'full_description' => $meta['full_description'] ?? null,
         ]);
     }
 
@@ -382,7 +390,7 @@ class WishlistController extends Controller
      *
      * @return string|null null — если Chrome не найден на сервере или что-то пошло не так
      */
-    private function fetchHtmlViaHeadlessBrowser(string $url): ?string
+    private function fetchHtmlViaHeadlessBrowser(string $url, bool $waitForSpecs = false): ?string
     {
         $chromePath = $this->findChromeExecutable();
         if (!$chromePath) {
@@ -429,7 +437,7 @@ class WishlistController extends Controller
             // страницу, а после этого часть магазинов ещё и подгружает цену отдельным JS-
             // запросом — вместо фиксированной паузы опрашиваем HTML тем же парсером, что и
             // в конце (parseOpenGraphMeta), и ждём, пока в нём не появятся реальные данные
-            $html = $this->waitUntilProductDataAppears($page, $url);
+            $html = $this->waitUntilProductDataAppears($page, $url, 20, 8, $waitForSpecs);
 
             if ($this->looksLikeBotChallenge($html)) {
                 Log::warning('[wishlist link-preview] антибот-челлендж не был пройден за отведённое время', ['url' => $url]);
@@ -534,7 +542,7 @@ class WishlistController extends Controller
      * подозрительно пустая (и это не антибот-челлендж, для которого и так ждём) — один раз
      * перезаходим на тот же адрес: теперь браузер отправит уже полученную cookie сессии.
      */
-    private function waitUntilProductDataAppears(Page $page, string $url, int $maxWaitSeconds = 20, int $extraWaitForPriceSeconds = 8): string
+    private function waitUntilProductDataAppears(Page $page, string $url, int $maxWaitSeconds = 20, int $extraWaitForPriceSeconds = 8, bool $waitForSpecs = false): string
     {
         $html = $page->getHtml();
         $bestHtml = $html;
@@ -559,14 +567,25 @@ class WishlistController extends Controller
 
                 if ($hasBasics) {
                     $bestHtml = $html;
+                    $specsReady = !$waitForSpecs || $this->hasProductSpecs($meta);
 
-                    if (!empty($meta['price'])) {
+                    if (!empty($meta['price']) && $specsReady) {
                         return $html;
                     }
 
-                    // title/картинка уже есть, а цены нет — даём странице ещё немного
-                    // времени именно на неё (часто подгружается отдельным JS-запросом чуть
-                    // позже), но не ждём вечно, если у товара цены в принципе нет
+                    // характеристики и описание на rozetka — блоки ниже первого экрана, их дорисовывают позже;
+                    // прокручиваем вниз, чтобы ленивые блоки отрисовались
+                    if (!$specsReady) {
+                        try {
+                            $page->evaluate('window.scrollTo(0, document.body.scrollHeight)');
+                        } catch (\Throwable $e) {
+                            // не вышло прокрутить — просто ждём дальше
+                        }
+                    }
+
+                    // title/картинка уже есть, а цены (или характеристик) нет — даём странице ещё
+                    // немного времени именно на них (часто подгружаются отдельным JS-запросом чуть
+                    // позже), но не ждём вечно, если у товара их в принципе нет
                     if ($basicsFoundAt === null) {
                         $basicsFoundAt = $waited;
                     } elseif ($waited - $basicsFoundAt >= $extraWaitForPriceSeconds) {
@@ -831,6 +850,7 @@ class WishlistController extends Controller
         $metaData = $this->parseMetaTagsProduct($xpath);
         $jsonLd = $this->parseJsonLdProduct($xpath);
         $microdata = $this->parseMicrodataProduct($xpath);
+        $specs = (new ProductSpecsParser())->parse($xpath);
 
         $title = $metaData['title'] ?: $jsonLd['title'] ?: $microdata['title'];
         $description = $metaData['description'] ?: $jsonLd['description'] ?: $microdata['description'];
@@ -885,11 +905,29 @@ class WishlistController extends Controller
             'currency' => $jsonLd['currency'] ?? null,
             'brand' => $jsonLd['brand'] ?? null,
             'manufacturer' => $jsonLd['manufacturer'] ?? null,
-            'country' => $jsonLd['country'] ?? null,
+            'country' => ProductSpecsParser::normalizeCountry($jsonLd['country'] ?? null) ?? $specs['country'],
             'article' => $jsonLd['article'] ?? null,
             'rating' => $jsonLd['rating'] ?? null,
             'rating_count' => $jsonLd['rating_count'] ?? null,
+            // из блока "Характеристики" и полного описания страницы (ProductSpecsParser) — тоже для пина "Товар"
+            'shelf_life' => $specs['shelf_life'],
+            'weight' => $specs['weight'],
+            'storage_conditions' => $specs['storage_conditions'],
+            'brand_country' => $specs['brand_country'],
+            'full_description' => $specs['full_description'],
         ];
+    }
+
+    // нашлось ли на странице хоть что-то из характеристик/описания (ProductSpecsParser)
+    private function hasProductSpecs(array $meta): bool
+    {
+        foreach (['shelf_life', 'weight', 'storage_conditions', 'brand_country', 'full_description'] as $key) {
+            if (!empty($meta[$key])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1141,7 +1179,8 @@ class WishlistController extends Controller
 
     /**
      * JSON-LD (schema.org Product) — обходит все <script type="application/ld+json">
-     * на странице (в т.ч. обёрнутые в "@graph") и ищет первый узел с "@type": "Product".
+     * на странице (в т.ч. обёрнутые в "@graph") и ищет первый узел с "@type": "Product"
+     * (или "ProductGroup" — тогда его вариант этой страницы, см. productFromJsonLdGroup).
      *
      * @return array{title: ?string, description: ?string, image: ?string, price: ?string}
      */
@@ -1160,6 +1199,13 @@ class WishlistController extends Controller
             foreach ($candidates as $candidate) {
                 if (!is_array($candidate)) {
                     continue;
+                }
+
+                if ($this->jsonLdTypeIs($candidate, 'ProductGroup')) {
+                    $candidate = $this->productFromJsonLdGroup($candidate, $this->pageCanonicalUrl($xpath));
+                    if ($candidate === null) {
+                        continue;
+                    }
                 }
 
                 $type = $candidate['@type'] ?? null;
@@ -1210,6 +1256,83 @@ class WishlistController extends Controller
         return $result;
     }
 
+    private function jsonLdTypeIs(array $node, string $type): bool
+    {
+        $nodeType = $node['@type'] ?? null;
+
+        return $nodeType === $type || (is_array($nodeType) && in_array($type, $nodeType, true));
+    }
+
+    /**
+     * schema.org ProductGroup (так у rozetka.com.ua): товар с вариантами. Цена, картинка и артикул лежат в
+     * варианте (hasVariant[] — Product), а бренд и оценка покупателей часто только в самой группе. Склеиваем
+     * группу с вариантом этой страницы: тот, чей url совпадает с canonical/og:url, иначе первый с ценой (offers),
+     * иначе первый вариант-Product. Поля варианта важнее полей группы
+     *
+     * @return array|null - узел как Product; null — в группе нет ни одного варианта-Product
+     */
+    private function productFromJsonLdGroup(array $group, ?string $pageUrl): ?array
+    {
+        $variants = $group['hasVariant'] ?? [];
+        $variants = is_array($variants) && !array_is_list($variants) ? [$variants] : (array)$variants;
+        $variants = array_values(array_filter($variants, function ($variant) {
+            return is_array($variant) && $this->jsonLdTypeIs($variant, 'Product');
+        }));
+        if (!$variants) {
+            return null;
+        }
+
+        $normalizeUrl = function ($url): ?string {
+            if (!is_string($url) || trim($url) === '') {
+                return null;
+            }
+            $host = preg_replace('~^www\.~', '', strtolower((string)parse_url($url, PHP_URL_HOST)));
+            $path = rtrim((string)parse_url($url, PHP_URL_PATH), '/');
+
+            return $host !== '' ? $host . $path : null;
+        };
+
+        $chosen = null;
+        $pageKey = $normalizeUrl($pageUrl);
+        if ($pageKey !== null) {
+            foreach ($variants as $variant) {
+                if ($normalizeUrl($variant['url'] ?? null) === $pageKey) {
+                    $chosen = $variant;
+                    break;
+                }
+            }
+        }
+        if ($chosen === null) {
+            foreach ($variants as $variant) {
+                if (!empty($variant['offers'])) {
+                    $chosen = $variant;
+                    break;
+                }
+            }
+        }
+        $chosen = $chosen ?? $variants[0];
+
+        unset($group['hasVariant'], $group['@type']);
+        $chosen = array_filter($chosen, function ($value) {
+            return $value !== null && $value !== '' && $value !== [];
+        });
+
+        return array_merge($group, $chosen, ['@type' => 'Product']);
+    }
+
+    // адрес этой страницы — <link rel="canonical">, иначе og:url (по нему ищем вариант в ProductGroup)
+    private function pageCanonicalUrl(\DOMXPath $xpath): ?string
+    {
+        foreach (['//link[@rel="canonical"]/@href', '//meta[@property="og:url"]/@content'] as $query) {
+            $node = $xpath->query($query)->item(0);
+            if ($node && trim($node->nodeValue) !== '') {
+                return trim($node->nodeValue);
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Доп. поля schema.org Product: brand / manufacturer (строка или {"name": ...}), countryOfOrigin,
      * sku / gtin*, aggregateRating (ratingValue по шкале bestRating → из 5, reviewCount / ratingCount)
@@ -1228,7 +1351,9 @@ class WishlistController extends Controller
         };
 
         $article = null;
-        foreach (['sku', 'gtin13', 'gtin', 'gtin12', 'gtin8', 'mpn'] as $key) {
+        // сначала штрихкод (gtin*): он один и тот же в любом магазине, а sku — часто внутренний код магазина
+        // (на rozetka.com.ua — номер товара из адреса)
+        foreach (['gtin13', 'gtin', 'gtin12', 'gtin14', 'gtin8', 'sku', 'mpn'] as $key) {
             if (isset($product[$key]) && (is_string($product[$key]) || is_int($product[$key])) && trim((string)$product[$key]) !== '') {
                 $article = mb_substr(trim((string)$product[$key]), 0, 100);
                 break;

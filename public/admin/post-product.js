@@ -3,7 +3,8 @@
  *
  * Форма создания и редактирования поста (parts/product_fields.blade.php): "Заполнить по ссылке" — разбор страницы
  * магазина (PostProductController::linkPreview, тот же, что у вишлистов). Заполняет только пустые поля: название
- * пина, цену и валюту, бренд, производителя, страну, артикул, оценку и число отзывов. Картинку товара скачивает
+ * пина, цену и валюту, бренд, производителя, страну, артикул, характеристики (страна бренда, вес, срок и условия
+ * хранения), оценку и число отзывов; полное описание товара добавляет в текст поста. Картинку товара скачивает
  * через сервер (posts.product.image) и отдаёт форме как перетащенный файл (page-files-drop, admin.js) — только
  * если у поста ещё нет картинок.
  *
@@ -113,6 +114,20 @@
                         if (fillIfEmpty('#product-manufacturer', response.manufacturer)) filled.push('производитель');
                         if (fillIfEmpty('#product-country', response.country)) filled.push('страна');
                         if (fillIfEmpty('#product-article', response.article)) filled.push('артикул');
+                        // из блока "Характеристики" страницы (App\Parsers\ProductSpecsParser)
+                        if (fillIfEmpty('#product-brand-country', response.brand_country)) filled.push('страна бренда');
+                        if (fillIfEmpty('#product-weight', response.weight)) filled.push('вес');
+                        if (fillIfEmpty('#product-shelf-life', response.shelf_life)) filled.push('срок хранения');
+                        if (fillIfEmpty('#product-storage-conditions', response.storage_conditions)) filled.push('условия хранения');
+                        // полное описание ("Опис") — в текст поста: в пустой целиком, в написанный — абзацами в конец (admin.js)
+                        if (response.full_description && typeof window.addParsedDescriptionToEditor === 'function') {
+                            const editor = window.tinyMCE && tinyMCE.activeEditor;
+                            const before = editor ? editor.getContent() : '';
+                            window.addParsedDescriptionToEditor(response.full_description);
+                            if (editor && editor.getContent() !== before) {
+                                filled.push('описание');
+                            }
+                        }
                         if (fillIfEmpty('#product-reviews-rating', response.rating)) filled.push('оценка покупателей');
                         if (fillIfEmpty('#product-reviews-count', response.rating_count)) filled.push('число отзывов');
                         // ссылка на отзывы — та же страница, если их там посчитали

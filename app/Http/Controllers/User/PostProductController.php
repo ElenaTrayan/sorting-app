@@ -52,6 +52,8 @@ class PostProductController extends Controller
      */
     public function linkPreview(Request $request)
     {
+        // флаг для WishlistController: дождаться в headless Chrome ещё и характеристик с описанием
+        $request->attributes->set('product_specs', true);
         $response = app(WishlistController::class)->linkPreview($request);
 
         // магазин — по адресу ссылки (config/shops.php), даже если страницу разобрать не удалось
