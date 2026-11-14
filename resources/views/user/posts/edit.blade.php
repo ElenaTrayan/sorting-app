@@ -217,6 +217,60 @@
                         </div>
                     </section>
 
+                    {{-- данные фильма/сериала (post_films) — видны только у типа "Фильм / Сериал"
+                         (переключатель типа выше); у других типов сервер данные фильма не сохраняет --}}
+                    <section class="b-pin-card js-post-film-section" @if ($postType !== 'film') hidden @endif>
+                        <div class="b-pin-card__head">
+                            <h2>Фильм / Сериал</h2>
+                        </div>
+                        @include('user.posts.parts.film_fields', ['film' => $post->film])
+                    </section>
+
+                    {{-- данные вещи (post_clothes) — видны только у типа "Одежда"; у других типов сервер их не сохраняет --}}
+                    <section class="b-pin-card js-post-clothes-section" @if ($postType !== 'clothes') hidden @endif>
+                        <div class="b-pin-card__head">
+                            <h2>Одежда</h2>
+                            <span class="b-pin-card__hint">«В гардероб» перенесёт эти поля в вещь</span>
+                        </div>
+                        @include('user.posts.parts.clothes_fields', ['clothes' => $post->clothes])
+                    </section>
+
+                    {{-- данные товара (post_products) — видны только у типа "Товар"; у других типов сервер их не сохраняет --}}
+                    <section class="b-pin-card js-post-product-section" @if ($postType !== 'product') hidden @endif>
+                        <div class="b-pin-card__head">
+                            <h2>Товар</h2>
+                            <span class="b-pin-card__hint">В вишлист, список покупок и на склад — кнопками на странице поста</span>
+                        </div>
+                        @include('user.posts.parts.product_fields', ['product' => $post->product])
+                    </section>
+
+                    <section class="b-pin-card">
+                        <div class="b-pin-card__head">
+                            <h2>Хештеги</h2>
+                        </div>
+                        <div class="b-add-tag b-pin-tags">
+                            <div class="input-group input-group-sm add-tag b-pin-tags__row">
+                                <input id="search-input-2" type="text" class="b-pin-input" placeholder="Найти или создать тег…" data-action="{{ route('search.hashtag') }}">
+                                <button type="button" class="b-pin-btn b-pin-btn--ghost" id="add-tag" data-action="{{ route('hashtags.store') }}">Добавить тег</button>
+                            </div>
+                            <ul id="b-search__results-2" class="b-search__results-2"></ul>
+                            {{-- data-related-action — связанные хештеги выбранного тега добавляются сами (admin.js) --}}
+                            <ul id="b-selected-tags-2" class="b-selected-tags-2 b-pin-tags__selected" data-related-action="{{ route('search.related-hashtags') }}">
+                                @if (!empty($post->hashtags))
+                                    @foreach($post->hashtags as $hashtag)
+                                        <span class="tag" data-id="{{ $hashtag->id }}" data-name="{{ $hashtag->title }}">#{{ $hashtag->title }}<span class="icon font-icon fas close"></span></span>
+                                    @endforeach
+                                @endif
+                            </ul>
+
+                            {{-- подсказки из существующих тегов по картинкам поста (HashtagSuggester) — клик добавляет тег --}}
+                            <button type="button" class="js-suggest-hashtags b-pin-btn b-pin-btn--ghost" data-action="{{ route('posts.suggest-hashtags-for-post', $post->id) }}" data-post-images="1">
+                                <span>✦</span> Подобрать хештеги по картинке
+                            </button>
+                            <ul id="b-suggested-tags-2" class="b-selected-tags-2 b-pin-tags__selected b-suggested-tags" title="Нажмите на тег, чтобы добавить"></ul>
+                        </div>
+                    </section>
+
                     {{-- палитра обложки: поправить вручную — убрать цвет, пометить фон, сделать цвет главным,
                          добавить пипеткой с картинки. Всё сохраняется сразу (palette-editor.js,
                          PostController::updatePalette/resetPalette); пока обложка та же, сама не пересчитывается --}}
@@ -269,60 +323,6 @@
                             <div class="js-post-video__error b-post-edit__error" style="display: none;"></div>
                         </div>
                         </details>
-                    </section>
-
-                    <section class="b-pin-card">
-                        <div class="b-pin-card__head">
-                            <h2>Хештеги</h2>
-                        </div>
-                        <div class="b-add-tag b-pin-tags">
-                            <div class="input-group input-group-sm add-tag b-pin-tags__row">
-                                <input id="search-input-2" type="text" class="b-pin-input" placeholder="Найти или создать тег…" data-action="{{ route('search.hashtag') }}">
-                                <button type="button" class="b-pin-btn b-pin-btn--ghost" id="add-tag" data-action="{{ route('hashtags.store') }}">Добавить тег</button>
-                            </div>
-                            <ul id="b-search__results-2" class="b-search__results-2"></ul>
-                            {{-- data-related-action — связанные хештеги выбранного тега добавляются сами (admin.js) --}}
-                            <ul id="b-selected-tags-2" class="b-selected-tags-2 b-pin-tags__selected" data-related-action="{{ route('search.related-hashtags') }}">
-                                @if (!empty($post->hashtags))
-                                    @foreach($post->hashtags as $hashtag)
-                                        <span class="tag" data-id="{{ $hashtag->id }}" data-name="{{ $hashtag->title }}">#{{ $hashtag->title }}<span class="icon font-icon fas close"></span></span>
-                                    @endforeach
-                                @endif
-                            </ul>
-
-                            {{-- подсказки из существующих тегов по картинкам поста (HashtagSuggester) — клик добавляет тег --}}
-                            <button type="button" class="js-suggest-hashtags b-pin-btn b-pin-btn--ghost" data-action="{{ route('posts.suggest-hashtags-for-post', $post->id) }}" data-post-images="1">
-                                <span>✦</span> Подобрать хештеги по картинке
-                            </button>
-                            <ul id="b-suggested-tags-2" class="b-selected-tags-2 b-pin-tags__selected b-suggested-tags" title="Нажмите на тег, чтобы добавить"></ul>
-                        </div>
-                    </section>
-
-                    {{-- данные фильма/сериала (post_films) — видны только у типа "Фильм / Сериал"
-                         (переключатель типа выше); у других типов сервер данные фильма не сохраняет --}}
-                    <section class="b-pin-card js-post-film-section" @if ($postType !== 'film') hidden @endif>
-                        <div class="b-pin-card__head">
-                            <h2>Фильм / Сериал</h2>
-                        </div>
-                        @include('user.posts.parts.film_fields', ['film' => $post->film])
-                    </section>
-
-                    {{-- данные вещи (post_clothes) — видны только у типа "Одежда"; у других типов сервер их не сохраняет --}}
-                    <section class="b-pin-card js-post-clothes-section" @if ($postType !== 'clothes') hidden @endif>
-                        <div class="b-pin-card__head">
-                            <h2>Одежда</h2>
-                            <span class="b-pin-card__hint">«В гардероб» перенесёт эти поля в вещь</span>
-                        </div>
-                        @include('user.posts.parts.clothes_fields', ['clothes' => $post->clothes])
-                    </section>
-
-                    {{-- данные товара (post_products) — видны только у типа "Товар"; у других типов сервер их не сохраняет --}}
-                    <section class="b-pin-card js-post-product-section" @if ($postType !== 'product') hidden @endif>
-                        <div class="b-pin-card__head">
-                            <h2>Товар</h2>
-                            <span class="b-pin-card__hint">В вишлист, список покупок и на склад — кнопками на странице поста</span>
-                        </div>
-                        @include('user.posts.parts.product_fields', ['product' => $post->product])
                     </section>
 
                     <div class="b-pin-create__footer">
