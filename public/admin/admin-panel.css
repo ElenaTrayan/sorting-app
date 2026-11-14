@@ -3671,7 +3671,44 @@ margin: 0 0 20px 0;
     min-width: 3px;
 }
 
-/* палитра обложки на странице поста (parts/palette.blade.php) */
+/* палитра обложки на странице поста (parts/palette.blade.php) — <details>, у товара свёрнута */
+.b-post-palette__summary {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.b-post-palette__summary::-webkit-details-marker {
+    display: none;
+}
+.b-post-palette__summary:hover .b-post-show__section-label,
+.b-post-palette__summary:hover .b-post-palette__chevron {
+    color: #7367f0;
+}
+.b-post-palette__chevron {
+    font-size: 11px !important;
+    transition: transform .15s;
+}
+.b-post-palette[open] .b-post-palette__chevron {
+    transform: rotate(180deg);
+}
+/* полоска цветов в заголовке — только у свёрнутого блока */
+.b-post-palette__mini {
+    display: none;
+    flex: 0 1 160px;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06);
+}
+.b-post-palette:not([open]) .b-post-palette__mini {
+    display: flex;
+}
+.b-post-palette__mini span {
+    min-width: 2px;
+}
+.b-post-palette__body {
+    margin-top: 10px;
+}
 .b-post-palette__bar {
     display: flex;
     height: 28px;

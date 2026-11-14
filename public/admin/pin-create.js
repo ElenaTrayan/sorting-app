@@ -34,6 +34,27 @@
     var countSection = root.querySelector('.js-pin-count');
     // поле "Дата" с галочкой "Без даты" — тоже: фильм создаётся без даты (admin.js submitCreationForm)
     var eventDateField = root.querySelector('.js-event-date-field');
+    // "Спарсить информацию" (сворачиваемая секция, ниже): у товара — главный способ заполнить пин (ссылка на
+    // магазин), поэтому при выборе "Товара" раскрываем сами. Раскрыли сами — при другом типе сами и свернём;
+    // если секцию трогали руками, тип её больше не переключает
+    var parseSection = root.querySelector('.js-pin-parse');
+    var parseToggle = root.querySelector('.js-pin-parse-toggle');
+    var parseOpenedByType = false;
+
+    function syncParseSectionWithType(type) {
+        if (!parseSection) {
+            return;
+        }
+        if (type === 'product') {
+            if (!parseSection.classList.contains('is-open')) {
+                parseSection.classList.add('is-open');
+                parseOpenedByType = true;
+            }
+        } else if (parseOpenedByType) {
+            parseSection.classList.remove('is-open');
+            parseOpenedByType = false;
+        }
+    }
 
     function selectType(type) {
         // уходит с формой: для "film" PostController сохраняет поля фильма в post_films
@@ -56,6 +77,7 @@
         if (eventDateField) {
             eventDateField.hidden = type === 'film';
         }
+        syncParseSectionWithType(type);
         // от типа зависит, нужны ли даты на превью картинок (admin.js refreshCreationImageDates)
         document.dispatchEvent(new CustomEvent('pin-type-change', {detail: {type: type}}));
     }
@@ -71,13 +93,13 @@
         selectType(initialTypeBtn.getAttribute('data-type'));
     }
 
-    // ===== "Спарсить информацию" — сворачиваемая секция =====
-    var parseSection = root.querySelector('.js-pin-parse');
-    var parseToggle = root.querySelector('.js-pin-parse-toggle');
+    // ===== "Спарсить информацию" — сворачиваемая секция (переменные — выше, у выбора типа) =====
     if (parseSection && parseToggle) {
         parseToggle.addEventListener('click', function (event) {
             event.preventDefault();
             parseSection.classList.toggle('is-open');
+            // тронули руками — дальше тип её не сворачивает
+            parseOpenedByType = false;
         });
     }
 

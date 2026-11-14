@@ -205,7 +205,8 @@
 
                         @if (!empty($post->palette))
                             <div class="b-post-show__divider"></div>
-                            @include('user.posts.parts.palette', ['palette' => $post->palette, 'postId' => $post->id])
+                            {{-- у товара палитра обложки — не главное, блок свёрнут --}}
+                            @include('user.posts.parts.palette', ['palette' => $post->palette, 'postId' => $post->id, 'collapsed' => $post->type === \App\Models\Post::TYPE_PRODUCT || $post->product])
                         @endif
 
                         <div class="b-post-show__divider"></div>

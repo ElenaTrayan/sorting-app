@@ -248,6 +248,40 @@
 .b-post-edit .b-palette-editor__head h2 {
     margin: 0;
 }
+/* сворачиваемый блок (parts/palette_editor.blade.php, $collapsible) — у товара свёрнут */
+.b-palette-editor-wrap__summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.b-palette-editor-wrap__summary::-webkit-details-marker {
+    display: none;
+}
+.b-palette-editor-wrap__summary h2 {
+    margin: 0;
+}
+.b-palette-editor-wrap__chevron {
+    margin-left: auto;
+    color: #a3a1b4;
+    font-size: 12px;
+    transition: transform .15s;
+}
+.b-palette-editor-wrap__summary:hover .b-palette-editor-wrap__chevron {
+    color: #7367f0;
+}
+.b-palette-editor-wrap[open] .b-palette-editor-wrap__chevron {
+    transform: rotate(180deg);
+}
+.b-palette-editor-wrap[open] .b-palette-editor {
+    margin-top: 8px;
+}
+/* бейдж "изменена вручную" остался один в строке — пустую строку без него не показываем */
+.b-palette-editor-wrap .b-palette-editor__head:has(.js-palette-edited[hidden]) {
+    display: none;
+}
 .b-post-edit .b-palette-editor__hint {
     margin: 6px 0 12px;
     color: #78768a;

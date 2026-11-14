@@ -3,7 +3,20 @@
      палитра сама не пересчитывается. Блок "Палитра" на странице редактирования поста и окно палитры на странице
      группы (posts/group.blade.php) — там это заготовка без данных, их подставляет post-group.js.
 
-     @param \App\Models\Post|null $post  null — заготовка без данных поста --}}
+     На странице редактирования блок сворачивается (<details>, $collapsible): у постов, где палитра не главное
+     ($collapsed, например у пина "Товар"), — свёрнут сразу, но по ссылке "#palette" (кнопка "Изменить" в палитре
+     на странице поста) раскрывается сам.
+
+     @param \App\Models\Post|null $post  null — заготовка без данных поста
+     @param bool $collapsible  обернуть в сворачиваемый блок
+     @param bool $collapsed  свернуть по умолчанию (только с $collapsible) --}}
+@if (!empty($collapsible))
+<details class="b-palette-editor-wrap js-palette-editor-wrap" @if (empty($collapsed)) open @endif>
+    <summary class="b-palette-editor-wrap__summary">
+        <h2>Палитра</h2>
+        <i class="fas fa-chevron-down b-palette-editor-wrap__chevron" aria-hidden="true"></i>
+    </summary>
+@endif
 <div class="b-palette-editor js-palette-editor"
      @if ($post)
          id="palette"
@@ -15,7 +28,10 @@
          data-palette="{{ json_encode($post->palette ?? []) }}"
      @endif>
     <div class="b-palette-editor__head">
-        <h2>Палитра</h2>
+        {{-- в сворачиваемом блоке заголовок — в <summary> выше --}}
+        @if (empty($collapsible))
+            <h2>Палитра</h2>
+        @endif
         <span class="b-palette-editor__badge js-palette-edited" hidden>изменена вручную</span>
     </div>
     <p class="b-palette-editor__hint">
@@ -42,3 +58,22 @@
         </div>
     </div>
 </div>
+@if (!empty($collapsible))
+</details>
+<script>
+    // пришли по ссылке "Изменить" из палитры на странице поста (#palette) — свёрнутый блок раскрываем
+    (function () {
+        function openIfLinked() {
+            if (location.hash === '#palette') {
+                var wrap = document.querySelector('.js-palette-editor-wrap');
+                if (wrap && !wrap.open) {
+                    wrap.open = true;
+                    wrap.scrollIntoView({block: 'start'});
+                }
+            }
+        }
+        openIfLinked();
+        window.addEventListener('hashchange', openIfLinked);
+    })();
+</script>
+@endif

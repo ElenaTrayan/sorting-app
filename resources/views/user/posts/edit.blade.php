@@ -221,7 +221,8 @@
                          добавить пипеткой с картинки. Всё сохраняется сразу (palette-editor.js,
                          PostController::updatePalette/resetPalette); пока обложка та же, сама не пересчитывается --}}
                     <section class="b-pin-card">
-                        @include('user.posts.parts.palette_editor', ['post' => $post])
+                        {{-- у товара палитра — не главное, блок свёрнут --}}
+                        @include('user.posts.parts.palette_editor', ['post' => $post, 'collapsible' => true, 'collapsed' => $post->type === \App\Models\Post::TYPE_PRODUCT])
                     </section>
 
                     <section class="b-pin-card">
