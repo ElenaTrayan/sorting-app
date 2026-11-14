@@ -248,8 +248,9 @@
 .b-post-edit .b-palette-editor__head h2 {
     margin: 0;
 }
-/* сворачиваемый блок (parts/palette_editor.blade.php, $collapsible) — у товара свёрнут */
-.b-palette-editor-wrap__summary {
+/* сворачиваемые блоки страницы редактирования (<details>): "Палитра" (parts/palette_editor.blade.php,
+   $collapsible) и "Видео" (edit.blade.php) — у товара свёрнуты */
+.b-post-edit-collapse__summary {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -257,26 +258,29 @@
     list-style: none;
     user-select: none;
 }
-.b-palette-editor-wrap__summary::-webkit-details-marker {
+.b-post-edit-collapse__summary::-webkit-details-marker {
     display: none;
 }
-.b-palette-editor-wrap__summary h2 {
+.b-post-edit-collapse__summary h2 {
     margin: 0;
 }
-.b-palette-editor-wrap__chevron {
+.b-post-edit-collapse__summary .b-pin-card__hint {
+    margin-left: 4px;
+}
+.b-post-edit-collapse__chevron {
     margin-left: auto;
     color: #a3a1b4;
     font-size: 12px;
     transition: transform .15s;
 }
-.b-palette-editor-wrap__summary:hover .b-palette-editor-wrap__chevron {
+.b-post-edit-collapse__summary:hover .b-post-edit-collapse__chevron {
     color: #7367f0;
 }
-.b-palette-editor-wrap[open] .b-palette-editor-wrap__chevron {
+.b-post-edit-collapse[open] .b-post-edit-collapse__chevron {
     transform: rotate(180deg);
 }
-.b-palette-editor-wrap[open] .b-palette-editor {
-    margin-top: 8px;
+.b-post-edit-collapse[open] > summary {
+    margin-bottom: 8px;
 }
 /* бейдж "изменена вручную" остался один в строке — пустую строку без него не показываем */
 .b-palette-editor-wrap .b-palette-editor__head:has(.js-palette-edited[hidden]) {

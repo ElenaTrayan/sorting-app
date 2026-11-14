@@ -11,10 +11,10 @@
      @param bool $collapsible  обернуть в сворачиваемый блок
      @param bool $collapsed  свернуть по умолчанию (только с $collapsible) --}}
 @if (!empty($collapsible))
-<details class="b-palette-editor-wrap js-palette-editor-wrap" @if (empty($collapsed)) open @endif>
-    <summary class="b-palette-editor-wrap__summary">
+<details class="b-post-edit-collapse b-palette-editor-wrap js-palette-editor-wrap" @if (empty($collapsed)) open @endif>
+    <summary class="b-post-edit-collapse__summary">
         <h2>Палитра</h2>
-        <i class="fas fa-chevron-down b-palette-editor-wrap__chevron" aria-hidden="true"></i>
+        <i class="fas fa-chevron-down b-post-edit-collapse__chevron" aria-hidden="true"></i>
     </summary>
 @endif
 <div class="b-palette-editor js-palette-editor"

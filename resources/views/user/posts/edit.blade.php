@@ -225,11 +225,15 @@
                         @include('user.posts.parts.palette_editor', ['post' => $post, 'collapsible' => true, 'collapsed' => $post->type === \App\Models\Post::TYPE_PRODUCT])
                     </section>
 
+                    {{-- сворачивается (<details>, стили .b-post-edit-collapse в post-edit.css): у товара видео — редкость,
+                         блок свёрнут; если видео уже загружено — открыт, чтобы его было видно --}}
                     <section class="b-pin-card">
-                        <div class="b-pin-card__head">
+                        <details class="b-post-edit-collapse" @if ($post->type !== \App\Models\Post::TYPE_PRODUCT || $post->video_url) open @endif>
+                        <summary class="b-post-edit-collapse__summary">
                             <h2>Видео</h2>
                             <span class="b-pin-card__hint">Изменения сохраняются сразу</span>
-                        </div>
+                            <i class="fas fa-chevron-down b-post-edit-collapse__chevron" aria-hidden="true"></i>
+                        </summary>
 
                         {{-- data-position — место видео среди картинок (Post::video_position), меняет "Место в карусели" ниже --}}
                         <div class="b-post-images__video b-post-edit__video" id="post-video"
@@ -264,6 +268,7 @@
 
                             <div class="js-post-video__error b-post-edit__error" style="display: none;"></div>
                         </div>
+                        </details>
                     </section>
 
                     <section class="b-pin-card">
