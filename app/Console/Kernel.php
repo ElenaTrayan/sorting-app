@@ -17,11 +17,15 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
 
-        // брошенные загрузки во временной папке (пост так и не сохранили) — см. CleanTempDirectory
-        $schedule->command('temp:clean')->dailyAt('04:00');
+        // Каждый час, а не раз в сутки в заданное время: компьютер включают не каждый день и не ночью — в
+        // назначенный час он мог быть выключен, и очистка не шла. Обе команды удаляют только то, что старше своего
+        // срока, так что лишний запуск ничего не трогает
+
+        // брошенные загрузки во временной папке (пост так и не сохранили, старше 24 ч) — см. CleanTempDirectory
+        $schedule->command('temp:clean')->hourly();
 
         // посты, пролежавшие в корзине дольше положенного, — удалить навсегда, см. PurgePostsTrash
-        $schedule->command('posts:purge-trash')->dailyAt('04:30');
+        $schedule->command('posts:purge-trash')->hourlyAt(30);
     }
 
     /**
