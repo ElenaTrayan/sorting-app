@@ -2511,6 +2511,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                  if (result.status === true) {
                      let createdTotal = chunked ? creationChunks.created : 0;
                      resetCreationForm();
+                     // форма пустая — к её началу (тип пина, "Спарсить информацию"), чтобы сразу добавлять следующий пост
+                     window.scrollTo({top: 0, behavior: 'smooth'});
 
                      toastr.success(createdTotal ? 'Посты были успешно добавлены: ' + createdTotal : result.message);
                      //showAlert(result.message, 'alert-info', 'fa-check');
