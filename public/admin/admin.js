@@ -950,6 +950,24 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          return uploadRunning;
      }
 
+     // Пока картинки или видео грузятся, "Сохранить пин" недоступна: в пост попало бы не всё. Сохранение
+     // само держит кнопку выключенной (is-loading, submitCreationForm) — его не трогаем, а по его окончании
+     // снова вызываем эту функцию: если загрузка ещё идёт, кнопка останется выключенной
+     function syncCreationSubmitButton() {
+         let button = $('#submit-creation-form');
+         if (!button.length) {
+             return;
+         }
+         let uploading = uploadRunning || videoUploading;
+         button.toggleClass('is-waiting-upload', uploading);
+         button.prop('disabled', uploading || button.hasClass('is-loading'));
+         if (uploading) {
+             button.attr('title', 'Дождитесь окончания загрузки картинок и видео');
+         } else if (button.attr('title') === 'Дождитесь окончания загрузки картинок и видео') {
+             button.attr('title', 'Ctrl+S');
+         }
+     }
+
      function setUploadProgress(fraction, label) {
          let percent = Math.max(0, Math.min(100, Math.round(fraction * 100)));
          $('.upload-image-section .progress').show();
@@ -982,6 +1000,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
      function runUploadQueue() {
          if (!uploadQueue.length) {
              uploadRunning = false;
+             syncCreationSubmitButton();
              uploadTotal = 0;
              uploadFinished = 0;
              setUploadProgress(1, 'Готово');
@@ -998,6 +1017,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
 
          uploadRunning = true;
+         syncCreationSubmitButton();
          let item = uploadQueue.shift();
          let position = uploadFinished + 1;
          item.placeholder.addClass('is-active');
@@ -2226,6 +2246,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
 
          // видео бывает большим — показываем, сколько уже передано, той же полосой, что и у картинок
          videoUploading = true;
+         syncCreationSubmitButton();
          setUploadProgress(0, 'Загрузка видео 0 %');
 
          $.ajax({
@@ -2249,6 +2270,7 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              },
              complete: function () {
                  videoUploading = false;
+                 syncCreationSubmitButton();
                  if (!uploadInProgress()) {
                      $('.upload-image-section .progress').hide();
                  }
@@ -2441,6 +2463,8 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
              data: data, //images
              complete: function(response) {
                  submitButton.prop('disabled', false).removeClass('is-loading').html(submitButton.data('idleHtml'));
+                 // пока шло сохранение, могли начать загружать новые файлы — тогда кнопка остаётся выключенной
+                 syncCreationSubmitButton();
 
                  console.log("ответ");
                  console.log(response.responseText);

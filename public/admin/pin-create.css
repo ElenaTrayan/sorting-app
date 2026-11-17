@@ -1559,6 +1559,12 @@
     opacity: .85;
     cursor: default;
 }
+/* "Сохранить пин", пока грузятся картинки или видео (admin.js syncCreationSubmitButton) */
+.b-pin-btn.is-waiting-upload,
+.b-pin-btn.is-waiting-upload:hover {
+    opacity: .5;
+    cursor: not-allowed;
+}
 @keyframes b-pin-spin {
     to {
         transform: rotate(360deg);
