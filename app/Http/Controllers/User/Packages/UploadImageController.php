@@ -253,7 +253,7 @@ class UploadImageController extends Controller
 
         $disk = Storage::disk('local');
         $hashes = [];
-        foreach ($disk->files('temp_directory/' . Auth::id()) as $path) {
+        foreach (self::tempDirectoryFiles((int)Auth::id()) as $path) {
             // оригинал называется ровно как картинка на форме; у small/medium копий в имени ещё и размер
             $name = pathinfo($path, PATHINFO_FILENAME);
             if (!in_array($name, $stagedNames, true)) {
@@ -817,13 +817,42 @@ class UploadImageController extends Controller
         $pattern = '/^' . preg_quote($name, '/') . '(_\d{2,6}_\d{2,6})?\.' . preg_quote($extension, '/') . '$/';
         $disk = Storage::disk('local');
 
-        foreach ($disk->files('temp_directory/' . $userId) as $file) {
-            if (preg_match($pattern, basename($file)) && !$disk->delete($file)) {
+        foreach (self::tempDirectoryFiles($userId) as $file) {
+            // файл успели удалить из другой вкладки — для нас это тоже "удалён"
+            if (preg_match($pattern, basename($file)) && !$disk->delete($file) && $disk->exists($file)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * Файлы временной папки пользователя (пути от корня диска local, как у Storage::files()). Папка общая для всех
+     * вкладок: пока одна перебирает её, другая может удалять свои файлы. Storage::files() в этом случае падал
+     * ("SplFileInfo::getType(): Lstat failed" — файл пропал между чтением папки и запросом его типа), и загрузка
+     * во второй вкладке срывалась целиком. Здесь пропавшие на ходу файлы просто пропускаются
+     *
+     * @param int $userId
+     * @return string[] например "temp_directory/1/foo.jpg"
+     */
+    public static function tempDirectoryFiles(int $userId): array
+    {
+        $directory = 'temp_directory/' . $userId;
+        $absolute = Storage::disk('local')->path($directory);
+        $entries = is_dir($absolute) ? @scandir($absolute) : false;
+        if ($entries === false) {
+            return [];
+        }
+
+        $files = [];
+        foreach ($entries as $entry) {
+            if ($entry !== '.' && $entry !== '..' && @is_file($absolute . DIRECTORY_SEPARATOR . $entry)) {
+                $files[] = $directory . '/' . $entry;
+            }
+        }
+
+        return $files;
     }
 
     /**
