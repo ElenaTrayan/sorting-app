@@ -789,6 +789,18 @@
     height: auto;
     margin: 0;
 }
+/* "Не добавлены: ..." — под дропзоной, в своей колонке. В admin-panel.css блок абсолютный (top: 0, width: 100%)
+   под старую высокую дропзону — здесь он вылезал из колонки и наполовину уходил под боковое меню */
+.b-pin-create .upload-image-section .error-block {
+    position: static;
+    margin: 10px 0 0;
+}
+.b-pin-create .upload-image-section .error-block.active {
+    width: auto;
+}
+.b-pin-create .upload-image-section .error-block p {
+    overflow-wrap: anywhere;
+}
 .b-pin-create .upload-image-section section {
     height: auto;
     min-height: 160px;
