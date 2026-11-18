@@ -989,6 +989,74 @@ text-align: center;
     color: #7367f0;
 }
 
+/* --- компактная шапка "Все посты" (вариант 1a макета Claude Design, https://claude.ai/artifact/5N3QKU3Zoxqyrgiz6xvNAQ):
+   строка 1 — заголовок с числом постов, "⋯" и "Добавить пост"; строка 2 — .b-posts-toolbar --- */
+.content-header.content-header--posts {
+    padding-top: 16px;
+}
+.content-header.content-header--posts h1 {
+    font-size: 22px;
+}
+.b-posts-header__title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+.b-posts-header__count {
+    font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #8b8b99;
+}
+.b-posts-toolbar__create--compact {
+    height: 34px;
+    padding: 0 14px;
+    font-size: 13px;
+}
+/* меню "⋯": редкие действия шапки */
+.b-posts-more__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid #e6e6ee;
+    border-radius: 10px;
+    background: #fff;
+    color: #5d596c;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.b-posts-more__trigger:hover,
+.b-posts-more.is-open .b-posts-more__trigger {
+    border-color: #cfc4ff;
+    color: #7367f0;
+}
+.b-posts-more .b-posts-sort__list {
+    width: 230px;
+}
+.b-posts-more__option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: 0;
+    background: none;
+    text-align: left;
+    font-family: inherit;
+}
+.b-posts-more__option i {
+    width: 14px;
+    color: #8b8b99;
+    text-align: center;
+}
+.b-posts-more__option.is-active i {
+    color: #7367f0;
+}
+
 /* --- панель вкладок по типу медиа + сортировка, над сеткой карточек --- */
 .b-posts-toolbar {
     display: flex;
@@ -1104,6 +1172,105 @@ text-align: center;
 }
 .b-posts-sort.is-open .b-posts-sort__list {
     display: block;
+}
+
+/* --- строка 2 шапки "Все посты" (вариант 1a): вкладки медиа | фильтры ... вид ленты справа.
+   Кнопки ниже — ~32px высотой (в два раза ниже прежней шапки); переносится на узком экране --- */
+.b-posts-toolbar {
+    justify-content: flex-start;
+    gap: 8px;
+    margin: 12px 15px 16px;
+}
+.b-posts-toolbar .b-posts-sort__trigger {
+    height: 32px;
+    padding: 0 11px;
+    gap: 7px;
+    border-radius: 8px;
+}
+.b-posts-toolbar__dropdowns,
+.b-posts-toolbar__view {
+    align-items: center;
+    gap: 8px;
+}
+.b-posts-toolbar__view {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+/* вкладки медиа — сегментированный переключатель: одна подложка, активная вкладка — белая "таблетка" */
+.b-posts-toolbar__tabs--segmented {
+    gap: 2px;
+    padding: 3px;
+    border-radius: 9px;
+    background: #ebe9f3;
+}
+.b-posts-toolbar__tabs--segmented .b-posts-toolbar__tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    font-weight: 600;
+    color: #5d596c;
+}
+.b-posts-toolbar__tabs--segmented .b-posts-toolbar__tab:hover {
+    color: #7367f0;
+}
+.b-posts-toolbar__tabs--segmented .b-posts-toolbar__tab--active {
+    background: #fff;
+    color: #7367f0;
+    box-shadow: 0 1px 3px rgba(40, 30, 90, .12);
+}
+.b-posts-toolbar__tab-count {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: .65;
+}
+.b-posts-toolbar__divider {
+    width: 1px;
+    height: 20px;
+    margin: 0 4px;
+    background: #dcdae4;
+}
+/* "Сбросить" — ссылкой, без рамки: это действие, а не фильтр */
+.b-posts-toolbar__reset {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #7367f0;
+    white-space: nowrap;
+}
+.b-posts-toolbar__reset:hover {
+    color: #5e50ee;
+    text-decoration: none;
+}
+/* "Свернуть группы" — просто галочка с подписью, как в макете */
+.b-posts-toolbar .b-posts-ungrouped {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 4px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a4a56;
+    white-space: nowrap;
+    cursor: pointer;
+}
+@media (max-width: 767.98px) {
+    /* на телефоне разделитель между вкладками и фильтрами лишний — строки и так переносятся */
+    .b-posts-toolbar__divider {
+        display: none;
+    }
+    .b-posts-toolbar__view {
+        margin-left: 0;
+    }
 }
 /* слева мало места (боковое меню, край окна) — список открывается вправо от кнопки (admin.js, alignPostsSortList) */
 .b-posts-sort.is-align-left .b-posts-sort__list {

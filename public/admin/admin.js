@@ -504,6 +504,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
                          if (newTabs) {
                              $('.b-posts-toolbar__tabs').html(newTabs.innerHTML);
                          }
+                         // число постов рядом с заголовком "Все посты"
+                         let newTotal = doc.querySelector('.js-posts-total');
+                         if (newTotal) {
+                             $('.js-posts-total').text(newTotal.textContent);
+                         }
                          replaceFeedCards(newGrid.innerHTML);
                      });
              }
@@ -4519,6 +4524,11 @@ if (tinymceTextarea !== null && tinymceTextarea !== undefined) {
          }
          if (postsSortWraps.length) {
              document.addEventListener('click', function (event) {
+                 // пункт меню "⋯" шапки "Все посты" (например, "Экспорт изображений" открывает окно) — меню закрываем
+                 let moreOption = event.target.closest('.b-posts-more__option');
+                 if (moreOption) {
+                     moreOption.closest('.js-posts-sort').classList.remove('is-open');
+                 }
                  if (!event.target.closest('.js-posts-sort')) {
                      postsSortWraps.forEach(function (postsSortWrap) {
                          postsSortWrap.classList.remove('is-open');

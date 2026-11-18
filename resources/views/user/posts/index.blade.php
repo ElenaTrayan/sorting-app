@@ -20,33 +20,41 @@
 @section('content')
     {{-- хлебные крошки для этой страницы вынесены в верхний navbar-nav-left, см.
          resources/views/layouts/user_layout.blade.php --}}
-    {{-- шапка, панель вкладок/сортировки — по макету Claude Design, взяты у "База
-         контактов" (см. https://drive.google.com/file/d/1b4hWwYnDBMjNaom0xNmx7T2FbcfXWQq8);
-         сама сетка карточек постов (.b-card/.grid, Masonry) не тронута --}}
+    {{-- Компактная шапка по макету Claude Design (вариант 1a, https://claude.ai/artifact/5N3QKU3Zoxqyrgiz6xvNAQ):
+         две строки вместо ~230px. Первая — заголовок с числом постов, меню "⋯" с редкими действиями ("Посты без
+         хештегов", "Экспорт изображений") и "Добавить пост". Вторая (.b-posts-toolbar ниже) — вкладки медиа,
+         фильтры и кнопки вида. Сама сетка карточек постов (.b-card/.grid, Masonry) не тронута --}}
     <!-- Content Header (Page header) -->
     <div class="content-header content-header--posts">
         <div class="container-fluid">
             <div class="b-posts-header">
-                <div>
+                <div class="b-posts-header__title">
                     <h1 class="m-0">Все посты</h1>
-                    <div class="b-posts-header__subtitle">Управляйте контентом, просматривайте, редактируйте и публикуйте посты</div>
+                    {{-- обновляется вместе со счётчиками вкладок после массовых действий (admin.js) --}}
+                    <span class="b-posts-header__count js-posts-total" title="Постов в ленте">{{ $typeCounts['all'] }}</span>
                 </div>
                 <div class="b-posts-header__actions">
-                    <a href="{{ route('posts.create') }}" class="b-posts-toolbar__create">
+                    {{-- редкие действия — в меню "⋯" (тот же дропдаун .js-posts-sort, что у фильтров) --}}
+                    <div class="b-posts-sort b-posts-more js-posts-sort">
+                        <button type="button" class="b-posts-more__trigger js-posts-sort-trigger" title="Ещё действия" aria-label="Ещё действия">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </button>
+                        <ul class="b-posts-sort__list js-posts-sort-list">
+                            <li>
+                                <a href="{{ request()->fullUrlWithQuery(['color' => null, 'without_hashtags' => $withoutHashtags ? '' : 1, 'page' => null]) }}" class="b-posts-sort__option b-posts-more__option @if ($withoutHashtags) is-active @endif">
+                                    <i class="fas fa-hashtag"></i> Посты без хештегов
+                                </a>
+                            </li>
+                            <li>
+                                <button type="button" id="js-export-images-btn" class="b-posts-sort__option b-posts-more__option" data-action="{{ route('search.export-images-by-hashtags') }}">
+                                    <i class="fas fa-file-export"></i> Экспорт изображений
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <a href="{{ route('posts.create') }}" class="b-posts-toolbar__create b-posts-toolbar__create--compact">
                         <i class="fas fa-plus"></i> Добавить пост
                     </a>
-                    @if ($withoutHashtags)
-                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'without_hashtags' => '']) }}" class="b-posts-header__btn b-posts-header__btn--active">
-                            <i class="fas fa-times"></i> Сбросить фильтр
-                        </a>
-                    @else
-                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'without_hashtags' => 1]) }}" class="b-posts-header__btn">
-                            <i class="fas fa-hashtag"></i> Посты без хештегов
-                        </a>
-                    @endif
-                    <button type="button" id="js-export-images-btn" class="b-posts-header__btn" data-action="{{ route('search.export-images-by-hashtags') }}">
-                        <i class="fas fa-file-export"></i> Экспорт изображений
-                    </button>
                 </div>
             </div>
         </div><!-- /.container-fluid -->
@@ -76,13 +84,17 @@
                 @php
                     $postsSortLabels = ['new' => 'Сначала новые', 'old' => 'Сначала старые', 'title' => 'По названию А-Я', 'date' => 'По дате пина'];
                 @endphp
+                {{-- вторая строка шапки (вариант 1a): вкладки медиа | фильтры (тип, вещи у "Одежды", использованные,
+                     сортировка, "без хештегов", сброс) — слева; вид ("Свернуть группы", "Выбрать", "Корзина") — справа --}}
                 <div class="b-posts-toolbar">
-                    <div class="b-posts-toolbar__tabs">
-                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => '', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'all') b-posts-toolbar__tab--active @endif">Все ({{ $typeCounts['all'] }})</a>
-                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'photo', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'photo') b-posts-toolbar__tab--active @endif">Фото ({{ $typeCounts['photo'] }})</a>
-                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'video', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'video') b-posts-toolbar__tab--active @endif">Видео ({{ $typeCounts['video'] }})</a>
-                        <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => 'carousel', 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === 'carousel') b-posts-toolbar__tab--active @endif">Карусель ({{ $typeCounts['carousel'] }})</a>
+                    {{-- .b-posts-toolbar__tabs целиком подменяется свежими счётчиками после массовых действий (admin.js) --}}
+                    <div class="b-posts-toolbar__tabs b-posts-toolbar__tabs--segmented">
+                        @foreach (['all' => 'Все', 'photo' => 'Фото', 'video' => 'Видео', 'carousel' => 'Карусель'] as $mediaType => $mediaLabel)
+                            <a href="{{ request()->fullUrlWithQuery(['color' => null, 'type' => $mediaType === 'all' ? '' : $mediaType, 'page' => null]) }}" class="b-posts-toolbar__tab @if ($activeType === $mediaType) b-posts-toolbar__tab--active @endif">{{ $mediaLabel }}<span class="b-posts-toolbar__tab-count">{{ $typeCounts[$mediaType] }}</span></a>
+                        @endforeach
                     </div>
+
+                    <div class="b-posts-toolbar__divider" aria-hidden="true"></div>
 
                     <div class="b-posts-toolbar__dropdowns">
                     {{-- фильтр по типу поста (posts.type) — тот же дропдаун, что и сортировка ниже;
@@ -162,25 +174,37 @@
                         </ul>
                     </div>
 
-                    {{-- галочка "Свернуть группы": отмечена — группа в ленте одной карточкой-стопкой, снята — посты
-                         группы отдельными карточками. Переключается без перезагрузки страницы, выбор помнится
-                         в localStorage и в cookie для сервера (Post::feedGroupsExpanded, admin.js) --}}
-                    <div class="b-posts-sort">
-                        <label class="b-posts-sort__trigger b-posts-ungrouped" title="Снимите, чтобы показать посты групп отдельными карточками">
-                            <input type="checkbox" class="b-posts-ungrouped__checkbox" id="js-posts-collapse-groups" @if (!$ungrouped) checked @endif>
-                            <span>Свернуть группы</span>
-                        </label>
-                    </div>
+                    {{-- "Посты без хештегов" включают в меню "⋯" шапки, а пока фильтр включён — он виден здесь
+                         отметкой с крестиком, иначе было бы непонятно, почему лента короче --}}
+                    @if ($withoutHashtags)
+                        <div class="b-posts-sort">
+                            <a href="{{ request()->fullUrlWithQuery(['color' => null, 'without_hashtags' => '', 'page' => null]) }}" class="b-posts-sort__trigger b-posts-sort__trigger--active" title="Убрать фильтр «Посты без хештегов»">
+                                <i class="fas fa-hashtag"></i>
+                                <span>Без хештегов</span>
+                                <i class="fas fa-times b-posts-sort__chevron"></i>
+                            </a>
+                        </div>
+                    @endif
 
                     {{-- фильтры помнятся, пока их не сбросят (PostController::rememberFeedFilters) — сбросить все разом --}}
                     @if ($hasFeedFilters)
                         <div class="b-posts-sort">
-                            <a href="{{ route('posts.index', ['reset_filters' => 1]) }}" class="b-posts-sort__trigger" title="Убрать все фильтры и сортировку">
-                                <i class="fas fa-times"></i>
-                                <span>Сбросить фильтры</span>
+                            <a href="{{ route('posts.index', ['reset_filters' => 1]) }}" class="b-posts-toolbar__reset" title="Убрать все фильтры и сортировку">
+                                <i class="fas fa-times"></i> Сбросить
                             </a>
                         </div>
                     @endif
+                    </div>
+
+                    {{-- вид ленты — справа --}}
+                    <div class="b-posts-toolbar__view">
+                    {{-- галочка "Свернуть группы": отмечена — группа в ленте одной карточкой-стопкой, снята — посты
+                         группы отдельными карточками. Переключается без перезагрузки страницы, выбор помнится
+                         в localStorage и в cookie для сервера (Post::feedGroupsExpanded, admin.js) --}}
+                    <label class="b-posts-ungrouped" title="Снимите, чтобы показать посты групп отдельными карточками">
+                        <input type="checkbox" class="b-posts-ungrouped__checkbox" id="js-posts-collapse-groups" @if (!$ungrouped) checked @endif>
+                        <span>Свернуть группы</span>
+                    </label>
 
                     {{-- режим выбора: отметить несколько постов и добавить им хештеги разом
                          (/admin/posts-bulk.js, PostController::bulkAddHashtags) --}}
